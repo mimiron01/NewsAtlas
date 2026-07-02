@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NewsAtlas — Platform Architecture &amp; Planning</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6270;
+    --accent: #2757c7;
+    --accent-bg: #eef2fc;
+    --border: #e2e5ea;
+    --code-bg: #f5f6f8;
+    --ok: #1a7f4e;
+    --warn: #a15c00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.1rem; margin-top: 28px; color: var(--fg); }
+  h4 { font-size: 1rem; margin-top: 20px; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  .meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 12px 0 32px;
+    padding: 12px 16px;
+    background: var(--accent-bg);
+    border-radius: 8px;
+  }
+  .meta strong { color: var(--fg); }
+  nav.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin: 24px 0 40px;
+  }
+  nav.toc h2 { margin-top: 0; border: none; font-size: 1.05rem; padding-bottom: 4px; }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.92rem; }
+  nav.toc a:hover { text-decoration: underline; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--code-bg); font-weight: 600; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+  .decision {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-bg);
+    padding: 10px 16px;
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .decision strong { color: var(--accent); }
+  .phase {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .phase h4 { margin-top: 0; display: flex; align-items: center; gap: 10px; }
+  .phase-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 20px;
+  }
+  .assumption {
+    border-left: 4px solid var(--warn);
+    background: #fdf4e3;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+  ul.checklist { list-style: none; padding-left: 4px; }
+  ul.checklist li::before { content: "☐ "; color: var(--muted); }
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+    font-size: 0.82rem;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.4;
+  }
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    margin-left: 6px;
+  }
+</style>
+</head>
+<body>
+
+<h1>NewsAtlas</h1>
+<p class="subtitle">Platform architecture &amp; planning document — automated news-signal intelligence for sales outreach</p>
+
+<div class="meta">
+  <div><strong>Status:</strong> Planning / pre-implementation</div>
+  <div><strong>Owner workspace:</strong> ProAir (initial single-tenant deployment)</div>
+  <div><strong>Doc purpose:</strong> Source of truth for future Claude Code sessions implementing this platform</div>
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#problem">1. Problem statement</a></li>
+    <li><a href="#goals">2. Goals &amp; non-goals</a></li>
+    <li><a href="#decisions">3. Key decisions</a></li>
+    <li><a href="#architecture">4. System architecture</a></li>
+    <li><a href="#data-model">5. Data model</a></li>
+    <li><a href="#workflows">6. Core workflows</a></li>
+    <li><a href="#ai-pipeline">7. AI summarization pipeline</a></li>
+    <li><a href="#email">8. Email digest design</a></li>
+    <li><a href="#api">9. Backend API surface</a></li>
+    <li><a href="#frontend">10. Frontend structure</a></li>
+    <li><a href="#repo">11. Repository layout</a></li>
+    <li><a href="#config">12. Configuration &amp; secrets</a></li>
+    <li><a href="#roadmap">13. Implementation roadmap</a></li>
+    <li><a href="#assumptions">14. Open questions &amp; assumptions</a></li>
+    <li><a href="#future">15. Future enhancements (out of MVP scope)</a></li>
+  </ol>
+</nav>
+
+<h2 id="problem">1. Problem statement</h2>
+<p>
+  Sales teams need an automated way to receive relevant news about the companies they target,
+  so they can act on timely, well-framed outreach opportunities instead of manually monitoring
+  the news. NewsAtlas ingests news about a configurable list of target companies, uses an AI
+  model to summarize each article and connect it to the seller's own product/service offering,
+  and delivers those "signals" both in a web dashboard and via a daily email digest — including
+  ready-to-use outreach snippets.
+</p>
+
+<h2 id="goals">2. Goals &amp; non-goals</h2>
+<h3>Goals (MVP)</h3>
+<ul>
+  <li>Let a user configure their company's offering/description in settings (used as AI context).</li>
+  <li>Let users add/manage a list of target companies with search filters (keywords, aliases, industry).</li>
+  <li>Automatically poll a news API on a schedule and ingest new matching articles per target company.</li>
+  <li>Summarize each article with AI (Mistral), producing: a plain-language summary, an explanation
+      of why it matters for business/outreach, and a ready-to-send outreach snippet.</li>
+  <li>Show ingested &amp; summarized "signals" in a web dashboard, filterable by company/status.</li>
+  <li>Send a daily email digest of new signals to all workspace users.</li>
+  <li>Basic multi-user login (email + password) on a single shared workspace.</li>
+</ul>
+<h3>Non-goals (explicitly deferred)</h3>
+<ul>
+  <li>Multi-tenant/multi-organization support (each with isolated settings) — single workspace for now.</li>
+  <li>CRM integrations (Salesforce/HubSpot push) — future phase.</li>
+  <li>Per-user assignment of target companies / role-based permissions beyond basic auth.</li>
+  <li>Sentiment scoring, lead scoring, or predictive analytics on signals.</li>
+  <li>Real-time/streaming ingestion (push webhooks) — polling is sufficient for MVP.</li>
+</ul>
+
+<h2 id="decisions">3. Key decisions</h2>
+<p>Decisions below were confirmed for this planning pass, or chosen as sensible defaults where the
+requester had no preference (marked <span class="tag">default</span>). Defaults can be revisited
+in a future session without changing the overall architecture.</p>
+
+<div class="decision"><strong>Backend:</strong> Python + FastAPI. <span class="tag">default</span>
+Chosen over Node/Django because it pairs naturally with background job scheduling (APScheduler),
+async HTTP calls to NewsAPI/Mistral, and typed request/response models via Pydantic.</div>
+
+<div class="decision"><strong>Frontend:</strong> React + TypeScript (Vite), separate SPA calling the
+FastAPI backend over REST. <span class="tag">default</span></div>
+
+<div class="decision"><strong>Database:</strong> PostgreSQL. <span class="tag">default</span>
+Relational schema fits the entities well (users, target companies, articles, signals) and supports
+full-text search on article content later.</div>
+
+<div class="decision"><strong>Tenancy:</strong> Single shared workspace (one company profile/offering),
+multiple user logins. Matches the initial ProAir deployment. <span class="tag">default</span></div>
+
+<div class="decision"><strong>Deployment:</strong> Docker Compose (app + Postgres) as the baseline,
+portable to any VPS or cloud VM. Cloud-managed services can be swapped in later without changing
+app code. <span class="tag">default</span></div>
+
+<div class="decision"><strong>News source:</strong> NewsAPI.org, accessed through a thin
+<code>NewsClient</code> abstraction so the provider can be swapped later. <span class="tag">confirmed</span></div>
+
+<div class="decision"><strong>AI provider:</strong> Mistral API (e.g. <code>mistral-large-latest</code>)
+for summarization, business-relevance explanation, and outreach-snippet generation, using the
+company's offering/description from settings as grounding context. <span class="tag">confirmed</span></div>
+
+<div class="decision"><strong>Scheduling:</strong> Background polling job (interval configurable,
+default every 6 hours) ingests + summarizes new articles; a separate daily job (default 07:00
+workspace-local time) compiles and sends the email digest. Both run via APScheduler inside the
+FastAPI process for MVP — no separate task queue infra needed yet. <span class="tag">confirmed</span></div>
+
+<div class="decision"><strong>Auth:</strong> Simple email + password accounts (hashed with bcrypt/argon2,
+JWT session tokens) for all workspace users. <span class="tag">confirmed</span></div>
+
+<h2 id="architecture">4. System architecture</h2>
+<div class="diagram">
+┌─────────────────────┐        ┌──────────────────────────────────────────────┐
+│   React Frontend     │  REST  │              FastAPI Backend                  │
+│  (dashboard, login,  │◄──────►│  ┌───────────┐  ┌───────────┐  ┌───────────┐  │
+│   settings pages)    │        │  │ Auth API  │  │ Settings  │  │ Signals/  │  │
+└─────────────────────┘        │  │           │  │ / Targets │  │ Feed API  │  │
+                                │  └───────────┘  └───────────┘  └───────────┘  │
+                                │                                                │
+                                │  ┌──────────────────────────────────────────┐  │
+                                │  │           APScheduler jobs               │  │
+                                │  │  ┌────────────────┐  ┌─────────────────┐ │  │
+                                │  │  │ Ingestion job  │  │ Digest email job│ │  │
+                                │  │  │ (every N hrs)  │  │ (daily, fixed)  │ │  │
+                                │  │  └───────┬────────┘  └────────┬────────┘ │  │
+                                │  └──────────┼─────────────────────┼─────────┘  │
+                                └─────────────┼─────────────────────┼────────────┘
+                                              │                     │
+                     ┌────────────────────────┴───────┐   ┌─────────┴──────────┐
+                     │        NewsAPI.org              │   │   SMTP provider    │
+                     │  (fetch articles per target co.) │   │ (digest emails)     │
+                     └────────────────────────┬────────┘   └────────────────────┘
+                                              │
+                                     ┌─────────┴─────────┐
+                                     │    Mistral API     │
+                                     │ (summarize, relate  │
+                                     │  to offering, draft │
+                                     │  outreach snippet)  │
+                                     └─────────┬─────────┘
+                                              │
+                                     ┌─────────┴─────────┐
+                                     │    PostgreSQL      │
+                                     │ users, settings,    │
+                                     │ target_companies,   │
+                                     │ articles, signals    │
+                                     └────────────────────┘
+</div>
+
+<h2 id="data-model">5. Data model</h2>
+
+<h3>users</h3>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td>id</td><td>UUID PK</td><td></td></tr>
+<tr><td>email</td><td>text, unique</td><td>login identifier</td></tr>
+<tr><td>password_hash</td><td>text</td><td>bcrypt/argon2</td></tr>
+<tr><td>name</td><td>text</td><td></td></tr>
+<tr><td>created_at</td><td>timestamptz</td><td></td></tr>
+</table>
+
+<h3>workspace_settings <span class="tag">single row for MVP</span></h3>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td>id</td><td>UUID PK</td><td></td></tr>
+<tr><td>company_name</td><td>text</td><td>the seller's own company, e.g. "ProAir"</td></tr>
+<tr><td>offering_description</td><td>text</td><td>free-text description of products/services, used as AI grounding context</td></tr>
+<tr><td>digest_send_time</td><td>time</td><td>default 07:00</td></tr>
+<tr><td>ingestion_interval_hours</td><td>int</td><td>default 6</td></tr>
+<tr><td>updated_at</td><td>timestamptz</td><td></td></tr>
+</table>
+
+<h3>target_companies</h3>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td>id</td><td>UUID PK</td><td></td></tr>
+<tr><td>name</td><td>text</td><td>e.g. "Acme Corp"</td></tr>
+<tr><td>keywords</td><td>text[]</td><td>additional search terms / aliases / domains</td></tr>
+<tr><td>industry</td><td>text, nullable</td><td>optional tag for filtering in UI</td></tr>
+<tr><td>is_active</td><td>boolean</td><td>toggles ingestion on/off per company</td></tr>
+<tr><td>created_by</td><td>UUID FK → users</td><td></td></tr>
+<tr><td>created_at</td><td>timestamptz</td><td></td></tr>
+</table>
+
+<h3>articles <span class="tag">raw ingestion</span></h3>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td>id</td><td>UUID PK</td><td></td></tr>
+<tr><td>target_company_id</td><td>UUID FK</td><td></td></tr>
+<tr><td>source_name</td><td>text</td><td>from NewsAPI <code>source.name</code></td></tr>
+<tr><td>title</td><td>text</td><td></td></tr>
+<tr><td>url</td><td>text, unique</td><td>dedupe key</td></tr>
+<tr><td>description</td><td>text</td><td>NewsAPI snippet, used as AI input</td></tr>
+<tr><td>published_at</td><td>timestamptz</td><td></td></tr>
+<tr><td>fetched_at</td><td>timestamptz</td><td></td></tr>
+</table>
+
+<h3>signals <span class="tag">AI output, one per article</span></h3>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td>id</td><td>UUID PK</td><td></td></tr>
+<tr><td>article_id</td><td>UUID FK, unique</td><td>1:1 with articles</td></tr>
+<tr><td>summary</td><td>text</td><td>plain-language summary of the article</td></tr>
+<tr><td>business_relevance</td><td>text</td><td>what this news means for the target company / why it's an opportunity</td></tr>
+<tr><td>outreach_snippet</td><td>text</td><td>ready-to-use paragraph for an outreach email/LinkedIn message</td></tr>
+<tr><td>status</td><td>enum</td><td><code>new</code> / <code>reviewed</code> / <code>archived</code> / <code>dismissed</code></td></tr>
+<tr><td>created_at</td><td>timestamptz</td><td></td></tr>
+</table>
+
+<h3>digest_log</h3>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td>id</td><td>UUID PK</td><td></td></tr>
+<tr><td>user_id</td><td>UUID FK</td><td></td></tr>
+<tr><td>sent_at</td><td>timestamptz</td><td></td></tr>
+<tr><td>signal_ids</td><td>UUID[]</td><td>signals included in that digest, for audit/no-repeat</td></tr>
+</table>
+
+<h2 id="workflows">6. Core workflows</h2>
+
+<h3>6.1 Settings configuration</h3>
+<p>User edits <code>workspace_settings.offering_description</code> and <code>company_name</code>
+from a Settings page. This text is injected into every AI prompt as grounding context, so it should
+describe what the company sells and who it's a good fit for.</p>
+
+<h3>6.2 Target company management</h3>
+<p>User adds a target company (name + optional keywords/aliases/industry) from a Settings/Targets
+page. Each active target company defines a NewsAPI query used by the ingestion job.</p>
+
+<h3>6.3 Ingestion pipeline (scheduled)</h3>
+<ol>
+  <li>For each active <code>target_company</code>, build a NewsAPI <code>/v2/everything</code> query
+      from name + keywords, sorted by <code>publishedAt</code>, restricted to since-last-run window.</li>
+  <li>For each returned article, skip if <code>url</code> already exists in <code>articles</code>
+      (dedupe).</li>
+  <li>Insert new rows into <code>articles</code>.</li>
+  <li>Enqueue each new article for AI processing (synchronously in the same job for MVP — no
+      separate queue needed at this scale).</li>
+</ol>
+
+<h3>6.4 AI processing → signal creation</h3>
+<p>See <a href="#ai-pipeline">Section 7</a> for prompt design. Result is inserted as one row in
+<code>signals</code> with <code>status = new</code>.</p>
+
+<h3>6.5 Dashboard viewing</h3>
+<p>Frontend lists signals (joined with article + target company), newest first, filterable by
+target company and status. Clicking a signal shows full detail: original article link, AI summary,
+business relevance, outreach snippet (with a "copy" button), and status controls
+(mark reviewed/archived/dismissed).</p>
+
+<h3>6.6 Daily email digest (scheduled)</h3>
+<p>See <a href="#email">Section 8</a>.</p>
+
+<h2 id="ai-pipeline">7. AI summarization pipeline</h2>
+<p>Each new article is sent to Mistral with a single structured-output prompt combining:</p>
+<ul>
+  <li>the article's title + description/content snippet from NewsAPI,</li>
+  <li>the target company's name,</li>
+  <li>the workspace's <code>offering_description</code> from settings.</li>
+</ul>
+<p>Expected structured JSON response (via Mistral's JSON mode / tool-calling):</p>
+<pre><code>{
+  "summary": "2-4 sentence plain-language summary of the news article",
+  "business_relevance": "Why this news matters for outreach — what changed for the "
+                          "target company and how our offering connects to it",
+  "outreach_snippet": "A short, ready-to-send paragraph referencing the news, suitable "
+                        "for an outreach email or LinkedIn message"
+}</code></pre>
+<p>Implementation notes:</p>
+<ul>
+  <li>Wrap the Mistral call in an <code>AIClient</code> service class so the prompt/response
+      contract is isolated from the rest of the app.</li>
+  <li>Validate the JSON response against a Pydantic schema; on parse failure, retry once with a
+      stricter instruction, then mark the article as <code>failed</code> (skip signal creation)
+      rather than crashing the ingestion job.</li>
+  <li>Log token usage per call for later cost tracking.</li>
+</ul>
+
+<h2 id="email">8. Email digest design</h2>
+<ul>
+  <li>Runs once daily (default 07:00) via APScheduler <code>CronTrigger</code>.</li>
+  <li>For each user, selects all <code>signals</code> with <code>status = new</code> created since
+      that user's last <code>digest_log</code> entry (or since workspace creation if none).</li>
+  <li>If zero new signals for a user, no email is sent that day.</li>
+  <li>Email body (HTML) lists each signal: target company name, article title + link, AI summary,
+      business relevance explanation, and the outreach snippet in a copy-friendly block; links back
+      to the signal's detail page in the dashboard.</li>
+  <li>Sending is done through a generic <code>EmailClient</code> wrapping SMTP (host/port/user/pass
+      from config), so the concrete provider (SendGrid, Postmark, AWS SES, etc.) is just an SMTP
+      credential swap — provider choice deferred, see <a href="#assumptions">Section 14</a>.</li>
+  <li>After sending, insert a <code>digest_log</code> row and flip included signals to
+      <code>status = reviewed</code>... <em>or</em> keep <code>status</code> independent of "was
+      emailed" (recommend: add a separate <code>emailed_at</code> timestamp on <code>signals</code>
+      rather than overloading <code>status</code>, to keep dashboard state and email state
+      orthogonal).</li>
+</ul>
+
+<h2 id="api">9. Backend API surface (initial)</h2>
+<pre><code>POST   /auth/login
+POST   /auth/logout
+GET    /auth/me
+
+GET    /settings                 # workspace offering/company profile + schedule config
+PUT    /settings
+
+GET    /target-companies
+POST   /target-companies
+PATCH  /target-companies/{id}    # edit / toggle is_active
+DELETE /target-companies/{id}
+
+GET    /signals?company_id=&status=&page=
+GET    /signals/{id}
+PATCH  /signals/{id}             # update status
+
+POST   /ingestion/run-now        # manual trigger, useful for MVP testing/demo
+POST   /digest/send-now          # manual trigger, useful for MVP testing/demo
+</code></pre>
+
+<h2 id="frontend">10. Frontend structure</h2>
+<ul>
+  <li><strong>Login</strong> page — email/password.</li>
+  <li><strong>Signals Feed</strong> (home) — filterable/sortable list of signals, status badges.</li>
+  <li><strong>Signal Detail</strong> — full AI output, source link, copy-to-clipboard outreach snippet,
+      status actions.</li>
+  <li><strong>Settings → Company Profile</strong> — edit offering description used by AI.</li>
+  <li><strong>Settings → Target Companies</strong> — CRUD list of tracked companies/keywords.</li>
+</ul>
+
+<h2 id="repo">11. Repository layout</h2>
+<pre><code>NewsAtlas/
+├── backend/
+│   ├── app/
+│   │   ├── main.py
+│   │   ├── core/            # config, security (hashing, JWT)
+│   │   ├── db/               # SQLAlchemy session, Alembic migrations
+│   │   ├── models/           # ORM models (User, TargetCompany, Article, Signal, ...)
+│   │   ├── schemas/          # Pydantic request/response schemas
+│   │   ├── api/               # routers: auth, settings, target_companies, signals, digest
+│   │   ├── services/
+│   │   │   ├── news_client.py     # NewsAPI.org wrapper
+│   │   │   ├── ai_client.py       # Mistral wrapper + prompt templates
+│   │   │   ├── ingestion.py       # orchestrates fetch → dedupe → summarize → store
+│   │   │   ├── email_client.py    # SMTP wrapper + HTML templates
+│   │   │   └── scheduler.py       # APScheduler job registration
+│   │   └── tests/
+│   ├── requirements.txt
+│   └── Dockerfile
+├── frontend/
+│   ├── src/
+│   │   ├── pages/
+│   │   ├── components/
+│   │   └── api/               # typed fetch client for backend
+│   ├── package.json
+│   └── Dockerfile
+├── docs/
+│   └── planning.html          # this document
+├── docker-compose.yml
+└── .env.example
+</code></pre>
+
+<h2 id="config">12. Configuration &amp; secrets</h2>
+<p>All external credentials via environment variables (never committed):</p>
+<pre><code>DATABASE_URL=postgresql://...
+NEWSAPI_API_KEY=...
+MISTRAL_API_KEY=...
+MISTRAL_MODEL=mistral-large-latest
+SMTP_HOST=...
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASSWORD=...
+SMTP_FROM_ADDRESS=signals@yourdomain.com
+JWT_SECRET=...
+INGESTION_INTERVAL_HOURS=6
+DIGEST_SEND_TIME=07:00
+</code></pre>
+
+<h2 id="roadmap">13. Implementation roadmap</h2>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 1</span> Foundations</h4>
+  <ul class="checklist">
+    <li>Repo scaffolding: backend (FastAPI) + frontend (React/Vite) + docker-compose + Postgres</li>
+    <li>DB schema + Alembic migrations for all core tables</li>
+    <li>Auth: signup/login endpoints, password hashing, JWT sessions, frontend login page</li>
+    <li>Settings API + UI: company profile / offering description</li>
+    <li>Target companies CRUD API + UI</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 2</span> Ingestion pipeline</h4>
+  <ul class="checklist">
+    <li><code>NewsClient</code> wrapping NewsAPI.org <code>/v2/everything</code></li>
+    <li>Query builder from target company name + keywords</li>
+    <li>Dedupe by URL, store into <code>articles</code></li>
+    <li>Manual "run ingestion now" endpoint for testing before scheduling is wired up</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 3</span> AI summarization</h4>
+  <ul class="checklist">
+    <li><code>AIClient</code> wrapping Mistral API with structured JSON output</li>
+    <li>Prompt template combining article + offering_description + target company</li>
+    <li>Pydantic validation of AI response, retry-once-then-skip on failure</li>
+    <li>Persist result into <code>signals</code></li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 4</span> Dashboard frontend</h4>
+  <ul class="checklist">
+    <li>Signals feed page: list, filter by company/status, pagination</li>
+    <li>Signal detail page: summary, relevance, outreach snippet with copy button</li>
+    <li>Status transitions (reviewed/archived/dismissed)</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 5</span> Scheduling &amp; email digest</h4>
+  <ul class="checklist">
+    <li>APScheduler wiring for recurring ingestion job (configurable interval)</li>
+    <li><code>EmailClient</code> (SMTP) + HTML digest template</li>
+    <li>Daily digest job: per-user new-signal selection, send, log in <code>digest_log</code></li>
+    <li>Manual "send digest now" endpoint for testing</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 6</span> Hardening &amp; deployment</h4>
+  <ul class="checklist">
+    <li>Error handling/retries around external API calls (NewsAPI, Mistral, SMTP)</li>
+    <li>Rate-limit awareness for NewsAPI free tier</li>
+    <li>Structured logging + basic monitoring of scheduled jobs</li>
+    <li>Docker Compose production config, deployment docs</li>
+  </ul>
+</div>
+
+<h2 id="assumptions">14. Open questions &amp; assumptions for follow-up sessions</h2>
+<div class="assumption"><strong>Email/SMTP provider</strong> not chosen yet — plan uses a generic
+SMTP client so any provider (SendGrid, Postmark, AWS SES, Mailgun) works via config; pick one before
+Phase 5.</div>
+<div class="assumption"><strong>NewsAPI.org plan tier</strong> — the free "Developer" plan disallows
+production/commercial use and delays articles ~24h; confirm whether a paid plan is needed before
+going live.</div>
+<div class="assumption"><strong>Mistral model &amp; cost</strong> — default assumption is
+<code>mistral-large-latest</code>; confirm API key/account and evaluate whether a smaller model
+(e.g. <code>mistral-small-latest</code>) is sufficient/cheaper for summarization at scale.</div>
+<div class="assumption"><strong>Digest scope</strong> — MVP assumes every user receives the same
+digest (all new signals across all target companies). Per-user subscription to specific target
+companies is a plausible fast-follow, not required for MVP.</div>
+<div class="assumption"><strong>Time zone</strong> for <code>digest_send_time</code> — assumed a
+single workspace-wide time zone setting; per-user time zones deferred.</div>
+
+<h2 id="future">15. Future enhancements (explicitly out of MVP scope)</h2>
+<ul>
+  <li>Multi-tenant support (multiple organizations, isolated data)</li>
+  <li>CRM push integrations (Salesforce, HubSpot, Outreach.io)</li>
+  <li>Per-user target-company subscriptions and notification preferences</li>
+  <li>Feedback loop: let users mark signals as "not relevant" to tune future filtering/prompting</li>
+  <li>Multiple outreach snippet variants (email vs. LinkedIn vs. cold call opener)</li>
+  <li>Sentiment/urgency scoring, lead scoring integration</li>
+  <li>Swappable news providers / multi-source aggregation with cross-source dedupe</li>
+</ul>
+
+<footer>
+  NewsAtlas — planning document generated during architecture session on 2026-07-02.
+  This file is intended to be read at the start of future Claude Code sessions to continue
+  implementation from a consistent shared understanding of the architecture.
+</footer>
+
+</body>
+</html>
