@@ -146,3 +146,57 @@ button.link-button {
 .target-list .actions { display: flex; gap: 8px; }
 .target-list .actions button { background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
 .target-list .actions button.danger { background: #fdecec; color: var(--danger); border-color: #f3c8c8; }
+
+.feed-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.feed-toolbar h2 { margin: 0 0 4px; }
+
+.error-list { padding-left: 18px; margin: 8px 0 0; }
+
+.signal-list { list-style: none; padding: 0; margin: 0; }
+.signal-list li { border-bottom: 1px solid var(--border); }
+.signal-list li:last-child { border-bottom: none; }
+.signal-row {
+  display: block;
+  padding: 14px 4px;
+  text-decoration: none;
+  color: inherit;
+}
+.signal-row-main { display: flex; gap: 12px; align-items: flex-start; }
+.signal-title { font-weight: 600; margin: 2px 0; }
+
+.status-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+  margin-bottom: 6px;
+}
+.status-new { background: #e6f0ff; color: var(--accent); }
+.status-reviewed { background: #e9f9f1; color: #1a7f4e; }
+.status-archived { background: var(--bg); color: var(--muted); }
+.status-dismissed { background: #fdecec; color: var(--danger); }
+
+.snippet-box {
+  background: var(--bg);
+  border-left: 3px solid var(--accent);
+  padding: 12px 16px;
+  border-radius: 0 6px 6px 0;
+  margin-bottom: 12px;
+  white-space: pre-wrap;
+}
+
+.status-actions { display: flex; gap: 8px; margin-top: 20px; }
+.status-actions button.secondary,
+button.secondary {
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}

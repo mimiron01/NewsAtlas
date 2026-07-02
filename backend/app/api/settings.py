@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.models.user import User
 from app.models.workspace_settings import WorkspaceSettings
 from app.schemas.settings import WorkspaceSettingsResponse, WorkspaceSettingsUpdate
+from app.services import scheduler
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -41,4 +42,5 @@ def update_settings(
     settings.ingestion_interval_hours = payload.ingestion_interval_hours
     db.commit()
     db.refresh(settings)
+    scheduler.reschedule(settings.ingestion_interval_hours, settings.digest_send_time)
     return settings

@@ -3,6 +3,7 @@ import os
 os.environ.setdefault(
     "DATABASE_URL", "postgresql+psycopg2://newsatlas:newsatlas@localhost:5432/newsatlas_test"
 )
+os.environ.setdefault("ENABLE_SCHEDULER", "false")
 
 import pytest
 from fastapi.testclient import TestClient

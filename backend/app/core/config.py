@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     digest_send_time: str = "07:00"
 
     cors_origins: list[str] = ["http://localhost:5173"]
+    frontend_base_url: str = "http://localhost:5173"
+
+    enable_scheduler: bool = True
 
 
 @lru_cache
