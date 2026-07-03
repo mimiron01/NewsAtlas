@@ -1,17 +1,19 @@
 import uuid
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class SignupRequest(BaseModel):
     email: EmailStr
-    password: str
-    name: str
+    # max_length matches bcrypt's 72-byte input limit (see core/security.py)
+    password: str = Field(min_length=10, max_length=72)
+    name: str = Field(min_length=1, max_length=255)
+    invite_code: str
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(max_length=72)
 
 
 class TokenResponse(BaseModel):

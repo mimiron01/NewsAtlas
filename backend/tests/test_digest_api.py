@@ -4,7 +4,7 @@ from app.schemas.digest import DigestRunResult
 def _auth_headers(client):
     resp = client.post(
         "/auth/signup",
-        json={"email": "rep@proair.com", "password": "password123", "name": "Rep"},
+        json={"email": "rep@proair.com", "password": "password123", "name": "Rep", "invite_code": "test-invite-code"},
     )
     token = resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}

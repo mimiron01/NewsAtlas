@@ -11,6 +11,7 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -22,7 +23,7 @@ export default function Login() {
       if (mode === "login") {
         await login(email, password);
       } else {
-        await signup(email, password, name);
+        await signup(email, password, name, inviteCode);
       }
       navigate("/");
     } catch (err) {
@@ -37,7 +38,7 @@ export default function Login() {
       <form className="auth-card" onSubmit={handleSubmit}>
         <h1>NewsAtlas</h1>
         <p className="subtitle">
-          {mode === "login" ? "Sign in to your workspace" : "Create the first workspace account"}
+          {mode === "login" ? "Sign in to your workspace" : "Create a workspace account"}
         </p>
 
         {mode === "signup" && (
@@ -62,9 +63,20 @@ export default function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            minLength={8}
+            minLength={10}
           />
         </label>
+        {mode === "signup" && (
+          <label>
+            Invite code
+            <input
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+              required
+              autoComplete="off"
+            />
+          </label>
+        )}
 
         {error && <p className="error-text">{error}</p>}
 

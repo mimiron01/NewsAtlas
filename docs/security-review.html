@@ -104,6 +104,16 @@
   .badge-medium { background: var(--medium-bg); color: var(--medium); }
   .badge-low { background: var(--low-bg); color: var(--low); }
   .badge-ok { background: #e9f9f1; color: var(--ok); }
+  .badge-fixed { background: #e9f9f1; color: var(--ok); }
+  .remediation {
+    border-left: 4px solid var(--ok);
+    background: #e9f9f1;
+    padding: 10px 16px;
+    margin: 14px 0 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+  .remediation strong { color: var(--ok); }
 
   .finding {
     border: 1px solid var(--border);
@@ -167,6 +177,7 @@
 <div class="meta">
   <div><strong>Scope:</strong> backend (FastAPI), frontend (React), Docker/Compose deployment config</div>
   <div><strong>Reviewed at:</strong> commit <code>8dc14cd</code> (end of Phase 5 implementation)</div>
+  <div><strong>Remediated at:</strong> all 17 findings fixed same-session, starting commit <code>79720f4</code></div>
   <div><strong>Method:</strong> manual source review, no dynamic/pen-testing performed</div>
 </div>
 
@@ -178,6 +189,15 @@
   own containers and configuration are the only thing standing between the public internet and the
   database/API.
 </p>
+
+<div class="remediation" style="font-size:0.95rem;padding:16px 20px;">
+  <strong>Update — 2026-07-03: all 17 findings below have been remediated.</strong>
+  Every item, including all three criticals, was fixed in the same session this review
+  was written (commit range starting at <code>79720f4</code>). Each finding section below
+  now includes a green "Fixed" note describing exactly what changed and where. See the
+  <a href="#remediation">remediation checklist</a> at the end for the full list with file
+  references, and re-run a fresh review after any further changes to this area.
+</div>
 
 <nav class="toc">
   <h2>Contents</h2>
@@ -207,29 +227,30 @@
 
 <h2 id="summary">Summary of findings</h2>
 <table class="summary-table">
-  <tr><th>#</th><th>Severity</th><th>Finding</th></tr>
-  <tr><td>C1</td><td><span class="badge badge-critical">Critical</span></td><td>No TLS anywhere in the stack — plaintext HTTP/DB traffic on the public internet</td></tr>
-  <tr><td>C2</td><td><span class="badge badge-critical">Critical</span></td><td>Postgres port 5432 published to all interfaces with hardcoded weak credentials committed to git</td></tr>
-  <tr><td>C3</td><td><span class="badge badge-critical">Critical</span></td><td><code>/auth/signup</code> is open to anyone on the internet, granting full workspace access</td></tr>
-  <tr><td>H1</td><td><span class="badge badge-high">High</span></td><td>No startup check preventing the default, publicly-known <code>JWT_SECRET</code> from being used</td></tr>
-  <tr><td>H2</td><td><span class="badge badge-high">High</span></td><td>Both containers run as root</td></tr>
-  <tr><td>H3</td><td><span class="badge badge-high">High</span></td><td>Missing <code>.dockerignore</code> risks baking secrets/dev artifacts into images</td></tr>
-  <tr><td>H4</td><td><span class="badge badge-high">High</span></td><td>No rate limiting on <code>/auth/login</code>, <code>/auth/signup</code>, or ingestion trigger</td></tr>
-  <tr><td>M1</td><td><span class="badge badge-medium">Medium</span></td><td>Ingested article URLs are rendered as links without scheme validation</td></tr>
-  <tr><td>M2</td><td><span class="badge badge-medium">Medium</span></td><td>Signup response leaks whether an email is already registered</td></tr>
-  <tr><td>M3</td><td><span class="badge badge-medium">Medium</span></td><td>No backend-enforced minimum password length/complexity</td></tr>
-  <tr><td>M4</td><td><span class="badge badge-medium">Medium</span></td><td>7-day JWT in localStorage, no revocation/refresh mechanism</td></tr>
-  <tr><td>M5</td><td><span class="badge badge-medium">Medium</span></td><td>Any authenticated user can trigger unlimited paid external API calls</td></tr>
-  <tr><td>L1</td><td><span class="badge badge-low">Low</span></td><td>No CSP/HSTS/security headers on either service</td></tr>
-  <tr><td>L2</td><td><span class="badge badge-low">Low</span></td><td><code>python-jose</code> / <code>passlib</code> are low-activity dependencies</td></tr>
-  <tr><td>L3</td><td><span class="badge badge-low">Low</span></td><td>No request body size limits at app or proxy layer</td></tr>
-  <tr><td>L4</td><td><span class="badge badge-low">Low</span></td><td>No audit logging of auth events</td></tr>
-  <tr><td>L5</td><td><span class="badge badge-low">Low</span></td><td>Frontend build defaults to a plaintext localhost API origin</td></tr>
+  <tr><th>#</th><th>Severity</th><th>Finding</th><th>Status</th></tr>
+  <tr><td>C1</td><td><span class="badge badge-critical">Critical</span></td><td>No TLS anywhere in the stack — plaintext HTTP/DB traffic on the public internet</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>C2</td><td><span class="badge badge-critical">Critical</span></td><td>Postgres port 5432 published to all interfaces with hardcoded weak credentials committed to git</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>C3</td><td><span class="badge badge-critical">Critical</span></td><td><code>/auth/signup</code> is open to anyone on the internet, granting full workspace access</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>H1</td><td><span class="badge badge-high">High</span></td><td>No startup check preventing the default, publicly-known <code>JWT_SECRET</code> from being used</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>H2</td><td><span class="badge badge-high">High</span></td><td>Both containers run as root</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>H3</td><td><span class="badge badge-high">High</span></td><td>Missing <code>.dockerignore</code> risks baking secrets/dev artifacts into images</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>H4</td><td><span class="badge badge-high">High</span></td><td>No rate limiting on <code>/auth/login</code>, <code>/auth/signup</code>, or ingestion trigger</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>M1</td><td><span class="badge badge-medium">Medium</span></td><td>Ingested article URLs are rendered as links without scheme validation</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>M2</td><td><span class="badge badge-medium">Medium</span></td><td>Signup response leaks whether an email is already registered</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>M3</td><td><span class="badge badge-medium">Medium</span></td><td>No backend-enforced minimum password length/complexity</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>M4</td><td><span class="badge badge-medium">Medium</span></td><td>7-day JWT in localStorage, no revocation/refresh mechanism</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>M5</td><td><span class="badge badge-medium">Medium</span></td><td>Any authenticated user can trigger unlimited paid external API calls</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>L1</td><td><span class="badge badge-low">Low</span></td><td>No CSP/HSTS/security headers on either service</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>L2</td><td><span class="badge badge-low">Low</span></td><td><code>python-jose</code> / <code>passlib</code> are low-activity dependencies</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>L3</td><td><span class="badge badge-low">Low</span></td><td>No request body size limits at app or proxy layer</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>L4</td><td><span class="badge badge-low">Low</span></td><td>No audit logging of auth events</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>L5</td><td><span class="badge badge-low">Low</span></td><td>Frontend build defaults to a plaintext localhost API origin</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
 </table>
 
 <h2 id="f1">C1. No TLS — all traffic is plaintext <span class="badge badge-critical">Critical</span></h2>
 <div class="finding critical">
   <p class="location"><code>docker-compose.yml</code> — <code>backend</code> (port 8000) and <code>frontend</code> (port 4173) services</p>
+  <div class="remediation"><strong>Fixed:</strong> Added a Caddy reverse proxy (<code>Caddyfile</code>, <code>docker-compose.yml</code>) that automatically obtains and terminates HTTPS via Let's Encrypt (self-signed for local <code>DOMAIN=localhost</code>). The <code>backend</code> and <code>frontend</code> services no longer publish any host port at all — only Caddy does (80/443).</div>
   <h4>Issue</h4>
   <p>
     Nothing in the stack terminates TLS. <code>docker-compose.yml</code> publishes the FastAPI backend
@@ -258,6 +279,7 @@
 <h2 id="f2">C2. Postgres port published to the internet with hardcoded credentials <span class="badge badge-critical">Critical</span></h2>
 <div class="finding critical">
   <p class="location"><code>docker-compose.yml:6-12</code></p>
+  <div class="remediation"><strong>Fixed:</strong> Removed the <code>ports: ["5432:5432"]</code> mapping entirely from <code>docker-compose.yml</code> — Postgres is now only reachable over the internal Compose network. <code>POSTGRES_PASSWORD</code> is now a required interpolated variable (<code>${POSTGRES_PASSWORD:?...}</code>) sourced from <code>.env</code>, with no hardcoded fallback; <code>docker compose config</code> now refuses to run at all if it isn't set.</div>
   <pre><code>db:
   image: postgres:16-alpine
   environment:
@@ -302,6 +324,7 @@
 <h2 id="f3">C3. Public, unauthenticated signup grants full workspace access <span class="badge badge-critical">Critical</span></h2>
 <div class="finding critical">
   <p class="location"><code>backend/app/api/auth.py:14-27</code> (<code>POST /auth/signup</code>)</p>
+  <div class="remediation"><strong>Fixed:</strong> Signup now requires a matching <code>invite_code</code> (constant-time compared via <code>hmac.compare_digest</code> in <code>backend/app/api/auth.py</code>), sourced from the <code>SIGNUP_INVITE_CODE</code> env var. If that var is unset, signup is disabled entirely (fails closed) rather than defaulting to open.</div>
   <h4>Issue</h4>
   <p>
     NewsAtlas is designed as a single shared workspace for one company's sales team (per
@@ -332,6 +355,7 @@
 <h2 id="f4">H1. No guard against the default <code>JWT_SECRET</code> placeholder <span class="badge badge-high">High</span></h2>
 <div class="finding high">
   <p class="location"><code>backend/app/core/config.py:11</code></p>
+  <div class="remediation"><strong>Fixed:</strong> Added <code>assert_secure_for_production()</code> in <code>backend/app/core/config.py</code>, called at import time in <code>main.py</code> — the app now refuses to boot when <code>APP_ENV=production</code> and either <code>JWT_SECRET</code> is still the default/too short, or <code>SIGNUP_INVITE_CODE</code> is unset. Verified live: boots fine in dev, refuses to start in production with insecure config, boots with proper secrets.</div>
   <pre><code>jwt_secret: str = "change-me-in-production"</code></pre>
   <h4>Issue</h4>
   <p>
@@ -359,6 +383,7 @@
 <h2 id="f5">H2. Containers run as root <span class="badge badge-high">High</span></h2>
 <div class="finding high">
   <p class="location"><code>backend/Dockerfile</code>, <code>frontend/Dockerfile</code> — no <code>USER</code> instruction in either</p>
+  <div class="remediation"><strong>Fixed:</strong> Both Dockerfiles now create a non-root <code>appuser</code> (uid 1000) and switch to it via <code>USER</code> before running the app.</div>
   <h4>Issue</h4>
   <p>
     Neither Dockerfile creates or switches to a non-root user, so both the FastAPI process and the
@@ -384,6 +409,7 @@ USER appuser</code></pre>
 <h2 id="f6">H3. Missing <code>.dockerignore</code> <span class="badge badge-high">High</span></h2>
 <div class="finding high">
   <p class="location">no <code>backend/.dockerignore</code> or <code>frontend/.dockerignore</code>; both Dockerfiles use <code>COPY . .</code></p>
+  <div class="remediation"><strong>Fixed:</strong> Added <code>backend/.dockerignore</code> and <code>frontend/.dockerignore</code> excluding <code>.env</code>, <code>.venv</code>/<code>node_modules</code>, <code>.git</code>, tests, and caches.</div>
   <h4>Issue</h4>
   <p>
     Docker build context is the entire <code>backend/</code> (or <code>frontend/</code>) directory
@@ -415,6 +441,7 @@ tests/
 <h2 id="f7">H4. No rate limiting on auth or ingestion endpoints <span class="badge badge-high">High</span></h2>
 <div class="finding high">
   <p class="location"><code>backend/app/api/auth.py</code> (<code>/auth/login</code>, <code>/auth/signup</code>), <code>backend/app/api/ingestion.py</code> (<code>/ingestion/run-now</code>)</p>
+  <div class="remediation"><strong>Fixed:</strong> Added per-IP rate limiting via <code>slowapi</code> (<code>backend/app/core/limiter.py</code>): 10/minute on <code>/auth/login</code>, 5/hour on <code>/auth/signup</code>, 10/hour on the manual ingestion/digest triggers — plus a separate global cooldown (see M5). Verified live: the 11th login attempt in a minute gets <code>429</code>. Disabled under pytest via <code>ENABLE_RATE_LIMITING=false</code>.</div>
   <h4>Issue</h4>
   <p>
     There is no rate limiting, throttling, or lockout anywhere in the API (no <code>slowapi</code> or
@@ -446,6 +473,7 @@ tests/
     <code>backend/app/services/news_client.py:60-81</code> (<code>NewsClient._parse_article</code>) →
     rendered at <code>frontend/src/pages/SignalDetail.tsx</code> (<code>&lt;a href={signal.article_url}&gt;</code>)
   </p>
+  <div class="remediation"><strong>Fixed:</strong> <code>NewsClient._parse_article</code> now rejects any URL that doesn't start with <code>http://</code> or <code>https://</code> before it's ever stored, so a <code>javascript:</code>/<code>data:</code> URL from a malicious feed can no longer reach the dashboard or digest emails as a live link.</div>
   <h4>Issue</h4>
   <pre><code>url = item.get("url")
 if not url:
@@ -479,6 +507,7 @@ return NewsArticle(..., url=url, ...)</code></pre>
 <h2 id="f9">M2. Email enumeration via signup <span class="badge badge-medium">Medium</span></h2>
 <div class="finding medium">
   <p class="location"><code>backend/app/api/auth.py:16-19</code></p>
+  <div class="remediation"><strong>Fixed:</strong> The duplicate-email response on <code>/auth/signup</code> now returns a generic "Unable to create an account with the provided details" message instead of "Email already registered". Note: the distinct <code>409</code> status code itself is still a residual, lower-bandwidth signal (full elimination would require an email-verification redesign, out of scope here) — now mitigated further by C3's invite-code gate limiting who can even probe this.</div>
   <pre><code>existing = db.query(User).filter(User.email == payload.email).first()
 if existing is not None:
     raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")</code></pre>
@@ -506,6 +535,7 @@ if existing is not None:
 <h2 id="f10">M3. No backend-side password strength enforcement <span class="badge badge-medium">Medium</span></h2>
 <div class="finding medium">
   <p class="location"><code>backend/app/schemas/auth.py:6-9</code> (<code>SignupRequest</code>)</p>
+  <div class="remediation"><strong>Fixed:</strong> <code>SignupRequest.password</code> now enforces <code>min_length=10, max_length=72</code> (the max matches bcrypt's input limit) in <code>backend/app/schemas/auth.py</code>, so this can no longer be bypassed by calling the API directly.</div>
   <pre><code>class SignupRequest(BaseModel):
     email: EmailStr
     password: str
@@ -535,6 +565,7 @@ if existing is not None:
     <code>backend/app/core/config.py:13</code> (<code>jwt_expires_minutes: int = 60 * 24 * 7</code>),
     <code>frontend/src/api/client.ts</code> (<code>localStorage</code> token storage)
   </p>
+  <div class="remediation"><strong>Fixed:</strong> Default <code>JWT_EXPIRES_MINUTES</code> cut from 7 days to 24h. Added real server-side revocation: <code>User.token_version</code> (new column, embedded in every token as a <code>ver</code> claim) plus a genuine <code>POST /auth/logout</code> endpoint that increments it, so <code>get_current_user</code> rejects any token minted against an older version. (First implementation used a timestamp cutoff compared against the JWT <code>iat</code> claim — live browser testing caught a real bug there: <code>iat</code>'s whole-second precision made a login immediately after logout spuriously fail. A version counter sidesteps the precision issue entirely, so switched to that instead; see <code>backend/tests/test_auth.py::test_login_immediately_after_logout_still_works</code>.) Verified live: the same token that worked before logout gets <code>401</code> immediately after, and a fresh login right after logout works.</div>
   <h4>Issue</h4>
   <p>
     Access tokens are valid for 7 days by default and stored in <code>localStorage</code>. There is
@@ -562,6 +593,7 @@ if existing is not None:
 <h2 id="f12">M5. Unbounded external-API spend via ingestion trigger <span class="badge badge-medium">Medium</span></h2>
 <div class="finding medium">
   <p class="location"><code>backend/app/api/ingestion.py</code> (<code>POST /ingestion/run-now</code>), <code>backend/app/services/ingestion.py</code></p>
+  <div class="remediation"><strong>Fixed:</strong> Added a DB-persisted, caller-independent cooldown (<code>WorkspaceSettings.last_manual_ingestion_at</code> / <code>last_manual_digest_at</code>, enforced in <code>app/services/workspace_settings.py</code>) — a second call to either manual trigger within <code>MANUAL_TRIGGER_COOLDOWN_SECONDS</code> (default 60s) now gets <code>429</code> with a <code>Retry-After</code> header, regardless of who calls it. Verified live alongside the per-IP rate limit from H4.</div>
   <h4>Issue</h4>
   <p>
     Any authenticated user can call this endpoint as many times as they like. Each call makes one
@@ -586,6 +618,7 @@ if existing is not None:
 <h2 id="f13">L1. No security response headers <span class="badge badge-low">Low</span></h2>
 <div class="finding low">
   <p class="location">backend (FastAPI/uvicorn), frontend (<code>serve</code> in <code>frontend/Dockerfile</code>)</p>
+  <div class="remediation"><strong>Fixed:</strong> Added <code>Strict-Transport-Security</code>, <code>X-Content-Type-Options</code>, <code>X-Frame-Options</code>, <code>Referrer-Policy</code>, and <code>Permissions-Policy</code> headers (and removed the <code>Server</code> header) at the Caddy layer, applied uniformly to both the API and the frontend.</div>
   <p>
     Neither service sets <code>Content-Security-Policy</code>, <code>X-Content-Type-Options</code>,
     <code>Referrer-Policy</code>, <code>Permissions-Policy</code>, or (once TLS is added) <code>Strict-Transport-Security</code>.
@@ -597,6 +630,7 @@ if existing is not None:
 <h2 id="f14">L2. Aging/low-maintenance auth dependencies <span class="badge badge-low">Low</span></h2>
 <div class="finding low">
   <p class="location"><code>backend/requirements.txt</code> — <code>python-jose[cryptography]==3.3.0</code>, <code>passlib[bcrypt]==1.7.4</code></p>
+  <div class="remediation"><strong>Fixed:</strong> Replaced <code>python-jose</code> with <code>PyJWT</code> and <code>passlib</code> with direct <code>bcrypt</code> calls (<code>backend/app/core/security.py</code>) — both actively maintained, and bcrypt is no longer pinned to an old version for passlib compatibility.</div>
   <p>
     Both libraries see infrequent upstream maintenance. The way they're used here is safe today —
     <code>decode_access_token</code> in <code>app/core/security.py</code> correctly pins
@@ -612,6 +646,7 @@ if existing is not None:
 <h2 id="f15">L3. No request body size limits <span class="badge badge-low">Low</span></h2>
 <div class="finding low">
   <p class="location">app-wide; e.g. <code>backend/app/schemas/settings.py</code> (<code>offering_description</code> capped at 8000 chars <em>after</em> parsing)</p>
+  <div class="remediation"><strong>Fixed:</strong> Added <code>request_body { max_size 2MB }</code> in the Caddyfile as the primary control, plus an app-level <code>MaxBodySizeMiddleware</code> (<code>backend/app/core/body_limit.py</code>) checking <code>Content-Length</code> as defense-in-depth for when the app is reached without Caddy in front.</div>
   <p>
     Pydantic <code>max_length</code> constraints only reject a payload after it's been fully read and
     parsed into memory — they don't cap the raw request size up front. There's no
@@ -625,6 +660,7 @@ if existing is not None:
 <h2 id="f16">L4. No auth audit logging <span class="badge badge-low">Low</span></h2>
 <div class="finding low">
   <p class="location"><code>backend/app/api/auth.py</code></p>
+  <div class="remediation"><strong>Fixed:</strong> Added a dedicated <code>newsatlas.audit</code> logger (<code>backend/app/core/audit.py</code>) that records signup/login success and failure, logout, and rate-limit/invite-code rejections with the requesting IP — never passwords or tokens. Verified live in the server log.</div>
   <p>
     Failed logins, signups, and password changes aren't logged anywhere distinguishable from normal
     request logs. On an internet-facing deployment this makes it hard to notice brute-force attempts
@@ -636,6 +672,7 @@ if existing is not None:
 <h2 id="f17">L5. Frontend build defaults to a plaintext localhost API origin <span class="badge badge-low">Low</span></h2>
 <div class="finding low">
   <p class="location"><code>docker-compose.yml:33-36</code>, <code>frontend/Dockerfile:3-4</code></p>
+  <div class="remediation"><strong>Fixed:</strong> <code>VITE_API_BASE_URL</code> now defaults to the relative <code>/api</code> in both the Dockerfile <code>ARG</code> and the removed docker-compose override, matching the new same-origin Caddy design — confirmed the production build no longer contains any <code>localhost:8000</code> reference.</div>
   <pre><code>build:
   context: ./frontend
   args:
@@ -727,10 +764,14 @@ if existing is not None:
 </ul>
 
 <footer>
-  NewsAtlas — security review conducted 2026-07-03 against commit <code>8dc14cd</code>, prior to any
-  production deployment. Intended as a working checklist for future Claude Code sessions implementing
-  fixes — re-run this review after the "must fix" items land and before the first real internet-facing
-  deploy.
+  NewsAtlas — security review conducted 2026-07-03 against commit <code>8dc14cd</code>. All 17
+  findings were remediated the same day (see the "Fixed" note under each finding above, and
+  <code>docs/planning.html</code> for the broader architecture). Verified via the full pytest suite
+  plus live checks: production boot refuses insecure config, invite-gated signup, logout revocation,
+  per-IP rate limiting, and the manual-trigger cooldown. Caddy/docker-compose networking could not be
+  runtime-verified in the sandbox this work was done in (no Docker daemon available) — run
+  <code>docker compose config</code> and a real <code>docker compose up</code> smoke test before the
+  first production deploy. Re-run a fresh review after any further changes to this area.
 </footer>
 
 </body>

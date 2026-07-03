@@ -8,8 +8,8 @@ interface AuthContextValue {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name: string) => Promise<void>;
-  logout: () => void;
+  signup: (email: string, password: string, name: string, inviteCode: string) => Promise<void>;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -50,13 +50,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loadCurrentUser();
   }, [loadCurrentUser]);
 
-  const signup = useCallback(async (email: string, password: string, name: string) => {
-    const response = await api.post<TokenResponse>("/auth/signup", { email, password, name });
-    setToken(response.access_token);
-    await loadCurrentUser();
-  }, [loadCurrentUser]);
+  const signup = useCallback(
+    async (email: string, password: string, name: string, inviteCode: string) => {
+      const response = await api.post<TokenResponse>("/auth/signup", {
+        email,
+        password,
+        name,
+        invite_code: inviteCode,
+      });
+      setToken(response.access_token);
+      await loadCurrentUser();
+    },
+    [loadCurrentUser]
+  );
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      // Best-effort: revokes the token server-side (see /auth/logout). Still clear the
+      // local copy below even if this fails (e.g. offline), so the UI doesn't get stuck.
+      await api.post("/auth/logout");
+    } catch {
+      // ignore
+    }
     clearToken();
     setUser(null);
   }, []);

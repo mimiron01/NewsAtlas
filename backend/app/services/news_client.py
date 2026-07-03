@@ -61,7 +61,10 @@ class NewsClient:
     @staticmethod
     def _parse_article(item: dict) -> NewsArticle | None:
         url = item.get("url")
-        if not url:
+        # Only ever store http(s) URLs — this is rendered as a clickable link in the
+        # dashboard and in digest emails, so a javascript:/data: URL here would be a
+        # stored-XSS vector if the upstream feed is ever malicious or compromised.
+        if not url or not url.startswith(("http://", "https://")):
             return None
 
         published_at = None

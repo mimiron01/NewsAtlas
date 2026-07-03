@@ -6,22 +6,12 @@ from app.core.config import get_settings
 from app.models.article import Article
 from app.models.signal import Signal
 from app.models.target_company import TargetCompany
-from app.models.workspace_settings import WorkspaceSettings
 from app.schemas.ingestion import IngestionRunResult
 from app.services.ai_client import AIClient, AIClientError
 from app.services.news_client import NewsClient, NewsClientError
+from app.services.workspace_settings import get_or_create_workspace_settings
 
 MIN_LOOKBACK_HOURS = 24
-
-
-def _get_or_create_workspace_settings(db: Session) -> WorkspaceSettings:
-    settings = db.query(WorkspaceSettings).first()
-    if settings is None:
-        settings = WorkspaceSettings()
-        db.add(settings)
-        db.commit()
-        db.refresh(settings)
-    return settings
 
 
 def run_ingestion(
@@ -30,7 +20,7 @@ def run_ingestion(
     ai_client: AIClient | None = None,
 ) -> IngestionRunResult:
     app_settings = get_settings()
-    workspace_settings = _get_or_create_workspace_settings(db)
+    workspace_settings = get_or_create_workspace_settings(db)
 
     news_client = news_client or NewsClient(api_key=app_settings.newsapi_api_key)
     ai_client = ai_client or AIClient(

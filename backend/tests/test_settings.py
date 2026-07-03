@@ -1,7 +1,7 @@
 def _auth_headers(client):
     resp = client.post(
         "/auth/signup",
-        json={"email": "admin@proair.com", "password": "password123", "name": "Admin"},
+        json={"email": "admin@proair.com", "password": "password123", "name": "Admin", "invite_code": "test-invite-code"},
     )
     token = resp.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}

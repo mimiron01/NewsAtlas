@@ -19,3 +19,12 @@ class WorkspaceSettings(Base, UUIDPrimaryKeyMixin):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+    # Cooldown bookkeeping for the manual trigger endpoints, independent of caller identity
+    # (see api/ingestion.py, api/digest.py) — prevents any user from hammering paid external
+    # APIs or spamming digest emails by repeatedly calling the manual trigger.
+    last_manual_ingestion_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    last_manual_digest_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )

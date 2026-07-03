@@ -23,8 +23,13 @@ def get_current_user(
     if credentials is None:
         raise unauthorized
 
-    subject = decode_access_token(credentials.credentials)
-    if subject is None:
+    payload = decode_access_token(credentials.credentials)
+    if payload is None:
+        raise unauthorized
+
+    subject = payload.get("sub")
+    token_version = payload.get("ver")
+    if subject is None or token_version is None:
         raise unauthorized
 
     try:
@@ -35,4 +40,8 @@ def get_current_user(
     user = db.get(User, user_id)
     if user is None:
         raise unauthorized
+
+    if token_version != user.token_version:
+        raise unauthorized
+
     return user

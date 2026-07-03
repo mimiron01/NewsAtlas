@@ -2,14 +2,23 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.api import auth, digest, ingestion, settings, signals, target_companies
-from app.core.config import get_settings
+from app.core.body_limit import MaxBodySizeMiddleware
+from app.core.config import assert_secure_for_production, get_settings
+from app.core.limiter import limiter
+from app.core.logging_config import configure_logging
 from app.db.session import SessionLocal
 from app.models.workspace_settings import WorkspaceSettings
 from app.services import scheduler
 
+configure_logging()
+
 app_settings = get_settings()
+assert_secure_for_production(app_settings)
 
 
 @asynccontextmanager
@@ -37,6 +46,12 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(title="NewsAtlas API", version="0.1.0", lifespan=lifespan)
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+app.add_middleware(MaxBodySizeMiddleware, max_bytes=app_settings.max_request_body_bytes)
 
 app.add_middleware(
     CORSMiddleware,

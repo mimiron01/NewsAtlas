@@ -7,18 +7,9 @@ from app.models.user import User
 from app.models.workspace_settings import WorkspaceSettings
 from app.schemas.settings import WorkspaceSettingsResponse, WorkspaceSettingsUpdate
 from app.services import scheduler
+from app.services.workspace_settings import get_or_create_workspace_settings
 
 router = APIRouter(prefix="/settings", tags=["settings"])
-
-
-def _get_or_create_settings(db: Session) -> WorkspaceSettings:
-    settings = db.query(WorkspaceSettings).first()
-    if settings is None:
-        settings = WorkspaceSettings()
-        db.add(settings)
-        db.commit()
-        db.refresh(settings)
-    return settings
 
 
 @router.get("", response_model=WorkspaceSettingsResponse)
@@ -26,7 +17,7 @@ def get_settings(
     db: Session = Depends(get_db),
     _current_user: User = Depends(get_current_user),
 ) -> WorkspaceSettings:
-    return _get_or_create_settings(db)
+    return get_or_create_workspace_settings(db)
 
 
 @router.put("", response_model=WorkspaceSettingsResponse)
@@ -35,7 +26,7 @@ def update_settings(
     db: Session = Depends(get_db),
     _current_user: User = Depends(get_current_user),
 ) -> WorkspaceSettings:
-    settings = _get_or_create_settings(db)
+    settings = get_or_create_workspace_settings(db)
     settings.company_name = payload.company_name
     settings.offering_description = payload.offering_description
     settings.digest_send_time = payload.digest_send_time

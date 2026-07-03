@@ -4,6 +4,9 @@ os.environ.setdefault(
     "DATABASE_URL", "postgresql+psycopg2://newsatlas:newsatlas@localhost:5432/newsatlas_test"
 )
 os.environ.setdefault("ENABLE_SCHEDULER", "false")
+os.environ.setdefault("ENABLE_RATE_LIMITING", "false")
+os.environ.setdefault("SIGNUP_INVITE_CODE", "test-invite-code")
+os.environ.setdefault("JWT_SECRET", "test-only-secret-key-not-for-production-use-0123456789")
 
 import pytest
 from fastapi.testclient import TestClient

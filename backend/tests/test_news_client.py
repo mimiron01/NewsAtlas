@@ -19,6 +19,20 @@ def test_parse_article_skips_missing_url():
     assert NewsClient._parse_article({"title": "No URL here"}) is None
 
 
+def test_parse_article_rejects_javascript_scheme_url():
+    assert NewsClient._parse_article({"url": "javascript:alert(document.cookie)"}) is None
+
+
+def test_parse_article_rejects_data_scheme_url():
+    assert NewsClient._parse_article({"url": "data:text/html,<script>alert(1)</script>"}) is None
+
+
+def test_parse_article_accepts_https_url():
+    article = NewsClient._parse_article({"url": "https://example.com/a"})
+    assert article is not None
+    assert article.url == "https://example.com/a"
+
+
 def test_parse_article_handles_malformed_published_at():
     article = NewsClient._parse_article(
         {"url": "https://example.com/a", "title": "T", "publishedAt": "not-a-date"}
