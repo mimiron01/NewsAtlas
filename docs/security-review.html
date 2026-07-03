@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NewsAtlas — Security Review (Hetzner VPS / Docker / Internet-facing)</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6270;
+    --accent: #2757c7;
+    --accent-bg: #eef2fc;
+    --border: #e2e5ea;
+    --code-bg: #f5f6f8;
+    --critical: #b3261e;
+    --critical-bg: #fdecec;
+    --high: #a15c00;
+    --high-bg: #fdf4e3;
+    --medium: #8a6d00;
+    --medium-bg: #fdf8e3;
+    --low: #2757c7;
+    --low-bg: #eef2fc;
+    --ok: #1a7f4e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.05rem; margin-top: 0; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  .meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 12px 0 32px;
+    padding: 12px 16px;
+    background: var(--accent-bg);
+    border-radius: 8px;
+  }
+  .meta strong { color: var(--fg); }
+  nav.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin: 24px 0 40px;
+  }
+  nav.toc h2 { margin-top: 0; border: none; font-size: 1.05rem; padding-bottom: 4px; }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+  nav.toc a:hover { text-decoration: underline; }
+
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.88rem; }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--code-bg); font-weight: 600; }
+  .summary-table td:first-child { white-space: nowrap; }
+
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .badge-critical { background: var(--critical-bg); color: var(--critical); }
+  .badge-high { background: var(--high-bg); color: var(--high); }
+  .badge-medium { background: var(--medium-bg); color: var(--medium); }
+  .badge-low { background: var(--low-bg); color: var(--low); }
+  .badge-ok { background: #e9f9f1; color: var(--ok); }
+
+  .finding {
+    border: 1px solid var(--border);
+    border-left-width: 5px;
+    border-radius: 0 10px 10px 0;
+    padding: 18px 22px;
+    margin: 20px 0;
+  }
+  .finding.critical { border-left-color: var(--critical); }
+  .finding.high { border-left-color: var(--high); }
+  .finding.medium { border-left-color: var(--medium); }
+  .finding.low { border-left-color: var(--low); }
+  .finding-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .finding-header h3 { margin: 0; }
+  .finding .location {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 4px 0 12px;
+  }
+  .finding h4 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+    margin: 16px 0 4px;
+  }
+
+  .positive {
+    border-left: 4px solid var(--ok);
+    background: #e9f9f1;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+
+  ul.checklist { list-style: none; padding-left: 4px; }
+  ul.checklist li { margin-bottom: 8px; }
+  ul.checklist li::before { content: "☐ "; color: var(--muted); }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>NewsAtlas — Security Review</h1>
+<p class="subtitle">Reviewed against the intended deployment: Docker on a Hetzner Linux VPS, directly internet-facing</p>
+
+<div class="meta">
+  <div><strong>Scope:</strong> backend (FastAPI), frontend (React), Docker/Compose deployment config</div>
+  <div><strong>Reviewed at:</strong> commit <code>8dc14cd</code> (end of Phase 5 implementation)</div>
+  <div><strong>Method:</strong> manual source review, no dynamic/pen-testing performed</div>
+</div>
+
+<p>
+  This review assumes the deployment target described by the project owner: the app is built into
+  Docker images via <code>docker-compose.yml</code> and run on a bare Hetzner VPS reachable directly
+  from the internet (no managed load balancer, WAF, or platform-level network isolation in front of
+  it by default). Findings and priorities below are calibrated for that threat model — i.e. the app's
+  own containers and configuration are the only thing standing between the public internet and the
+  database/API.
+</p>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary of findings</a></li>
+    <li><a href="#f1">C1. No TLS — all traffic (incl. credentials/JWTs) is plaintext</a></li>
+    <li><a href="#f2">C2. Postgres port published to the internet with hardcoded credentials</a></li>
+    <li><a href="#f3">C3. Public, unauthenticated signup grants full workspace access</a></li>
+    <li><a href="#f4">H1. No guard against the default <code>JWT_SECRET</code> placeholder</a></li>
+    <li><a href="#f5">H2. Containers run as root</a></li>
+    <li><a href="#f6">H3. No <code>.dockerignore</code> — build context copied wholesale into images</a></li>
+    <li><a href="#f7">H4. No rate limiting on auth or ingestion endpoints</a></li>
+    <li><a href="#f8">M1. Unvalidated article URL scheme → potential stored XSS via <code>javascript:</code> link</a></li>
+    <li><a href="#f9">M2. Email enumeration via signup's 409 response</a></li>
+    <li><a href="#f10">M3. No backend-side password strength/length enforcement</a></li>
+    <li><a href="#f11">M4. Long-lived JWT in localStorage with no revocation</a></li>
+    <li><a href="#f12">M5. Any user can trigger unbounded external-API spend via ingestion</a></li>
+    <li><a href="#f13">L1. No security response headers (CSP, HSTS, etc.)</a></li>
+    <li><a href="#f14">L2. Aging/low-maintenance auth dependencies</a></li>
+    <li><a href="#f15">L3. No request body size caps</a></li>
+    <li><a href="#f16">L4. No auth audit logging</a></li>
+    <li><a href="#f17">L5. Frontend build defaults to a non-HTTPS localhost API origin</a></li>
+    <li><a href="#positives">What's already done right</a></li>
+    <li><a href="#remediation">Prioritized remediation checklist</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">Summary of findings</h2>
+<table class="summary-table">
+  <tr><th>#</th><th>Severity</th><th>Finding</th></tr>
+  <tr><td>C1</td><td><span class="badge badge-critical">Critical</span></td><td>No TLS anywhere in the stack — plaintext HTTP/DB traffic on the public internet</td></tr>
+  <tr><td>C2</td><td><span class="badge badge-critical">Critical</span></td><td>Postgres port 5432 published to all interfaces with hardcoded weak credentials committed to git</td></tr>
+  <tr><td>C3</td><td><span class="badge badge-critical">Critical</span></td><td><code>/auth/signup</code> is open to anyone on the internet, granting full workspace access</td></tr>
+  <tr><td>H1</td><td><span class="badge badge-high">High</span></td><td>No startup check preventing the default, publicly-known <code>JWT_SECRET</code> from being used</td></tr>
+  <tr><td>H2</td><td><span class="badge badge-high">High</span></td><td>Both containers run as root</td></tr>
+  <tr><td>H3</td><td><span class="badge badge-high">High</span></td><td>Missing <code>.dockerignore</code> risks baking secrets/dev artifacts into images</td></tr>
+  <tr><td>H4</td><td><span class="badge badge-high">High</span></td><td>No rate limiting on <code>/auth/login</code>, <code>/auth/signup</code>, or ingestion trigger</td></tr>
+  <tr><td>M1</td><td><span class="badge badge-medium">Medium</span></td><td>Ingested article URLs are rendered as links without scheme validation</td></tr>
+  <tr><td>M2</td><td><span class="badge badge-medium">Medium</span></td><td>Signup response leaks whether an email is already registered</td></tr>
+  <tr><td>M3</td><td><span class="badge badge-medium">Medium</span></td><td>No backend-enforced minimum password length/complexity</td></tr>
+  <tr><td>M4</td><td><span class="badge badge-medium">Medium</span></td><td>7-day JWT in localStorage, no revocation/refresh mechanism</td></tr>
+  <tr><td>M5</td><td><span class="badge badge-medium">Medium</span></td><td>Any authenticated user can trigger unlimited paid external API calls</td></tr>
+  <tr><td>L1</td><td><span class="badge badge-low">Low</span></td><td>No CSP/HSTS/security headers on either service</td></tr>
+  <tr><td>L2</td><td><span class="badge badge-low">Low</span></td><td><code>python-jose</code> / <code>passlib</code> are low-activity dependencies</td></tr>
+  <tr><td>L3</td><td><span class="badge badge-low">Low</span></td><td>No request body size limits at app or proxy layer</td></tr>
+  <tr><td>L4</td><td><span class="badge badge-low">Low</span></td><td>No audit logging of auth events</td></tr>
+  <tr><td>L5</td><td><span class="badge badge-low">Low</span></td><td>Frontend build defaults to a plaintext localhost API origin</td></tr>
+</table>
+
+<h2 id="f1">C1. No TLS — all traffic is plaintext <span class="badge badge-critical">Critical</span></h2>
+<div class="finding critical">
+  <p class="location"><code>docker-compose.yml</code> — <code>backend</code> (port 8000) and <code>frontend</code> (port 4173) services</p>
+  <h4>Issue</h4>
+  <p>
+    Nothing in the stack terminates TLS. <code>docker-compose.yml</code> publishes the FastAPI backend
+    on <code>8000</code> and the static frontend on <code>4173</code> directly, with no reverse proxy
+    (Caddy/Traefik/nginx) in front of either. As currently written, deploying this to a Hetzner VPS
+    and pointing DNS at it means the app is served over plain HTTP on the public internet.
+  </p>
+  <h4>Impact</h4>
+  <p>
+    Login/signup passwords and JWT bearer tokens travel in cleartext. Anyone on-path — a router,
+    an ISP, another tenant on shared infrastructure, a coffee-shop network the user is on — can
+    passively capture credentials and session tokens, or actively tamper with responses. Given JWTs
+    are valid for 7 days by default (<code>backend/app/core/config.py:13</code>), a single captured
+    token gives a week of full account access.
+  </p>
+  <h4>Recommendation</h4>
+  <p>
+    Add a reverse proxy service to <code>docker-compose.yml</code> (Caddy is the simplest — automatic
+    Let's Encrypt certs with a ~10-line Caddyfile) that terminates HTTPS on 443 and proxies to the
+    backend/frontend over the internal Docker network. Stop publishing <code>8000</code> and
+    <code>4173</code> to the host at all — only the proxy should have a host-published port.
+    Enforce HTTPS redirects and set <code>Secure</code> on any cookies if cookies are introduced later.
+  </p>
+</div>
+
+<h2 id="f2">C2. Postgres port published to the internet with hardcoded credentials <span class="badge badge-critical">Critical</span></h2>
+<div class="finding critical">
+  <p class="location"><code>docker-compose.yml:6-12</code></p>
+  <pre><code>db:
+  image: postgres:16-alpine
+  environment:
+    POSTGRES_USER: newsatlas
+    POSTGRES_PASSWORD: newsatlas
+    POSTGRES_DB: newsatlas
+  ports:
+    - "5432:5432"</code></pre>
+  <h4>Issue</h4>
+  <p>
+    The Postgres container's port is mapped to the host's <code>0.0.0.0:5432</code> by default in
+    Docker (Compose port publishing binds all interfaces unless a host IP is specified), and the
+    username/password are hardcoded as <code>newsatlas</code>/<code>newsatlas</code> directly in a
+    file that is committed to source control. The same credentials are duplicated in the
+    <code>backend</code> service's <code>DATABASE_URL</code> override (line 25) and in
+    <code>.env.example</code>.
+  </p>
+  <h4>Impact</h4>
+  <p>
+    On a Hetzner VPS with no additional firewalling, this exposes the full database — every user's
+    password hash, every target company, every AI-generated signal and outreach snippet — to anyone
+    on the internet who can reach the VPS's IP on port 5432 and knows (or guesses, since it's in this
+    project's own git history) the default credentials. This is the single highest-impact item in
+    this review for the stated deployment target.
+  </p>
+  <h4>Recommendation</h4>
+  <ul>
+    <li>Remove the <code>ports: ["5432:5432"]</code> mapping entirely. The backend reaches Postgres
+      over the internal Compose network by service name (<code>db</code>) and needs no host-published
+      port. Only re-add a host mapping temporarily, bound to <code>127.0.0.1</code> specifically
+      (e.g. <code>"127.0.0.1:5432:5432"</code>), if you need local <code>psql</code> access for
+      debugging — and remove it again afterward.</li>
+    <li>Move <code>POSTGRES_PASSWORD</code> out of the committed compose file and into <code>.env</code>
+      (gitignored), generated as a long random value per deployment — not the literal string
+      <code>newsatlas</code>.</li>
+    <li>As defense in depth, also configure the Hetzner Cloud Firewall (or <code>ufw</code>/<code>nftables</code>
+      on the VPS) to only allow inbound 80/443 from the internet and to drop everything else at the
+      network edge, independent of what Docker publishes.</li>
+  </ul>
+</div>
+
+<h2 id="f3">C3. Public, unauthenticated signup grants full workspace access <span class="badge badge-critical">Critical</span></h2>
+<div class="finding critical">
+  <p class="location"><code>backend/app/api/auth.py:14-27</code> (<code>POST /auth/signup</code>)</p>
+  <h4>Issue</h4>
+  <p>
+    NewsAtlas is designed as a single shared workspace for one company's sales team (per
+    <code>docs/planning.html</code>), but <code>/auth/signup</code> has no invite code, admin
+    approval, email-domain allow-list, or any other gate — it is reachable by anyone and immediately
+    grants a fully-privileged account. There are no user roles; every account can read every signal,
+    rewrite the company's offering description (which drives every future AI prompt), add/delete
+    target companies, and trigger ingestion or digest sends.
+  </p>
+  <h4>Impact</h4>
+  <p>
+    Once this is reachable on the public internet, it is not really "your sales team's private tool"
+    — it is an openly-joinable application. Anyone who finds the URL (trivial via routine internet-wide
+    scanning, not even targeted) can create an account and get full read/write access to your
+    company's sales intelligence and target list, tamper with the AI context data, or run up your
+    Mistral/NewsAPI bill (see M5).
+  </p>
+  <h4>Recommendation</h4>
+  <p>
+    Before this is exposed to the internet, add one of: (a) an invite-token requirement on signup
+    (a per-workspace secret the admin shares with teammates), (b) an admin-approval step
+    (new accounts start disabled until an existing user/admin approves them), or (c) restrict signup
+    to a configured email domain (e.g. only <code>@proair.com</code> addresses). Given the single-tenant
+    design, an invite-token gate is the least invasive change relative to the current schema.
+  </p>
+</div>
+
+<h2 id="f4">H1. No guard against the default <code>JWT_SECRET</code> placeholder <span class="badge badge-high">High</span></h2>
+<div class="finding high">
+  <p class="location"><code>backend/app/core/config.py:11</code></p>
+  <pre><code>jwt_secret: str = "change-me-in-production"</code></pre>
+  <h4>Issue</h4>
+  <p>
+    This placeholder value is committed to source control (readable by anyone with repo access) and
+    the app starts up and signs tokens with it silently if the operator forgets to set
+    <code>JWT_SECRET</code> in <code>.env</code>. There is no startup check, warning, or refusal to
+    boot.
+  </p>
+  <h4>Impact</h4>
+  <p>
+    If this ships to production unset, anyone can forge a valid JWT for any user ID (including
+    IDs they can guess/enumerate) and gain full account access without ever going through login.
+    This is a common real-world misconfiguration source — exactly the kind of thing that's easy to
+    forget when moving from local dev to a VPS deploy.
+  </p>
+  <h4>Recommendation</h4>
+  <p>
+    In <code>app/core/config.py</code> or at FastAPI startup, add a check: if
+    <code>jwt_secret == "change-me-in-production"</code> (or shorter than e.g. 32 chars) <em>and</em>
+    the app is not explicitly running in a recognized "dev" mode, raise and refuse to start. Document
+    generating a real secret with <code>openssl rand -hex 32</code> in the README/.env.example.
+  </p>
+</div>
+
+<h2 id="f5">H2. Containers run as root <span class="badge badge-high">High</span></h2>
+<div class="finding high">
+  <p class="location"><code>backend/Dockerfile</code>, <code>frontend/Dockerfile</code> — no <code>USER</code> instruction in either</p>
+  <h4>Issue</h4>
+  <p>
+    Neither Dockerfile creates or switches to a non-root user, so both the FastAPI process and the
+    <code>serve</code> static file server run as <code>root</code> inside their containers.
+  </p>
+  <h4>Impact</h4>
+  <p>
+    This doesn't grant root on the VPS host by itself, but it removes a standard layer of
+    defense-in-depth: if either app process is ever compromised (e.g. via a future dependency CVE or
+    injection bug), the attacker starts with root inside the container, which meaningfully widens the
+    range of possible container-escape and lateral-movement techniques compared to a low-privilege
+    user.
+  </p>
+  <h4>Recommendation</h4>
+  <p>
+    Add a non-root user in each Dockerfile and switch to it before <code>CMD</code>, e.g.:
+  </p>
+  <pre><code>RUN useradd --create-home --uid 1000 appuser
+USER appuser</code></pre>
+  <p>Make sure any writable paths (none currently needed at runtime for this app) are owned by that user.</p>
+</div>
+
+<h2 id="f6">H3. Missing <code>.dockerignore</code> <span class="badge badge-high">High</span></h2>
+<div class="finding high">
+  <p class="location">no <code>backend/.dockerignore</code> or <code>frontend/.dockerignore</code>; both Dockerfiles use <code>COPY . .</code></p>
+  <h4>Issue</h4>
+  <p>
+    Docker build context is the entire <code>backend/</code> (or <code>frontend/</code>) directory
+    with no exclusions. If a developer's local <code>.env</code>, <code>.venv/</code>, <code>node_modules/</code>,
+    or <code>.git/</code> happens to be sitting in that directory at build time (all plausible during
+    local dev, per this repo's own <code>.gitignore</code> patterns), <code>COPY . .</code> bakes it
+    into an image layer.
+  </p>
+  <h4>Impact</h4>
+  <p>
+    Secrets baked into an image layer persist in that layer's history even if a later layer
+    "removes" the file — anyone who can pull or inspect the image (e.g. from a registry, or via
+    <code>docker save</code>) can extract it. This is a common way real API keys/DB passwords leak
+    from otherwise-careful projects.
+  </p>
+  <h4>Recommendation</h4>
+  <p>Add a <code>.dockerignore</code> to both <code>backend/</code> and <code>frontend/</code> excluding at minimum:</p>
+  <pre><code>.env
+.venv/
+__pycache__/
+*.pyc
+.git/
+node_modules/
+dist/
+tests/
+.pytest_cache/</code></pre>
+</div>
+
+<h2 id="f7">H4. No rate limiting on auth or ingestion endpoints <span class="badge badge-high">High</span></h2>
+<div class="finding high">
+  <p class="location"><code>backend/app/api/auth.py</code> (<code>/auth/login</code>, <code>/auth/signup</code>), <code>backend/app/api/ingestion.py</code> (<code>/ingestion/run-now</code>)</p>
+  <h4>Issue</h4>
+  <p>
+    There is no rate limiting, throttling, or lockout anywhere in the API (no <code>slowapi</code> or
+    equivalent dependency is present). <code>/auth/login</code> can be hit an unlimited number of
+    times per second per IP/account; <code>/auth/signup</code> likewise.
+  </p>
+  <h4>Impact</h4>
+  <p>
+    Combined with C3 (open signup) and M3 (no backend password policy), this allows unrestricted
+    credential-stuffing/brute-force against <code>/auth/login</code>, and unrestricted automated
+    account creation against <code>/auth/signup</code>. It also means <code>/ingestion/run-now</code>
+    (which calls paid external APIs — NewsAPI and Mistral — for every active target company) can be
+    hit in a tight loop by any authenticated user, single-handedly running up API costs or exhausting
+    quota (see M5).
+  </p>
+  <h4>Recommendation</h4>
+  <p>
+    Add rate limiting at the reverse-proxy layer (Caddy/nginx can do simple per-IP rate limits cheaply)
+    and/or in the app via a library like <code>slowapi</code>. At minimum: throttle
+    <code>/auth/login</code> and <code>/auth/signup</code> per-IP, and add a cooldown/lock on
+    <code>/ingestion/run-now</code> (e.g. reject if the last run was under N minutes ago) independent
+    of who calls it.
+  </p>
+</div>
+
+<h2 id="f8">M1. Unvalidated article URL scheme → potential stored XSS <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <p class="location">
+    <code>backend/app/services/news_client.py:60-81</code> (<code>NewsClient._parse_article</code>) →
+    rendered at <code>frontend/src/pages/SignalDetail.tsx</code> (<code>&lt;a href={signal.article_url}&gt;</code>)
+  </p>
+  <h4>Issue</h4>
+  <pre><code>url = item.get("url")
+if not url:
+    return None
+...
+return NewsArticle(..., url=url, ...)</code></pre>
+  <p>
+    The URL from the NewsAPI response is stored and later rendered as-is as a clickable link, with no
+    check that it actually uses <code>http:</code>/<code>https:</code>. React does not sanitize
+    <code>href</code> values — an anchor with <code>href="javascript:...”</code> will execute script
+    in the page's origin if a user clicks it.
+  </p>
+  <h4>Impact</h4>
+  <p>
+    If the upstream news source (or a future different/compromised provider, or a MITM against
+    NewsAPI itself) ever returns a <code>javascript:</code> or <code>data:</code> URL in the
+    <code>url</code> field, NewsAtlas will happily store it and present it as "View original article"
+    in the dashboard. A user who clicks it would execute attacker-controlled JavaScript in the
+    context of the NewsAtlas frontend (session token theft, given M4's localStorage token storage).
+    Likelihood is low (requires upstream compromise) but impact is high enough, and the fix is cheap,
+    to flag as medium.
+  </p>
+  <h4>Recommendation</h4>
+  <p>
+    In <code>NewsClient._parse_article</code>, validate <code>url.startswith(("http://", "https://"))</code>
+    and skip/reject the article otherwise. As defense in depth, the frontend could also validate the
+    scheme before rendering a live link.
+  </p>
+</div>
+
+<h2 id="f9">M2. Email enumeration via signup <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <p class="location"><code>backend/app/api/auth.py:16-19</code></p>
+  <pre><code>existing = db.query(User).filter(User.email == payload.email).first()
+if existing is not None:
+    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")</code></pre>
+  <h4>Issue</h4>
+  <p>
+    Returning a distinct 409 for "already registered" lets anyone enumerate which email addresses
+    have accounts by POSTing candidate addresses to <code>/auth/signup</code> and observing the
+    status code. (Login already avoids this correctly — both bad-email and bad-password return the
+    same generic 401.)
+  </p>
+  <h4>Impact</h4>
+  <p>
+    Low on its own, but it's a useful reconnaissance primitive for an attacker combined with H4
+    (unlimited requests) — e.g. confirming a target's work email is in the system before a targeted
+    phishing/credential-stuffing attempt.
+  </p>
+  <h4>Recommendation</h4>
+  <p>
+    Lower priority than the criticals/highs above, and arguably moot once C3 (open signup) is fixed
+    with an invite/approval gate. If signup remains open, consider a generic response either way, or
+    accept this as a minor known tradeoff.
+  </p>
+</div>
+
+<h2 id="f10">M3. No backend-side password strength enforcement <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <p class="location"><code>backend/app/schemas/auth.py:6-9</code> (<code>SignupRequest</code>)</p>
+  <pre><code>class SignupRequest(BaseModel):
+    email: EmailStr
+    password: str
+    name: str</code></pre>
+  <h4>Issue</h4>
+  <p>
+    <code>password</code> has no length or complexity constraint in the Pydantic schema. The frontend
+    sets <code>minLength={8}</code> on the <code>&lt;input&gt;</code> (<code>frontend/src/pages/Login.tsx</code>),
+    but that's a client-side HTML attribute only — anyone calling the API directly (curl, Postman,
+    a script) can set a 1-character password.
+  </p>
+  <h4>Impact</h4>
+  <p>
+    Combined with H4 (no rate limiting on login), weak/short passwords are practically brute-forceable.
+  </p>
+  <h4>Recommendation</h4>
+  <p>
+    Add <code>password: str = Field(min_length=10)</code> (or your preferred policy) to
+    <code>SignupRequest</code>, and consider checking against a common-password blocklist
+    (e.g. via <code>zxcvbn</code>) if this ever opens up beyond a small internal team.
+  </p>
+</div>
+
+<h2 id="f11">M4. Long-lived JWT in localStorage, no revocation <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <p class="location">
+    <code>backend/app/core/config.py:13</code> (<code>jwt_expires_minutes: int = 60 * 24 * 7</code>),
+    <code>frontend/src/api/client.ts</code> (<code>localStorage</code> token storage)
+  </p>
+  <h4>Issue</h4>
+  <p>
+    Access tokens are valid for 7 days by default and stored in <code>localStorage</code>. There is
+    no refresh-token rotation, no server-side session/allow-list, and "logout" (<code>AuthContext.tsx</code>)
+    only clears the client-side copy — the token itself remains valid server-side until it naturally
+    expires.
+  </p>
+  <h4>Impact</h4>
+  <p>
+    Any token leak (XSS per M1, a synced/shared browser profile, a malicious browser extension, a
+    log line that accidentally captures an Authorization header, etc.) grants up to a week of account
+    access with no way for the app operator to revoke it short of rotating <code>JWT_SECRET</code>
+    (which invalidates <em>every</em> user's session at once).
+  </p>
+  <h4>Recommendation</h4>
+  <p>
+    For an MVP this is a reasonable tradeoff, but consider shortening the default expiry (e.g. 24h)
+    and/or adding a minimal server-side revocation list (a table of invalidated token IDs/jti, checked
+    on each request) if this is going to hold real customer/company data on the public internet
+    long-term. This is a "harden later" item, not a launch-blocker, given the smaller blast radius
+    once C1/C3 are fixed.
+  </p>
+</div>
+
+<h2 id="f12">M5. Unbounded external-API spend via ingestion trigger <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <p class="location"><code>backend/app/api/ingestion.py</code> (<code>POST /ingestion/run-now</code>), <code>backend/app/services/ingestion.py</code></p>
+  <h4>Issue</h4>
+  <p>
+    Any authenticated user can call this endpoint as many times as they like. Each call makes one
+    NewsAPI request per active target company, plus one Mistral API call per new article found —
+    both metered/billed external services.
+  </p>
+  <h4>Impact</h4>
+  <p>
+    Combined with C3 (anyone can get an account) and H4 (no rate limiting), this is a direct path to
+    running up your NewsAPI/Mistral bill or exhausting NewsAPI's daily quota, effectively a
+    resource-exhaustion / financial-DoS vector against the app operator rather than the app itself.
+  </p>
+  <h4>Recommendation</h4>
+  <p>
+    Add a simple cooldown (e.g. reject if the last successful run finished less than N minutes ago,
+    independent of caller) so the manual trigger can't be hammered in a loop. This is naturally
+    resolved once the recurring scheduled job is the primary path and the manual endpoint is only
+    for occasional testing/demo use.
+  </p>
+</div>
+
+<h2 id="f13">L1. No security response headers <span class="badge badge-low">Low</span></h2>
+<div class="finding low">
+  <p class="location">backend (FastAPI/uvicorn), frontend (<code>serve</code> in <code>frontend/Dockerfile</code>)</p>
+  <p>
+    Neither service sets <code>Content-Security-Policy</code>, <code>X-Content-Type-Options</code>,
+    <code>Referrer-Policy</code>, <code>Permissions-Policy</code>, or (once TLS is added) <code>Strict-Transport-Security</code>.
+    Low severity on its own, but cheap to fix once a reverse proxy exists (C1) — add these headers at
+    the proxy layer so they apply uniformly to both services.
+  </p>
+</div>
+
+<h2 id="f14">L2. Aging/low-maintenance auth dependencies <span class="badge badge-low">Low</span></h2>
+<div class="finding low">
+  <p class="location"><code>backend/requirements.txt</code> — <code>python-jose[cryptography]==3.3.0</code>, <code>passlib[bcrypt]==1.7.4</code></p>
+  <p>
+    Both libraries see infrequent upstream maintenance. The way they're used here is safe today —
+    <code>decode_access_token</code> in <code>app/core/security.py</code> correctly pins
+    <code>algorithms=[settings.jwt_algorithm]</code> (good practice, prevents algorithm-confusion
+    attacks), and <code>bcrypt</code> is pinned to <code>4.0.1</code> specifically to stay compatible
+    with <code>passlib</code>'s outdated version-detection code. Longer-term, consider migrating to
+    the more actively maintained <code>PyJWT</code> and calling <code>bcrypt</code> directly (or
+    <code>argon2-cffi</code>) instead of through <code>passlib</code>. Not urgent; track via routine
+    dependency updates (e.g. Dependabot / <code>pip-audit</code>).
+  </p>
+</div>
+
+<h2 id="f15">L3. No request body size limits <span class="badge badge-low">Low</span></h2>
+<div class="finding low">
+  <p class="location">app-wide; e.g. <code>backend/app/schemas/settings.py</code> (<code>offering_description</code> capped at 8000 chars <em>after</em> parsing)</p>
+  <p>
+    Pydantic <code>max_length</code> constraints only reject a payload after it's been fully read and
+    parsed into memory — they don't cap the raw request size up front. There's no
+    reverse-proxy-level or ASGI-level body size limit configured. Low risk for a small internal tool,
+    but worth adding a cap (e.g. Caddy/nginx <code>client_max_body_size</code>, or a small ASGI
+    middleware) as cheap defense-in-depth against memory-exhaustion DoS once the app has a public
+    reverse proxy anyway.
+  </p>
+</div>
+
+<h2 id="f16">L4. No auth audit logging <span class="badge badge-low">Low</span></h2>
+<div class="finding low">
+  <p class="location"><code>backend/app/api/auth.py</code></p>
+  <p>
+    Failed logins, signups, and password changes aren't logged anywhere distinguishable from normal
+    request logs. On an internet-facing deployment this makes it hard to notice brute-force attempts
+    or account-creation spam after the fact. Consider structured logging of auth events (without
+    logging passwords/tokens) once basic operational logging is set up.
+  </p>
+</div>
+
+<h2 id="f17">L5. Frontend build defaults to a plaintext localhost API origin <span class="badge badge-low">Low</span></h2>
+<div class="finding low">
+  <p class="location"><code>docker-compose.yml:33-36</code>, <code>frontend/Dockerfile:3-4</code></p>
+  <pre><code>build:
+  context: ./frontend
+  args:
+    VITE_API_BASE_URL: http://localhost:8000</code></pre>
+  <p>
+    <code>VITE_API_BASE_URL</code> is baked into the static bundle at build time (Vite env vars are
+    compile-time, not runtime). If this is deployed to a real domain without overriding this build arg
+    to the real HTTPS API origin, the deployed frontend will keep calling
+    <code>http://localhost:8000</code> from the visitor's browser — which will simply fail (or, worse,
+    silently hit whatever happens to be listening on the visitor's own <code>localhost:8000</code>).
+    Make sure the real deployment sets <code>VITE_API_BASE_URL</code> to the actual HTTPS API domain
+    before building the production image; consider failing the build if it's left as the default in a
+    "production" build profile.
+  </p>
+</div>
+
+<h2 id="positives">What's already done right</h2>
+<div class="positive">
+  <strong>Parameterized queries throughout.</strong> All database access goes through SQLAlchemy's
+  ORM query builder — no raw/string-interpolated SQL was found anywhere, so classic SQL injection
+  is not a concern here.
+</div>
+<div class="positive">
+  <strong>JWT algorithm is pinned on decode.</strong> <code>decode_access_token</code>
+  (<code>app/core/security.py</code>) passes an explicit <code>algorithms=[...]</code> allow-list to
+  <code>jwt.decode</code>, which prevents the classic "alg: none" / algorithm-confusion bypasses.
+</div>
+<div class="positive">
+  <strong>Bearer-token auth avoids CSRF entirely.</strong> Because auth is a header-based bearer
+  token rather than an ambient cookie, the API is not vulnerable to classic CSRF — there's no need
+  for CSRF tokens as currently designed.
+</div>
+<div class="positive">
+  <strong>Login doesn't leak which field was wrong.</strong> <code>/auth/login</code> returns the
+  same generic 401 for both "no such user" and "wrong password", avoiding enumeration there
+  (signup's 409 is the one place this slipped — see M2).
+</div>
+<div class="positive">
+  <strong>Digest emails HTML-escape all external content.</strong>
+  <code>app/services/digest.py</code>'s <code>_render_digest_html</code> runs every dynamic field
+  (article title, summary, business relevance, outreach snippet, company name) through
+  <code>html.escape()</code> before interpolating into the email body — correctly treating ingested
+  news content as untrusted when building HTML.
+</div>
+<div class="positive">
+  <strong>React's JSX escaping protects the dashboard by default.</strong> Article titles, summaries,
+  and snippets rendered in the frontend go through normal JSX text interpolation
+  (<code>{signal.summary}</code> etc.), which auto-escapes — no <code>dangerouslySetInnerHTML</code>
+  is used anywhere in the codebase.
+</div>
+<div class="positive">
+  <strong>External API clients fail closed with clear errors, not crashes.</strong>
+  <code>NewsClient</code>/<code>AIClient</code>/<code>EmailClient</code> all raise typed errors on
+  missing config or failed calls, and the ingestion/digest orchestration isolates failures
+  per-company/per-article/per-user rather than letting one bad response take down a whole run —
+  good resilience hygiene, even though it's not itself a security control.
+</div>
+
+<h2 id="remediation">Prioritized remediation checklist</h2>
+<p>Grouped by when it should happen relative to putting this on a public Hetzner IP for the first time.</p>
+
+<h3>Must fix before the first internet-facing deploy</h3>
+<ul class="checklist">
+  <li>(C1) Add a reverse proxy (Caddy recommended) terminating TLS; stop publishing backend/frontend ports directly.</li>
+  <li>(C2) Remove Postgres's host port mapping; move DB credentials to a generated secret in <code>.env</code>, not hardcoded in <code>docker-compose.yml</code>.</li>
+  <li>(C3) Gate <code>/auth/signup</code> behind an invite token, admin approval, or email-domain allow-list.</li>
+  <li>(H1) Add a startup check that refuses to boot on the default <code>JWT_SECRET</code>.</li>
+  <li>(H4) Add basic rate limiting to <code>/auth/login</code> and <code>/auth/signup</code>.</li>
+</ul>
+
+<h3>Fix soon after (first hardening pass)</h3>
+<ul class="checklist">
+  <li>(H2) Run both containers as a non-root user.</li>
+  <li>(H3) Add <code>.dockerignore</code> to both <code>backend/</code> and <code>frontend/</code>.</li>
+  <li>(M1) Validate article URL scheme (<code>http</code>/<code>https</code> only) in <code>NewsClient</code>.</li>
+  <li>(M3) Enforce a minimum password length in <code>SignupRequest</code>.</li>
+  <li>(M5) Add a cooldown to <code>/ingestion/run-now</code> independent of caller.</li>
+  <li>(L5) Confirm <code>VITE_API_BASE_URL</code> is set correctly for the real deployment before building the production frontend image.</li>
+</ul>
+
+<h3>Longer-term hardening</h3>
+<ul class="checklist">
+  <li>(M2) Consider a generic signup response if open signup is ever kept.</li>
+  <li>(M4) Shorten default JWT expiry and/or add server-side token revocation.</li>
+  <li>(L1) Add CSP/HSTS/security headers at the reverse-proxy layer.</li>
+  <li>(L2) Migrate off <code>python-jose</code>/<code>passlib</code> to more actively maintained equivalents.</li>
+  <li>(L3) Add a request body size cap at the proxy or ASGI layer.</li>
+  <li>(L4) Add structured audit logging for authentication events.</li>
+</ul>
+
+<footer>
+  NewsAtlas — security review conducted 2026-07-03 against commit <code>8dc14cd</code>, prior to any
+  production deployment. Intended as a working checklist for future Claude Code sessions implementing
+  fixes — re-run this review after the "must fix" items land and before the first real internet-facing
+  deploy.
+</footer>
+
+</body>
+</html>
