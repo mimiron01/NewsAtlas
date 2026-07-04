@@ -1,0 +1,33 @@
+# Reverse proxy + automatic HTTPS for NewsAtlas.
+#
+# DOMAIN should be a real public domain name pointing at this server for Caddy to obtain
+# a Let's Encrypt certificate automatically (ports 80 and 443 must be reachable from the
+# internet for the ACME challenge). Left at its default "localhost" for local/dev use,
+# where Caddy automatically issues a locally-trusted self-signed certificate instead.
+{$DOMAIN:localhost} {
+	encode gzip zstd
+
+	# Defense-in-depth request size cap (app also enforces this — see
+	# app/core/body_limit.py — but rejecting oversized requests here means the
+	# backend never even sees them).
+	request_body {
+		max_size 2MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(), camera=(), microphone=()"
+		-Server
+	}
+
+	handle_path /api/* {
+		reverse_proxy backend:8000
+	}
+
+	handle {
+		reverse_proxy frontend:4173
+	}
+}
