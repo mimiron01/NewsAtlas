@@ -54,6 +54,39 @@ cd backend
 pytest
 ```
 
+### Windows setup
+
+The commands above are written for macOS/Linux shells; they work unchanged in
+**Git Bash** on Windows. If you'd rather use **PowerShell**, here's the
+equivalent:
+
+Backend:
+
+```powershell
+cd backend
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+alembic upgrade head
+# APP_ENV defaults to "development", which allows the insecure built-in
+# defaults below — never set APP_ENV=production without also setting
+# JWT_SECRET and SIGNUP_INVITE_CODE (see .env.example).
+$env:SIGNUP_INVITE_CODE = "dev-invite-code"
+uvicorn app.main:app --reload
+```
+
+If activation fails with a "running scripts is disabled" error, run
+`Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned` in that
+PowerShell session first.
+
+Frontend and backend tests are identical to the macOS/Linux commands above —
+`npm install` / `npm run dev` and `pytest` work the same in PowerShell/cmd.
+
+You'll also need a local PostgreSQL instance to point `DATABASE_URL` at (the
+[Windows installer](https://www.postgresql.org/download/windows/) or
+`docker run -e POSTGRES_PASSWORD=... -p 5432:5432 postgres:16-alpine` both
+work).
+
 ## Deploying with Docker Compose (e.g. a Hetzner VPS)
 
 This is the intended production path: Postgres, the API, and the frontend run
@@ -64,6 +97,11 @@ the host.
 ```bash
 cp .env.example .env
 ```
+
+On Windows, run this in Git Bash, or `copy .env.example .env` in PowerShell/cmd.
+For the `openssl rand ...` commands below, either use Git Bash (`openssl` is
+bundled with Git for Windows) or the cross-platform equivalent
+`python -c "import secrets; print(secrets.token_hex(24))"`.
 
 Then edit `.env` and set, at minimum:
 
