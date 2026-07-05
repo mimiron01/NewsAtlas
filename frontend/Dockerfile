@@ -13,8 +13,10 @@ RUN npm run build
 
 FROM node:22-slim
 WORKDIR /app
+# node:22-slim already ships a "node" user at UID 1000, so let useradd pick a free UID
+# instead of hardcoding one (avoids "UID 1000 is not unique" build failures).
 RUN npm install -g serve \
-    && useradd --create-home --uid 1000 --shell /usr/sbin/nologin appuser
+    && useradd --create-home --shell /usr/sbin/nologin appuser
 COPY --from=build --chown=appuser:appuser /app/dist ./dist
 USER appuser
 EXPOSE 4173
