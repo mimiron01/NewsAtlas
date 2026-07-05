@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -60,10 +61,18 @@ def run_ingestion(
         articles_fetched += len(fetched_articles)
 
         new_articles: list[Article] = []
+        seen_urls: set[str] = set()
         for fetched in fetched_articles:
+            # Guards against the same URL appearing twice in one fetch response, not just
+            # against previously-ingested articles: the batched commit below means the DB
+            # query alone (autoflush is off) wouldn't see a duplicate added earlier in this
+            # same loop, and Article.url has a unique constraint.
+            if fetched.url in seen_urls:
+                continue
             existing = db.query(Article).filter(Article.url == fetched.url).first()
             if existing is not None:
                 continue
+            seen_urls.add(fetched.url)
             article = Article(
                 target_company_id=target_company.id,
                 source_name=fetched.source_name,
@@ -140,6 +149,11 @@ def _process_new_articles(
             Article.target_company_id == target_company.id,
             Article.embedding.isnot(None),
             ~Article.id.in_(new_article_ids),
+            # Articles that failed summarization (transient Mistral outage, etc.) never
+            # reached a settled outcome — they shouldn't anchor future dedupe decisions,
+            # or a real story could get silently marked "duplicate" of a failed attempt
+            # and never actually get summarized once the outage clears.
+            or_(Article.skip_reason.is_(None), Article.skip_reason != "ai_error"),
         )
         .order_by(Article.fetched_at.desc())
         .limit(RECENT_ARTICLES_FOR_DEDUPE)
@@ -156,6 +170,10 @@ def _process_new_articles(
                 article.skip_reason = "duplicate"
                 db.commit()
                 duplicates_skipped += 1
+                # Still added as a dedupe anchor: a later article in this same batch may
+                # be a closer paraphrase of THIS duplicate than of the original, so
+                # dropping it from the pool would miss transitive duplicate chains.
+                candidates.insert(0, article)
                 continue
             candidates.insert(0, article)
 
@@ -170,7 +188,10 @@ def _process_new_articles(
                 )
                 _log_usage(db, "triage", ai_client.triage_model, triage_usage, target_company.id)
             except AIClientError as exc:
-                errors.append(f"[{target_company.name}] triage failed for {article.url}: {exc}")
+                errors.append(
+                    f"[{target_company.name}] triage failed for {article.url}: {exc} "
+                    "(proceeding to full summarization without the cost-saving triage filter)"
+                )
                 triage = None
             if triage is not None and not triage.relevant:
                 article.skip_reason = "triaged_out"

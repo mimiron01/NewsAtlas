@@ -1,8 +1,11 @@
 import json
+import logging
 import math
 
 import httpx
 from pydantic import BaseModel, ValidationError, field_validator
+
+logger = logging.getLogger("newsatlas.ai_client")
 
 _SIGNAL_TYPES = (
     "funding",
@@ -93,19 +96,33 @@ class AISummaryResult(BaseModel):
     @field_validator("signal_type")
     @classmethod
     def _normalize_signal_type(cls, value: str) -> str:
-        value = (value or "").strip().lower().replace(" ", "_")
-        return value if value in _SIGNAL_TYPES else "other"
+        normalized = (value or "").strip().lower().replace(" ", "_")
+        if normalized in _SIGNAL_TYPES:
+            return normalized
+        logger.warning("Mistral returned unrecognized signal_type %r; coercing to 'other'", value)
+        return "other"
 
     @field_validator("confidence")
     @classmethod
     def _normalize_confidence(cls, value: str) -> str:
-        value = (value or "").strip().lower()
-        return value if value in ("low", "medium", "high") else "medium"
+        normalized = (value or "").strip().lower()
+        if normalized in ("low", "medium", "high"):
+            return normalized
+        logger.warning("Mistral returned unrecognized confidence %r; coercing to 'medium'", value)
+        return "medium"
 
 
 class TriageResult(BaseModel):
     relevant: bool
     reason: str = ""
+
+
+def _sum_usage(a: MistralUsage, b: MistralUsage) -> MistralUsage:
+    return MistralUsage(
+        prompt_tokens=a.prompt_tokens + b.prompt_tokens,
+        completion_tokens=a.completion_tokens + b.completion_tokens,
+        total_tokens=a.total_tokens + b.total_tokens,
+    )
 
 
 def _cosine_similarity(a: list[float], b: list[float]) -> float:
@@ -190,12 +207,17 @@ class AIClient:
         ]
 
         last_error: Exception | None = None
+        # Every attempt that reaches Mistral is a real, billed call — including ones that
+        # come back malformed — so usage is accumulated across attempts rather than only
+        # keeping the last one, to keep ai_usage_logs an accurate cost record.
+        cumulative_usage = MistralUsage()
         for _ in range(self.MAX_ATTEMPTS):
             content: str | None = None
             try:
                 content, usage = self._chat(self.model, messages, temperature=0.3)
+                cumulative_usage = _sum_usage(cumulative_usage, usage)
                 data = json.loads(content)
-                return AISummaryResult.model_validate(data), usage
+                return AISummaryResult.model_validate(data), cumulative_usage
             except (httpx.HTTPError, json.JSONDecodeError, ValidationError) as exc:
                 last_error = exc
                 if content is not None:
@@ -254,10 +276,14 @@ class AIClient:
                 f"{self.BASE_URL}/embeddings", headers=headers, json=payload, timeout=self.timeout
             )
             response.raise_for_status()
-        except httpx.HTTPError as exc:
+            body = response.json()
+            # Sort by the response's own index rather than trusting array order, so a
+            # provider that reorders results doesn't silently attach the wrong embedding
+            # to the wrong article.
+            items = sorted(body["data"], key=lambda item: item["index"])
+            vectors = [item["embedding"] for item in items]
+        except (httpx.HTTPError, json.JSONDecodeError, KeyError, TypeError) as exc:
             raise AIClientError(f"Mistral embeddings request failed: {exc}")
-        body = response.json()
-        vectors = [item["embedding"] for item in body["data"]]
         usage_body = body.get("usage", {})
         usage = MistralUsage(
             prompt_tokens=usage_body.get("prompt_tokens", 0),

@@ -201,6 +201,68 @@ def test_ingestion_skips_semantic_duplicate_without_summarizing(db_session):
     assert duplicate_article.duplicate_of_article_id is not None
 
 
+def test_ingestion_dedupes_same_url_within_single_fetch_response(db_session):
+    """A single NewsAPI response containing the same URL twice must not crash the
+    batched insert (Article.url is unique) — regression test for the batching refactor
+    that moved from a per-article commit to a single commit per fetch batch."""
+    _make_target_company(db_session)
+    news = FakeNewsClient(
+        {
+            "Acme Corp": [
+                _article("Acme raises $10M", "https://example.com/acme-funding"),
+                _article("Acme raises $10M", "https://example.com/acme-funding"),
+            ]
+        }
+    )
+
+    result = run_ingestion(db_session, news_client=news, ai_client=FakeAIClient())
+
+    assert result.articles_fetched == 2
+    assert result.articles_new == 1
+    assert result.signals_created == 1
+    assert db_session.query(Article).count() == 1
+
+
+def test_ingestion_does_not_dedupe_against_a_failed_article(db_session):
+    """An article that failed summarization (ai_error) must not become a dedupe anchor —
+    otherwise a later near-duplicate of the same story would be silently marked
+    'duplicate' and dropped even after the transient failure clears."""
+    _make_target_company(db_session)
+    same_vector = [1.0, 0.0, 0.0]
+
+    run_ingestion(
+        db_session,
+        news_client=FakeNewsClient(
+            {"Acme Corp": [_article("Acme raises $10M", "https://example.com/acme-funding-a")]}
+        ),
+        ai_client=FailingAIClient(),
+    )
+    failed_article = db_session.query(Article).filter(Article.url == "https://example.com/acme-funding-a").first()
+    assert failed_article.skip_reason == "ai_error"
+    assert failed_article.embedding is not None
+
+    ai = FakeAIClient(
+        embeddings_by_title={"Acme raises ten million dollars": same_vector}
+    )
+    result = run_ingestion(
+        db_session,
+        news_client=FakeNewsClient(
+            {
+                "Acme Corp": [
+                    _article(
+                        "Acme raises ten million dollars", "https://example.com/acme-funding-b"
+                    )
+                ]
+            }
+        ),
+        ai_client=ai,
+    )
+
+    assert result.duplicates_skipped == 0
+    assert result.signals_created == 1
+    assert ai.summarize_calls == ["Acme raises ten million dollars"]
+
+
 def test_ingestion_skips_triaged_out_article_without_summarizing(db_session):
     _make_target_company(db_session)
     ai = FakeAIClient(not_relevant_titles={"Acme's softball team wins local league"})

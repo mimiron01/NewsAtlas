@@ -70,7 +70,7 @@ def upgrade() -> None:
     op.create_table(
         'ai_usage_logs',
         sa.Column('id', postgresql.UUID(as_uuid=True), primary_key=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column('created_at', sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column('call_type', sa.String(length=32), nullable=False),
         sa.Column('model', sa.String(length=64), nullable=False),
         sa.Column('prompt_tokens', sa.Integer(), nullable=False, server_default='0'),
