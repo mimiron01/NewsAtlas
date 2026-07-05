@@ -157,6 +157,41 @@
     font-size: 0.9rem;
   }
 
+  .solution {
+    border-left: 4px solid var(--ok);
+    background: #f3fbf7;
+    padding: 4px 20px 14px;
+    margin: 14px 0 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.9rem;
+  }
+  .solution h4 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--ok);
+    margin: 14px 0 4px;
+  }
+  .solution ol, .solution ul { margin: 6px 0 6px 20px; padding: 0; }
+  .solution li { margin-bottom: 8px; }
+  .solution pre { margin: 8px 0; background: #ffffff; }
+  .dod {
+    font-size: 0.85rem;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+  }
+  .dod strong { color: var(--ok); }
+
+  .update-banner {
+    border-left: 4px solid var(--ok);
+    background: #e9f9f1;
+    padding: 14px 18px;
+    margin: 20px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.92rem;
+  }
+
   ul.checklist { list-style: none; padding-left: 4px; }
   ul.checklist li { margin-bottom: 8px; }
   ul.checklist li::before { content: "☐ "; color: var(--muted); }
@@ -196,6 +231,14 @@
   fun, easy, and intuitive — most importantly for the person who has to open this dashboard every
   day and triage a growing list of signals.
 </p>
+
+<div class="update-banner">
+  <strong>Update — 2026-07-05: a concrete proposed solution has been added for every finding.</strong>
+  Each finding below (F1–F13) now includes a "Proposed solution" block with the implementation
+  approach, ordered steps, file/code pointers into the existing codebase, and a "Definition of
+  done" so any of these can be picked up and implemented directly — by a person or by Claude Code —
+  without re-deriving the design first.
+</div>
 
 <nav class="toc">
   <h2>Contents</h2>
@@ -266,12 +309,30 @@
     signals from their phone between meetings — a very plausible use case for this product — gets an
     unusable page.
   </p>
-  <div class="recommendation">
-    <strong>Recommendation:</strong> add a breakpoint (e.g. 720px) that turns the sidebar into a
-    collapsible top bar or off-canvas drawer, and let <code>.content</code> use fluid width with
-    padding instead of a hard <code>max-width</code> ceiling only. This is a CSS-only change to
-    <code>styles.css</code> plus a small toggle button/state in <code>ProtectedLayout.tsx</code> —
-    no data or routing changes needed.
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Add a breakpoint that turns the sidebar into an off-canvas drawer toggled by a hamburger button, and let content use fluid width.</p>
+    <ol>
+      <li>Add <code>const [isNavOpen, setIsNavOpen] = useState(false);</code> to <code>ProtectedLayout.tsx</code>, and a <code>&lt;button className="nav-toggle" aria-label="Toggle navigation" onClick={() =&gt; setIsNavOpen((v) =&gt; !v)}&gt;☰&lt;/button&gt;</code> rendered before <code>&lt;aside&gt;</code>.</li>
+      <li>Give <code>&lt;aside className={`sidebar ${isNavOpen ? "open" : ""}`}&gt;</code> the conditional class, and close it on navigation (<code>useEffect</code> on <code>useLocation()</code> calling <code>setIsNavOpen(false)</code>).</li>
+      <li>Add the breakpoint to <code>styles.css</code>:
+<pre><code>.nav-toggle { display: none; }
+
+@media (max-width: 720px) {
+  .nav-toggle { display: block; }
+  .app-shell { flex-direction: column; }
+  .sidebar {
+    position: fixed; inset: 0 25% 0 0; z-index: 20;
+    transform: translateX(-100%);
+    transition: transform 200ms ease;
+  }
+  .sidebar.open { transform: translateX(0); }
+  .content { max-width: 100%; padding: 16px; }
+}</code></pre>
+      </li>
+      <li>Add a semi-transparent backdrop <code>&lt;div&gt;</code> behind the open drawer that closes it on click, so the pattern matches standard mobile nav conventions.</li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> at 375px viewport width, no horizontal scroll appears anywhere in the app, the sidebar is reachable via the toggle, and closes itself after picking a destination.</p>
   </div>
 </div>
 
@@ -285,11 +346,31 @@
     easy, silent way to lose real triage history with a single misclick — there's no visual "are you
     sure" friction that destructive actions conventionally get.
   </p>
-  <div class="recommendation">
-    <strong>Recommendation:</strong> add a lightweight confirm step (an inline "Delete? Confirm / Cancel"
-    swap on the button, or a small modal) before calling <code>api.delete</code>. If soft-delete is
-    feasible on the backend, an "Undo" toast for a few seconds is an even better pattern than a blocking
-    confirm dialog.
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Require a second, explicit click before anything is deleted, using a plain inline state swap — no modal library needed.</p>
+    <ol>
+      <li>Add <code>const [confirmingId, setConfirmingId] = useState&lt;string | null&gt;(null);</code> in <code>SettingsTargets.tsx</code>.</li>
+      <li>Replace the delete button per row with:
+<pre><code>{confirmingId === company.id ? (
+  &lt;&gt;
+    &lt;button type="button" className="danger"
+      onClick={async () =&gt; { await remove(company); setConfirmingId(null); }}&gt;
+      Confirm delete
+    &lt;/button&gt;
+    &lt;button type="button" onClick={() =&gt; setConfirmingId(null)}&gt;Cancel&lt;/button&gt;
+  &lt;/&gt;
+) : (
+  &lt;button type="button" className="danger"
+    onClick={() =&gt; setConfirmingId(company.id)}&gt;
+    Delete
+  &lt;/button&gt;
+)}</code></pre>
+      </li>
+      <li>Reset <code>confirmingId</code> whenever the list reloads, so a stale confirm state can't linger after a delete elsewhere in the list.</li>
+      <li><em>Stretch:</em> if the backend adds soft-delete, skip the confirm step entirely and instead show an "Undo" toast (see F5) for ~5 seconds that calls a restore endpoint — friendlier than a blocking confirm for a reversible action.</li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> a single click on "Delete" never removes data; deletion only happens after a second, distinctly-labeled click.</p>
   </div>
 </div>
 
@@ -308,11 +389,23 @@
     this is the single biggest thing standing between the app and feeling "easy," since it's the most
     repeated interaction in the whole product.
   </p>
-  <div class="recommendation">
-    <strong>Recommendation:</strong> add secondary status-transition buttons directly on each
-    <code>signal-row</code> in the feed (they can reuse the existing <code>secondary</code>/<code>danger</code>
-    button styles), and consider a keyboard-driven triage mode once inline actions exist. This is the
-    highest-leverage single change in this review.
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Move status transitions onto the feed itself (optimistic, no navigation), then layer bulk and keyboard actions on top.</p>
+    <ol>
+      <li>Extract <code>STATUS_TRANSITIONS</code> out of <code>SignalDetail.tsx</code> into a shared module (e.g. <code>frontend/src/constants/signalStatus.ts</code>) so both the feed and the detail page use the same list.</li>
+      <li>In <code>SignalsFeed.tsx</code>, add an optimistic transition helper and render the transition buttons inline in <code>.signal-row-main</code>:
+<pre><code>async function transitionSignal(id: string, status: SignalStatus) {
+  const updated = await api.patch&lt;Signal&gt;(`/signals/${id}`, { status });
+  setSignals((prev) =&gt; prev.map((s) =&gt; (s.id === id ? updated : s)));
+}</code></pre>
+        Stop the click from also following the <code>Link</code> to the detail page with <code>event.preventDefault(); event.stopPropagation();</code> on the button handler.
+      </li>
+      <li>Add a checkbox per row plus a "select all" control in the toolbar; track selection in <code>const [selectedIds, setSelectedIds] = useState&lt;Set&lt;string&gt;&gt;(new Set());</code>.</li>
+      <li>Show a bulk-action bar when <code>selectedIds.size &gt; 0</code> with "Mark reviewed / Archive / Dismiss" buttons that run <code>Promise.all([...selectedIds].map((id) =&gt; transitionSignal(id, status)))</code>.</li>
+      <li><em>Stretch — keyboard triage:</em> track <code>focusedIndex</code> in state, add a <code>window</code> keydown listener for <code>j</code>/<code>k</code> (move focus), <code>r</code>/<code>a</code>/<code>d</code> (apply reviewed/archived/dismissed to the focused row), and give the focused row a visible highlight (<code>.signal-row.focused</code>).</li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> a signal's status can be changed without ever leaving the feed page, and 10 signals can be triaged in far fewer than 10 navigations via either inline row actions or the bulk bar.</p>
   </div>
 </div>
 
@@ -329,11 +422,21 @@
     A new user has to read carefully and self-navigate through three unconnected pages before the
     product produces any value.
   </p>
-  <div class="recommendation">
-    <strong>Recommendation:</strong> add a small onboarding checklist component on the feed page shown
-    only when company profile/targets are incomplete, with direct links (not just prose) to each
-    setup step, and gray out or hide "Fetch new signals" until at least one target company exists so
-    the empty-click dead-end can't happen.
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Add a conditional setup checklist and gate the ingestion action on having something to ingest for.</p>
+    <ol>
+      <li>In <code>SignalsFeed.tsx</code>, also load <code>/settings</code> alongside <code>/target-companies</code> (already fetched there) to know whether <code>offering_description</code> is empty and whether <code>companies.length === 0</code>.</li>
+      <li>Add a <code>&lt;SetupChecklist&gt;</code> component rendered above <code>.feed-toolbar</code> only when either condition is true, with three linked steps:
+        <ul>
+          <li>"Describe your company" → <code>&lt;Link to="/settings/profile"&gt;</code>, checked once <code>offering_description</code> is non-empty.</li>
+          <li>"Add a target company" → <code>&lt;Link to="/settings/targets"&gt;</code>, checked once <code>companies.length &gt; 0</code>.</li>
+          <li>"Fetch your first signals" → highlights the "Fetch new signals" button, checked once <code>signals.length &gt; 0</code>.</li>
+        </ul>
+      </li>
+      <li>Disable "Fetch new signals" with <code>disabled={companies.length === 0}</code> and a <code>title="Add a target company first"</code> tooltip, so the empty-click dead-end described in the current empty-state sentence can't happen.</li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> a brand-new workspace sees a 3-step checklist with working links instead of a single sentence, and the fetch action is unavailable (not just unhelpful) until there's something to fetch for.</p>
   </div>
 </div>
 
@@ -350,12 +453,16 @@
     <code>toggleActive</code> and <code>remove</code> in <code>SettingsTargets.tsx</code> — have no
     loading indicator or disabled state at all, so a double-click can fire the request twice.
   </p>
-  <div class="recommendation">
-    <strong>Recommendation:</strong> introduce one small shared toast/snackbar utility for
-    confirmations and errors (a single component, no library needed at this scale), add
-    <code>disabled</code>/pending state to every button that triggers a mutation, and use simple
-    skeleton placeholders (gray blocks matching the card layout) instead of a bare loading line for
-    the feed and detail pages.
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Add one small toast system, a generic skeleton placeholder, and consistent pending-state handling — none of it needs a dependency.</p>
+    <ol>
+      <li>Add <code>frontend/src/context/ToastContext.tsx</code> exporting a <code>ToastProvider</code> and <code>useToast()</code> hook returning <code>showToast(message, variant)</code>; render an <code>aria-live="polite"</code> fixed-position stack that auto-dismisses each toast after ~3s. Wrap <code>&lt;App /&gt;</code> with it in <code>main.tsx</code>.</li>
+      <li>Replace the ad-hoc <code>savedMessage</code>/inline "Settings saved." pattern in <code>SettingsProfile.tsx</code> with <code>showToast("Settings saved.", "success")</code>; do the same for other mutation confirmations and for surfaced <code>ApiError</code> messages across all four pages.</li>
+      <li>Add a small <code>&lt;Skeleton rows={n} /&gt;</code> component — a few <code>div</code>s styled with the existing <code>--border</code>/<code>--bg</code> tokens and a shared <code>@keyframes pulse { 50% { opacity: .5; } }</code> — and swap it in for the bare <code>"Loading signals..."</code> / <code>"Loading..."</code> / <code>"Loading settings..."</code> text in <code>SignalsFeed.tsx</code>, <code>SignalDetail.tsx</code>, and <code>SettingsProfile.tsx</code>.</li>
+      <li>Add local pending state around <code>toggleActive</code> and <code>remove</code> in <code>SettingsTargets.tsx</code> (currently the only two mutations in the app with no loading/disabled state at all) and disable that row's buttons while the request is in flight.</li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> every mutation in the app shows a pending state on its trigger, confirms or errors via a toast, and can't be double-fired by a fast double-click; every page's loading state preserves the layout shape instead of a layout jump.</p>
   </div>
 </div>
 
@@ -369,11 +476,25 @@
     signals accumulate over weeks, this list will grow unbounded in one render — both a usability
     problem (can't find an older signal about a specific keyword) and eventually a performance one.
   </p>
-  <div class="recommendation">
-    <strong>Recommendation:</strong> add a search input (client-side filter is fine at current scale;
-    server-side once volume grows) and a sort control (newest first is a sensible default already
-    implied, but should be explicit), plus basic pagination or infinite scroll once list length passes
-    ~50 items.
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Add client-side search and sort now (cheap, no backend change), and plan a paginated path for when volume grows.</p>
+    <ol>
+      <li>Add a search <code>&lt;input&gt;</code> to the filter panel in <code>SignalsFeed.tsx</code>, and derive the rendered list with:
+<pre><code>const visibleSignals = useMemo(() =&gt; {
+  const q = searchQuery.trim().toLowerCase();
+  if (!q) return signals;
+  return signals.filter((s) =&gt;
+    s.article_title.toLowerCase().includes(q) ||
+    s.summary.toLowerCase().includes(q) ||
+    s.target_company_name.toLowerCase().includes(q)
+  );
+}, [signals, searchQuery]);</code></pre>
+      </li>
+      <li>Add a sort <code>&lt;select&gt;</code> ("Newest first" / "Oldest first") and sort <code>visibleSignals</code> by <code>created_at</code> accordingly before rendering.</li>
+      <li>Once a workspace's signal count regularly exceeds ~50, extend <code>loadSignals()</code> to pass <code>limit</code>/<code>offset</code> query params and add a "Load more" button (or an intersection-observer-triggered infinite scroll) instead of fetching the full history on every load.</li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> a user can find a specific past signal by typing a keyword or company name without scrolling the full history, and the feed stays fast as signal volume grows over weeks.</p>
   </div>
 </div>
 
@@ -389,12 +510,21 @@
     internally consistent, which is good, but it reads as an admin/internal tool rather than a product
     a user would enjoy opening every day — directly working against the "fun" half of the brief.
   </p>
-  <div class="recommendation">
-    <strong>Recommendation:</strong> add a small icon set (e.g. inline SVGs, no need for an icon
-    library dependency) for sidebar nav items and status badges, add subtle <code>transition</code> on
-    hover/active states for buttons and signal rows (150ms ease is enough), and add one small piece of
-    illustration or brand personality to the empty/onboarding state and the login screen, which are
-    currently just a form on a gray background.
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Layer in an icon set, motion, and a touch of illustration incrementally — no new dependency required.</p>
+    <ol>
+      <li>Add a small local icon set as inline SVG components under <code>frontend/src/components/icons/</code> (e.g. <code>SignalsIcon</code>, <code>ProfileIcon</code>, <code>TargetsIcon</code> for the sidebar; a status-specific glyph for each <code>status-badge</code> variant) — each just a plain <code>&lt;svg&gt;</code> functional component, no icon-font or package needed.</li>
+      <li>Add global transitions in <code>styles.css</code>:
+<pre><code>button, a.signal-row, .sidebar nav a, .target-list li {
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+button:hover:not(:disabled) { transform: translateY(-1px); }
+a.signal-row:hover { background: var(--bg); }</code></pre>
+      </li>
+      <li>Add one reusable empty-state illustration (a simple inline SVG — e.g. a stylized radar/newspaper glyph in <code>--accent</code>) used both on the empty signals feed and beside the login form, paired with warmer copy than the current single muted sentence.</li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> the sidebar and status badges use icons alongside text, hovering any interactive element produces a visible response, and the two most "blank" screens (empty feed, login) no longer read as bare forms on gray backgrounds.</p>
   </div>
 </div>
 
@@ -412,10 +542,20 @@
     acceptable by eye but hasn't been measured against WCAG AA and should be audited, especially the
     0.68rem status-badge text.
   </p>
-  <div class="recommendation">
-    <strong>Recommendation:</strong> add a visible <code>:focus-visible</code> style (e.g. a 2px accent
-    outline) globally, run an automated contrast check (axe, Lighthouse) over all four pages, and treat
-    it as a standing requirement for any new icon-only control introduced in future work.
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Add a global focus style, audit contrast, and route status messaging through an accessible live region.</p>
+    <ol>
+      <li>Add to <code>styles.css</code> (purely additive — nothing currently suppresses the default outline, so this only improves consistency):
+<pre><code>:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}</code></pre>
+      </li>
+      <li>Run Lighthouse or axe DevTools against all four routes (login, feed, detail, settings); if <code>--muted</code> (<code>#5b6270</code> on <code>#f6f7fb</code>) or the 0.68rem status-badge text fails WCAG AA, darken <code>--muted</code> slightly (e.g. towards <code>#4b5361</code>) or bump the badge font-size — both are single-line changes since colors are centralized as CSS variables.</li>
+      <li>Once the toast system from F5 exists, ensure its container has <code>aria-live="polite"</code> so confirmations and errors are announced to screen reader users automatically, not just sighted ones.</li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> tabbing through any page shows a visible focus indicator at every stop, and an automated audit reports no critical color-contrast violations.</p>
   </div>
 </div>
 
@@ -433,11 +573,20 @@
     than the table-based structure that's still needed for consistent rendering in Outlook/older
     clients.
   </p>
-  <div class="recommendation">
-    <strong>Recommendation:</strong> add an unsubscribe/"manage email preferences" link pointing at the
-    settings page, generate a plain-text alternative alongside the HTML body, add a hidden preheader
-    span, and consider a minimal table-based layout if Outlook desktop is a realistic recipient client
-    for this audience.
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Bring the digest up to standard transactional-email practice: an unsubscribe path, a plain-text part, and a preview snippet.</p>
+    <ol>
+      <li>In <code>_render_digest_html()</code>, append a footer block with a preferences link, e.g. <code>&lt;a href="{frontend_base_url}/settings/profile"&gt;Manage email preferences&lt;/a&gt;</code> (or a dedicated unsubscribe endpoint if per-user opt-out is added later).</li>
+      <li>Add a sibling <code>_render_digest_text(rows)</code> in <code>digest.py</code> that builds a plain-text equivalent (company name, title, summary, "why it matters", and the article/signal URLs, one per line), and extend <code>EmailClient.send_email</code> (<code>backend/app/services/email_client.py</code>) to accept an optional <code>text_body</code> and send both parts as <code>multipart/alternative</code>.</li>
+      <li>Add a hidden preheader immediately after <code>&lt;body&gt;</code>:
+<pre><code>&lt;span style="display:none;max-height:0;overflow:hidden;"&gt;
+  {n} new signals: {first_company}, {second_company}...
+&lt;/span&gt;</code></pre>
+      </li>
+      <li>If Outlook desktop is a realistic client for this audience, wrap <code>items_html</code> in a single-column <code>&lt;table role="presentation" width="100%"&gt;</code> instead of nested <code>&lt;div&gt;</code>s, since Outlook's rendering engine (Word-based) handles tables far more reliably than flexbox-adjacent div layouts.</li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> every digest email includes a working preferences/unsubscribe link, renders sensibly with images/HTML blocked, and shows a useful preview line in inbox lists (Gmail, Outlook, Apple Mail).</p>
   </div>
 </div>
 
@@ -451,10 +600,23 @@
     article (potentially tens of seconds), a label change alone doesn't reassure the user that
     anything is actually happening versus the page being stuck.
   </p>
-  <div class="recommendation">
-    <strong>Recommendation:</strong> add a small spinner next to the button, and if the backend can
-    report incremental progress (e.g. "processing company 2 of 5"), surface that instead of a static
-    label.
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Add a visible animated indicator now, and real progress if the backend can support it later.</p>
+    <ol>
+      <li>Add a small CSS spinner to <code>styles.css</code>:
+<pre><code>@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,.4);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}</code></pre>
+        and render <code>{isRunningIngestion &amp;&amp; &lt;span className="spinner" /&gt;}</code> next to the button label in <code>SignalsFeed.tsx</code>.
+      </li>
+      <li><em>Stretch:</em> if <code>/ingestion/run-now</code> can be changed to report per-company progress (e.g. a polling <code>/ingestion/status</code> endpoint, or converting the run to a background job with a job id the frontend polls), replace the static "Fetching..." label with "Checking {company} ({i}/{n})".</li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> any ingestion run longer than ~2 seconds shows a visibly animating indicator, not just a static label swap that could be mistaken for a stuck page.</p>
   </div>
 </div>
 
@@ -470,10 +632,14 @@
     this is compact but easy to fat-finger (stray comma, no trim feedback, no visual confirmation of
     what will actually be saved as individual tags).
   </p>
-  <div class="recommendation">
-    <strong>Recommendation:</strong> show the password rule as static helper text under the field
-    (not just a browser validation popup), and consider a tag-input component for keywords that shows
-    each keyword as a removable chip as it's typed, rather than a raw comma-separated string.
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Make the password rule visible up front, and replace the raw comma-separated keyword field with a chip-style tag input.</p>
+    <ol>
+      <li>In <code>Login.tsx</code>, add a static <code>&lt;span className="subtitle"&gt;At least 10 characters&lt;/span&gt;</code> directly under the password <code>&lt;input&gt;</code>, always visible — not gated behind a failed submit.</li>
+      <li>Replace the keywords <code>&lt;input&gt;</code> in <code>SettingsTargets.tsx</code> with a small <code>&lt;TagInput&gt;</code> component that keeps <code>keywords: string[]</code> directly in state instead of a joined string: typing and pressing Enter/comma appends a chip, each chip renders with a small "×" to remove it, and Backspace on an empty input removes the last chip. Submit <code>keywords</code> as the array directly, dropping the current <code>.split(",").map(k =&gt; k.trim()).filter(Boolean)</code> parsing step entirely.</li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> the password rule is visible before a user ever submits the form, and adding/removing a keyword shows the exact list that will be saved, with no parsing surprises from stray commas or whitespace.</p>
   </div>
 </div>
 
@@ -489,11 +655,25 @@
     For a dashboard likely to be left open in a browser tab all day, this is a commonly-expected
     option its target audience (software/sales-tool users) will notice is missing.
   </p>
-  <div class="recommendation">
-    <strong>Recommendation:</strong> add a <code>prefers-color-scheme: dark</code> media query (or a
-    manual toggle storing a <code>data-theme</code> attribute) with one dark palette layered on the
-    existing variables — no component changes required since nothing hardcodes color outside
-    <code>styles.css</code>.
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Layer a dark palette onto the existing CSS variables and add a small persisted toggle.</p>
+    <ol>
+      <li>Add to <code>styles.css</code>:
+<pre><code>@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161b; --panel: #1c1f26; --fg: #e8eaed;
+    --muted: #9aa2b1; --border: #2a2e37; --accent: #6c93e8;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14161b; --panel: #1c1f26; --fg: #e8eaed;
+  --muted: #9aa2b1; --border: #2a2e37; --accent: #6c93e8;
+}</code></pre>
+      </li>
+      <li>Add a small toggle button in <code>.sidebar-footer</code> (<code>ProtectedLayout.tsx</code>) cycling light → dark → system, storing the choice in <code>localStorage</code> and setting <code>document.documentElement.dataset.theme</code> on load and on change.</li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> a dark palette is available, meets the same contrast bar validated in F8, can be toggled independently of the OS setting, and persists across reloads.</p>
   </div>
 </div>
 
@@ -507,9 +687,21 @@
     favicon, so the tab is also visually anonymous next to other open tabs. Both are quick wins for
     day-to-day orientation.
   </p>
-  <div class="recommendation">
-    <strong>Recommendation:</strong> set <code>document.title</code> per route (e.g. "Signals ·
-    NewsAtlas", article title on the detail page) and add a simple favicon.
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Add a tiny reusable title hook and a favicon asset.</p>
+    <ol>
+      <li>Add a <code>usePageTitle</code> hook (e.g. <code>frontend/src/hooks/usePageTitle.ts</code>):
+<pre><code>export function usePageTitle(title?: string) {
+  useEffect(() =&gt; {
+    document.title = title ? `${title} · NewsAtlas` : "NewsAtlas";
+  }, [title]);
+}</code></pre>
+        and call it in each page: <code>usePageTitle("Signals")</code> in <code>SignalsFeed.tsx</code>, <code>usePageTitle("Company profile")</code> in <code>SettingsProfile.tsx</code>, <code>usePageTitle("Target companies")</code> in <code>SettingsTargets.tsx</code>, and <code>usePageTitle(signal?.article_title)</code> in <code>SignalDetail.tsx</code> once the signal loads.
+      </li>
+      <li>Add a favicon file under <code>frontend/public/favicon.svg</code> (a simple mark, e.g. the accent-blue glyph proposed in F7) and reference it in <code>index.html</code>: <code>&lt;link rel="icon" href="/favicon.svg" type="image/svg+xml"&gt;</code>.</li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> each open tab shows a distinct, meaningful title (e.g. the signal's article title on its detail page) and a NewsAtlas favicon instead of the browser default.</p>
   </div>
 </div>
 
@@ -555,10 +747,11 @@
 </table>
 
 <footer>
-  Prepared as a source-only design review (no dynamic/browser testing performed). Re-run after any
-  significant frontend changes, and validate contrast/responsive fixes in an actual browser once
-  implemented — see the <code>verify</code> skill for exercising changes end-to-end before considering
-  them complete.
+  Prepared as a source-only design review (no dynamic/browser testing performed); solutions were
+  added in a follow-up pass with concrete implementation steps for each finding, so the roadmap
+  above is directly actionable. Re-run after any significant frontend changes, and validate
+  contrast/responsive fixes in an actual browser once implemented — see the <code>verify</code>
+  skill for exercising changes end-to-end before considering them complete.
 </footer>
 
 </body>
