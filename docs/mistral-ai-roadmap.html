@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NewsAtlas — Mistral AI Usage Analysis &amp; Expansion Roadmap</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6270;
+    --accent: #2757c7;
+    --accent-bg: #eef2fc;
+    --border: #e2e5ea;
+    --code-bg: #f5f6f8;
+    --ok: #1a7f4e;
+    --warn: #a15c00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.1rem; margin-top: 28px; color: var(--fg); }
+  h4 { font-size: 1rem; margin-top: 20px; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  .meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 12px 0 32px;
+    padding: 12px 16px;
+    background: var(--accent-bg);
+    border-radius: 8px;
+  }
+  .meta strong { color: var(--fg); }
+  nav.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin: 24px 0 40px;
+  }
+  nav.toc h2 { margin-top: 0; border: none; font-size: 1.05rem; padding-bottom: 4px; }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.92rem; }
+  nav.toc a:hover { text-decoration: underline; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--code-bg); font-weight: 600; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+  .decision {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-bg);
+    padding: 10px 16px;
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .decision strong { color: var(--accent); }
+  .phase {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .phase h4 { margin-top: 0; display: flex; align-items: center; gap: 10px; }
+  .phase-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 20px;
+  }
+  .assumption {
+    border-left: 4px solid var(--warn);
+    background: #fdf4e3;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+  ul.checklist { list-style: none; padding-left: 4px; }
+  ul.checklist li::before { content: "☐ "; color: var(--muted); }
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+    font-size: 0.82rem;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.4;
+  }
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    margin-left: 6px;
+  }
+  .idea {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .idea h4 { margin-top: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .impact {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 20px;
+    color: white;
+  }
+  .impact-high { background: var(--ok); }
+  .impact-med { background: var(--warn); }
+  .impact-low { background: var(--muted); }
+  .gap-row td:first-child { font-weight: 600; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<h1>NewsAtlas</h1>
+<p class="subtitle">Mistral AI usage analysis &amp; expansion roadmap — deepening the AI layer to deliver higher-value sales insights</p>
+
+<div class="meta">
+  <div><strong>Status:</strong> Analysis + proposal, not yet scoped into sprints</div>
+  <div><strong>Scope:</strong> The single Mistral integration point (<code>AIClient</code>) and everything downstream of it</div>
+  <div><strong>Companion docs:</strong> <a href="planning.html">planning.html</a> (architecture), <a href="security-review.html">security-review.html</a>, <a href="ui-ux-review.html">ui-ux-review.html</a></div>
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">1. Summary</a></li>
+    <li><a href="#current">2. Current implementation</a></li>
+    <li><a href="#gaps">3. Gaps &amp; limitations</a></li>
+    <li><a href="#principle">4. Guiding principle for new ideas</a></li>
+    <li><a href="#ideas-quality">5. Signal quality &amp; prioritization</a></li>
+    <li><a href="#ideas-memory">6. Retrieval, memory &amp; embeddings</a></li>
+    <li><a href="#ideas-workflow">7. Sales-workflow fit &amp; personalization</a></li>
+    <li><a href="#ideas-efficiency">8. Cost, resilience &amp; efficiency</a></li>
+    <li><a href="#matrix">9. Impact vs. effort matrix</a></li>
+    <li><a href="#roadmap">10. Suggested phasing</a></li>
+    <li><a href="#questions">11. Open questions</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">1. Summary</h2>
+<p>
+  NewsAtlas has exactly one Mistral integration point today: a single chat-completions call per
+  ingested article that produces a summary, a business-relevance explanation, and an outreach
+  snippet. It works, but it uses Mistral as a one-shot text formatter rather than as a
+  sales-intelligence engine. Every signal is treated as equally important, duplicate coverage of
+  the same event from multiple outlets produces duplicate signals, useful metadata already
+  collected (target company industry) never reaches the prompt, and there is no memory across
+  signals for the same account. The ideas below are organized around one question: <strong>what
+  would make a sales rep trust this feed enough to act on it first, before checking anything
+  else?</strong> That means better prioritization, less noise, more account context, and outputs
+  shaped for how reps actually work outreach — not just more AI calls.
+</p>
+
+<h2 id="current">2. Current implementation</h2>
+<p>Mistral is called from exactly one place: <code>AIClient.summarize_article()</code> in
+<code>backend/app/services/ai_client.py</code>, invoked once per newly-ingested article from
+<code>backend/app/services/ingestion.py</code>.</p>
+
+<table>
+<tr><th>Aspect</th><th>Current state</th></tr>
+<tr><td>Client</td><td>No SDK — raw <code>httpx.post</code> to <code>https://api.mistral.ai/v1/chat/completions</code></td></tr>
+<tr><td>Model</td><td><code>mistral-large-latest</code> (env-configurable via <code>MISTRAL_MODEL</code>, one model for every call)</td></tr>
+<tr><td>Call shape</td><td>One synchronous request per article; <code>temperature=0.3</code>, Mistral JSON mode (<code>response_format: json_object</code>), no <code>max_tokens</code>/<code>top_p</code>/streaming</td></tr>
+<tr><td>Prompt inputs</td><td>Workspace <code>company_name</code> + <code>offering_description</code>, target company <em>name</em>, article title + description</td></tr>
+<tr><td>Output contract</td><td><code>{summary, business_relevance, outreach_snippet}</code> — validated against a Pydantic model</td></tr>
+<tr><td>Retry</td><td>One retry on JSON/validation/HTTP failure, then the article is skipped (no signal created)</td></tr>
+<tr><td>Fallback provider</td><td>None — single provider by design</td></tr>
+<tr><td>Downstream</td><td><code>signals</code> table → dashboard (<code>SignalDetail.tsx</code>, <code>SignalsFeed.tsx</code>) → daily HTML/text email digest (<code>digest.py</code>)</td></tr>
+</table>
+
+<h2 id="gaps">3. Gaps &amp; limitations</h2>
+<p>These are things the codebase either does today in a way that limits insight quality, or was
+explicitly planned but never implemented:</p>
+<table>
+<tr><th>Gap</th><th>Where it shows up</th></tr>
+<tr class="gap-row"><td>No prioritization</td><td>Every signal is equal weight — the digest email and dashboard list signals in creation order, not by importance. A rep has to read everything to find the one deal-relevant item.</td></tr>
+<tr class="gap-row"><td>Unused metadata</td><td><code>TargetCompany.industry</code> is collected in settings but never passed into the prompt (<code>ai_client.py</code> only receives <code>target_company_name</code>) — industry-specific framing is thrown away.</td></tr>
+<tr class="gap-row"><td>No cross-source dedupe</td><td>Ingestion dedupes only on exact article <code>url</code> (<code>ingestion.py:52</code>); the same story from two outlets produces two full Mistral calls and two near-duplicate signals in the feed.</td></tr>
+<tr class="gap-row"><td>No memory across signals</td><td>Each article is summarized in isolation — the model has no idea a target company already generated 3 signals this month, so it can't say "this is a continuation of X."</td></tr>
+<tr class="gap-row"><td>No cost tracking</td><td>The original plan called for logging token usage per call for cost tracking (<code>planning.html:422</code>) — never implemented; spend is invisible until the Mistral invoice arrives.</td></tr>
+<tr class="gap-row"><td>Single fixed model for every call</td><td>Simple filtering ("is this article even worth summarizing?") uses the same large model as full synthesis — no cost/latency tiering.</td></tr>
+<tr class="gap-row"><td>One-size-fits-all output</td><td>A single outreach snippet regardless of channel (email vs. LinkedIn vs. cold call) — noted as a future idea in <code>planning.html:607</code>, never built.</td></tr>
+<tr class="gap-row"><td>No feedback loop</td><td>Marking a signal "dismissed" in the dashboard has no effect on future summarization/filtering — also called out in <code>planning.html:606</code> as deferred.</td></tr>
+</table>
+
+<h2 id="principle">4. Guiding principle for new ideas</h2>
+<p>
+  Sales reps are not paid to read news — they're paid to have relevant, timely conversations.
+  Every idea below is filtered through: <em>does this reduce the time between "news happens" and
+  "rep has a specific, confident reason to reach out"?</em> Ideas that just generate more AI text
+  without improving signal, ranking, or specificity were deliberately left out.
+</p>
+
+<h2 id="ideas-quality">5. Signal quality &amp; prioritization</h2>
+
+<div class="idea">
+<h4>Urgency/relevance scoring <span class="impact impact-high">High impact</span></h4>
+<p>Add a numeric <code>relevance_score</code> (1–5) and a short <code>signal_type</code>
+(e.g. <code>funding</code>, <code>leadership_change</code>, <code>expansion</code>,
+<code>hiring_surge</code>, <code>competitor_mention</code>, <code>partnership</code>) to the
+existing structured-output contract — one extra field, same call, no extra Mistral spend. This
+directly fixes the "everything is equal weight" gap: the dashboard can sort/filter by score and
+type, and the email digest can lead with a "Top signals today" section instead of a flat
+chronological list.</p>
+<p><strong>Implementation:</strong> extend <code>AISummaryResult</code> and the system prompt with
+the two new fields and a short rubric (e.g. "5 = a clear, immediate buying trigger directly tied
+to our offering; 1 = tangentially related background news"); add <code>relevance_score</code> and
+<code>signal_type</code> columns to <code>signals</code>; sort <code>SignalsFeed.tsx</code> and
+<code>digest.py</code>'s query by score.</p>
+</div>
+
+<div class="idea">
+<h4>Buying-signal entity extraction <span class="impact impact-high">High impact</span></h4>
+<p>Have the same call extract structured facts a rep can scan in two seconds: dollar amounts
+mentioned, people/titles named, and a boolean-style tag set for common outreach triggers (new
+funding round, new office/expansion, executive hire, layoffs, product launch, competitor
+switching). This turns free-text summaries into filterable dashboard facets — "show me every
+funding-round signal from this month across all target companies" — which is exactly the kind of
+query a sales manager asks in a pipeline review.</p>
+<p><strong>Implementation:</strong> Mistral's JSON mode already supports nested objects; add an
+<code>entities</code> object to the schema and a <code>signal_tags</code> array. Store tags in a
+join table or a Postgres array column for filtering.</p>
+</div>
+
+<div class="idea">
+<h4>Grounding/confidence guardrail <span class="impact impact-med">Medium impact</span></h4>
+<p>Ask the model to include a <code>supporting_quote</code> field — a short verbatim excerpt from
+the article description that justifies the <code>business_relevance</code> claim — and a
+<code>confidence</code> value. Low-confidence signals (or ones where the quote can't be found in
+the source text) get a "low confidence" badge in the UI instead of being presented with the same
+authority as a well-grounded one. This matters for trust: a rep who acts on a hallucinated claim
+once stops trusting the whole feed.</p>
+</div>
+
+<h2 id="ideas-memory">6. Retrieval, memory &amp; embeddings</h2>
+
+<div class="idea">
+<h4>Semantic dedupe across sources with Mistral embeddings <span class="impact impact-high">High impact</span></h4>
+<p>Today dedupe is exact-URL-match only, so the same event covered by three outlets produces three
+Mistral calls and three near-identical signals in a rep's feed — actively hurting trust in the
+product. Embed each new article's title+description with <code>mistral-embed</code>, compare
+against recent articles for the same target company (cosine similarity via <code>pgvector</code>),
+and either skip re-summarizing near-duplicates or merge them into one signal citing multiple
+sources. This is both a quality win and a direct cost reduction (fewer chat-completion calls).</p>
+</div>
+
+<div class="idea">
+<h4>Account memory / continuity-aware summaries <span class="impact impact-med">Medium impact</span></h4>
+<p>Before summarizing a new article, retrieve the target company's most recent 2-3 prior signals
+(simple recency query, no vector search needed at this scale) and include them as context in the
+prompt. Ask the model to note continuity where relevant ("this is the second leadership change at
+Acme Corp in two months — may indicate a broader reorg"). Turns isolated blips into a narrative a
+rep can use, and is the single biggest lever for the "why does this matter more than yesterday's
+40 headlines" problem.</p>
+</div>
+
+<div class="idea">
+<h4>Conversational account Q&amp;A <span class="impact impact-med">Medium impact</span></h4>
+<p>On the Signal Detail / target-company page, let a rep type a free-form question ("has Acme Corp
+made any executive hires in the last quarter?") and answer it with a Mistral chat call grounded in
+that target company's stored signals/articles (retrieved by recency or embedding similarity).
+Turns the accumulated signal history into an on-demand research assistant instead of something a
+rep has to scroll through manually before a call.</p>
+</div>
+
+<h2 id="ideas-workflow">7. Sales-workflow fit &amp; personalization</h2>
+
+<div class="idea">
+<h4>Multi-channel outreach variants <span class="impact impact-high">High impact</span></h4>
+<p>Generate <code>outreach_snippet_email</code>, <code>outreach_snippet_linkedin</code>, and
+<code>outreach_snippet_call_opener</code> instead of one generic snippet — explicitly called out
+as a future idea in the original plan (<code>planning.html:607</code>) and still one of the
+highest-leverage, lowest-effort additions available: same call, richer structured output, directly
+usable by reps in whatever channel they're actually working that day.</p>
+</div>
+
+<div class="idea">
+<h4>Use the <code>industry</code> field that's already collected <span class="impact impact-med">Medium impact</span></h4>
+<p><code>TargetCompany.industry</code> exists in the schema and settings UI today but is silently
+dropped before reaching the prompt. Passing it through lets the model tailor
+<code>business_relevance</code> with industry-specific framing (e.g. compliance angle for
+healthcare, supply-chain angle for manufacturing) instead of generic language. Essentially free —
+no schema change, just plumb an existing field into <code>summarize_article()</code>.</p>
+</div>
+
+<div class="idea">
+<h4>Relevance feedback loop <span class="impact impact-med">Medium impact</span></h4>
+<p>The dashboard already has a "dismissed" status on signals (<code>SignalStatus.DISMISSED</code>)
+but it currently has zero effect on future output — also called out as deferred in
+<code>planning.html:606</code>. Feed a rolling sample of dismissed vs. reviewed signals back into
+the prompt as few-shot examples ("these were marked not relevant — avoid surfacing similar
+low-value angles"), or use dismissal patterns to tune the relevance-scoring rubric per workspace
+over time.</p>
+</div>
+
+<div class="idea">
+<h4>Weekly account intelligence briefing <span class="impact impact-med">Medium impact</span></h4>
+<p>Once a week, batch all of a target company's signals from that period into a single synthesis
+call producing one "account brief": what changed, the strongest outreach angle, and suggested
+next action. This is the kind of digestible, high-altitude output a sales manager (not just an
+individual rep) would actually forward to leadership — a different value proposition than the
+per-article feed.</p>
+</div>
+
+<h2 id="ideas-efficiency">8. Cost, resilience &amp; efficiency</h2>
+
+<div class="idea">
+<h4>Two-stage triage before full summarization <span class="impact impact-high">High impact</span></h4>
+<p>Run a cheap, fast <code>mistral-small-latest</code> classification pass first ("is this article
+relevant enough to a sales outreach use case to warrant full summarization? yes/no + one-line
+reason"), and only call <code>mistral-large-latest</code> for articles that pass. NewsAPI keyword
+matching is coarse, so a meaningful fraction of ingested articles are likely borderline-relevant;
+this directly reduces spend on the expensive model and reduces feed noise at the source, rather
+than filtering after the fact.</p>
+</div>
+
+<div class="idea">
+<h4>Token usage &amp; cost logging <span class="impact impact-med">Medium impact</span></h4>
+<p>The original architecture doc explicitly wanted this ("log token usage per call for later cost
+tracking," <code>planning.html:422</code>) and it was never built. Mistral's chat-completions
+response includes a <code>usage</code> object (prompt/completion/total tokens) that
+<code>AIClient._call()</code> currently discards entirely. Capture it per call, store on the
+<code>Signal</code> or a separate log table, and surface a simple spend dashboard — this is a
+prerequisite for safely turning on any of the higher-volume ideas above (weekly briefings,
+two-stage triage, embeddings) with visibility into what they cost.</p>
+</div>
+
+<div class="idea">
+<h4>Graceful model fallback <span class="impact impact-low">Lower impact</span></h4>
+<p><code>docs/security-review.html</code> already flags single-provider dependency as a residual
+risk. Rather than a full multi-provider abstraction, a smaller step: on repeated
+<code>mistral-large-latest</code> failure, retry once against <code>mistral-small-latest</code>
+before giving up on the article — cheap resilience win using a model already in the same account.</p>
+</div>
+
+<div class="idea">
+<h4>Streaming for the manual "run now" trigger <span class="impact impact-low">Lower impact</span></h4>
+<p><code>POST /ingestion/run-now</code> currently blocks until the whole batch finishes with no
+progress feedback. Streaming Mistral's response token-by-token (via SSE to the frontend) for a
+manually-triggered run would make the "run now" demo/testing path feel responsive — a UX polish
+item, not a core insight-quality lever.</p>
+</div>
+
+<h2 id="matrix">9. Impact vs. effort matrix</h2>
+<table>
+<tr><th>Idea</th><th>Sales value</th><th>Engineering effort</th><th>Notes</th></tr>
+<tr><td>Urgency/relevance scoring</td><td>High</td><td>Low</td><td>Same call, extra output fields + one migration</td></tr>
+<tr><td>Use existing <code>industry</code> field</td><td>Medium</td><td>Very low</td><td>No schema change at all</td></tr>
+<tr><td>Multi-channel outreach variants</td><td>High</td><td>Low</td><td>Same call, richer schema</td></tr>
+<tr><td>Buying-signal entity/tag extraction</td><td>High</td><td>Medium</td><td>Schema + dashboard filter UI</td></tr>
+<tr><td>Token usage &amp; cost logging</td><td>Medium (enabling)</td><td>Low</td><td>Unblocks safely scaling the rest</td></tr>
+<tr><td>Two-stage triage (small model filter)</td><td>Medium-High</td><td>Medium</td><td>Net cost reduction once live</td></tr>
+<tr><td>Semantic dedupe (embeddings)</td><td>High</td><td>Medium-High</td><td>Needs <code>pgvector</code> + embedding call per article</td></tr>
+<tr><td>Account memory / continuity summaries</td><td>High</td><td>Medium</td><td>Simple recency query, no new infra</td></tr>
+<tr><td>Relevance feedback loop</td><td>Medium</td><td>Medium</td><td>Needs enough dismissed-signal volume to be useful</td></tr>
+<tr><td>Weekly account briefing</td><td>Medium-High</td><td>Medium</td><td>New scheduled job, reuses existing signal data</td></tr>
+<tr><td>Conversational account Q&amp;A</td><td>Medium</td><td>High</td><td>New API surface + retrieval + frontend chat UI</td></tr>
+<tr><td>Confidence/grounding guardrail</td><td>Medium</td><td>Low</td><td>Same call, extra field</td></tr>
+<tr><td>Graceful model fallback</td><td>Low-Medium</td><td>Low</td><td>Resilience, not insight quality</td></tr>
+<tr><td>Streaming for manual trigger</td><td>Low</td><td>Medium</td><td>UX polish only</td></tr>
+</table>
+
+<h2 id="roadmap">10. Suggested phasing</h2>
+
+<div class="phase">
+<h4>Phase 1 — Same-call wins <span class="phase-badge">Weeks 1-2</span></h4>
+<p>Extend the existing structured-output schema in one pass, since it's the same Mistral call
+either way: <code>relevance_score</code>, <code>signal_type</code>, multi-channel outreach
+variants, the <code>industry</code> field, and token-usage logging. This alone turns the flat,
+unranked feed into a prioritized one and should be the highest ratio of sales value to engineering
+effort available.</p>
+</div>
+
+<div class="phase">
+<h4>Phase 2 — Noise reduction &amp; cost control <span class="phase-badge">Weeks 3-5</span></h4>
+<p>Two-stage triage (small-model pre-filter) and semantic dedupe via <code>mistral-embed</code> +
+<code>pgvector</code>. Both reduce noise in the feed and reduce/offset the added spend from Phase 1
+and 3's extra calls.</p>
+</div>
+
+<div class="phase">
+<h4>Phase 3 — Context &amp; continuity <span class="phase-badge">Weeks 6-8</span></h4>
+<p>Account memory in the per-article prompt, the weekly account briefing job, and the relevance
+feedback loop. These need the scoring/tagging groundwork from Phase 1 and the token-cost visibility
+from Phase 1 to be rolled out with confidence.</p>
+</div>
+
+<div class="phase">
+<h4>Phase 4 — Interactive intelligence <span class="phase-badge">Later</span></h4>
+<p>Conversational account Q&amp;A and streaming UX. Highest engineering cost, best done once the
+underlying signal data is richer (Phases 1-3) and there's a stored corpus worth querying
+conversationally.</p>
+</div>
+
+<h2 id="questions">11. Open questions</h2>
+<div class="assumption"><strong>Embedding infra</strong> — semantic dedupe assumes
+<code>pgvector</code> is acceptable to add to the existing PostgreSQL instance; confirm no
+constraint against adding extensions on the target deployment (self-hosted Docker Compose, so this
+should be low-risk, but worth confirming before committing to the approach).</div>
+<div class="assumption"><strong>Cost budget</strong> — several ideas (triage pass, embeddings,
+weekly briefings) add Mistral spend on top of today's one-call-per-article baseline. Token-usage
+logging (Phase 1) should ship first so subsequent phases can be evaluated against real cost data
+rather than estimates.</div>
+<div class="assumption"><strong>Scoring rubric ownership</strong> — relevance scoring is inherently
+subjective per workspace/offering; the initial rubric will need calibration against ProAir's actual
+target companies and may need a per-workspace tuning mechanism once multi-tenant support (already
+on the roadmap in <code>planning.html</code>) lands.</div>
+
+<footer>
+  NewsAtlas — Mistral AI usage analysis &amp; expansion roadmap, written 2026-07-05. Reflects the
+  implementation as of this date; re-verify file/line references against
+  <code>backend/app/services/ai_client.py</code> and <code>ingestion.py</code> before acting on
+  them if significant time has passed.
+</footer>
+
+</body>
+</html>
