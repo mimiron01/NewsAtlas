@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NewsAtlas — Role-Based Access &amp; Company Management Planning</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6270;
+    --accent: #2757c7;
+    --accent-bg: #eef2fc;
+    --border: #e2e5ea;
+    --code-bg: #f5f6f8;
+    --ok: #1a7f4e;
+    --warn: #a15c00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.1rem; margin-top: 28px; color: var(--fg); }
+  h4 { font-size: 1rem; margin-top: 20px; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  .meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 12px 0 32px;
+    padding: 12px 16px;
+    background: var(--accent-bg);
+    border-radius: 8px;
+  }
+  .meta strong { color: var(--fg); }
+  nav.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin: 24px 0 40px;
+  }
+  nav.toc h2 { margin-top: 0; border: none; font-size: 1.05rem; padding-bottom: 4px; }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.92rem; }
+  nav.toc a:hover { text-decoration: underline; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--code-bg); font-weight: 600; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+  .decision {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-bg);
+    padding: 10px 16px;
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .decision strong { color: var(--accent); }
+  .phase {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .phase h4 { margin-top: 0; display: flex; align-items: center; gap: 10px; }
+  .phase-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 20px;
+  }
+  .assumption {
+    border-left: 4px solid var(--warn);
+    background: #fdf4e3;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+  ul.checklist { list-style: none; padding-left: 4px; }
+  ul.checklist li::before { content: "☐ "; color: var(--muted); }
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+    font-size: 0.82rem;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.4;
+  }
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    margin-left: 6px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Role-Based Access &amp; Company Management</h1>
+<p class="subtitle">Planning document — admin/user roles and per-user company visibility for NewsAtlas</p>
+
+<div class="meta">
+  <div><strong>Status:</strong> Planning / pre-implementation</div>
+  <div><strong>Builds on:</strong> <a href="planning.html">planning.html</a> (base platform architecture)</div>
+  <div><strong>Doc purpose:</strong> Source of truth for implementing role-based access + per-user company
+  follows in a future session</div>
+</div>
+
+<p>
+  The base platform (see <a href="planning.html">planning.html</a>) explicitly deferred this as a
+  non-goal: <em>"Per-user assignment of target companies / role-based permissions beyond basic
+  auth"</em> (§2), and flagged the shared, all-users-see-everything digest as a placeholder pending
+  "a plausible fast-follow" (§14). This document specs that fast-follow: a two-role permission model
+  (<code>admin</code> / <code>user</code>) plus a many-to-many user↔company relationship so each
+  user only sees and manages the companies relevant to them.
+</p>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#problem">1. Problem statement</a></li>
+    <li><a href="#goals">2. Goals &amp; non-goals</a></li>
+    <li><a href="#decisions">3. Key decisions</a></li>
+    <li><a href="#data-model">4. Data model changes</a></li>
+    <li><a href="#permissions">5. Permission matrix</a></li>
+    <li><a href="#workflows">6. Core workflows</a></li>
+    <li><a href="#api">7. API surface changes</a></li>
+    <li><a href="#migration">8. Migration &amp; backfill plan</a></li>
+    <li><a href="#frontend">9. Frontend changes</a></li>
+    <li><a href="#roadmap">10. Implementation roadmap</a></li>
+    <li><a href="#assumptions">11. Open questions &amp; assumptions</a></li>
+    <li><a href="#future">12. Future enhancements (out of scope)</a></li>
+  </ol>
+</nav>
+
+<h2 id="problem">1. Problem statement</h2>
+<p>
+  Today every authenticated user shares one flat, all-visible list of target companies
+  (<code>target_companies</code> has no owner beyond an informational <code>created_by</code>), one
+  shared <code>workspace_settings</code> row anyone can edit, and a daily digest that mails <em>every</em>
+  user <em>every</em> new signal regardless of which companies they actually care about. As NewsAtlas
+  grows past a single small team, this breaks down: there's no way to onboard a new salesperson with
+  just "their" accounts, no way to keep workspace-wide configuration (AI grounding text, schedules)
+  from being changed by anyone who logs in, and every inbox gets noise from companies the recipient
+  never asked about.
+</p>
+<p>
+  This feature introduces two roles — <strong>admin</strong> and <strong>user</strong> — where admins
+  own workspace settings and can set companies up on behalf of a user, and regular users are scoped to
+  only the companies they follow: they see them in the dashboard, receive digest signals for them, and
+  can manage (edit/unfollow) them, but nothing else in the workspace.
+</p>
+
+<h2 id="goals">2. Goals &amp; non-goals</h2>
+<h3>Goals</h3>
+<ul>
+  <li>Add a <code>role</code> to every user: <code>admin</code> or <code>user</code>.</li>
+  <li>Admins can read and update <code>workspace_settings</code>; regular users can no longer write it.</li>
+  <li>Admins can view all users, promote/demote roles, and set companies up for a specific user
+      (creating the company if it doesn't exist, or attaching an existing one).</li>
+  <li>Regular users see, filter, and manage (edit keywords/industry, mute, unfollow) only the companies
+      they follow — never the full workspace catalog.</li>
+  <li>Regular users can still create their own companies (self-service), which auto-follows them;
+      creating a company whose name matches an existing one attaches them to the existing record
+      instead of duplicating ingestion.</li>
+  <li>Signals feed and the daily email digest are scoped per-user to followed companies (this also
+      finally resolves the "everyone gets the same digest" placeholder from the base plan).</li>
+  <li>Ingestion stays company-scoped (unaffected by how many users follow a company) — no duplicate
+      NewsAPI/AI spend just because two users track the same company.</li>
+</ul>
+<h3>Non-goals (this pass)</h3>
+<ul>
+  <li>Full multi-tenant isolation (separate orgs with separate <code>workspace_settings</code>) — still
+      one shared workspace; roles are a permission layer within it, not tenancy.</li>
+  <li>Fine-grained/custom permission sets (e.g. "read-only" or per-feature roles) — just admin vs. user.</li>
+  <li>Team/company-sharing beyond direct admin assignment (e.g. "share my company with a teammate") —
+      only admins can attach a company to another user's follow list.</li>
+  <li>Per-user rate limits or ingestion quotas — out of scope here.</li>
+</ul>
+
+<h2 id="decisions">3. Key decisions</h2>
+
+<div class="decision"><strong>Role storage:</strong> a <code>role</code> enum column
+(<code>admin</code> / <code>user</code>) directly on <code>users</code>, default <code>user</code>.
+<span class="tag">confirmed</span> Two roles don't warrant a separate roles/permissions table yet.</div>
+
+<div class="decision"><strong>Bootstrap admin:</strong> the first account ever created (signup #1, or
+whichever existing user has the earliest <code>created_at</code> at migration time) becomes admin
+automatically. From then on, only an existing admin can promote/demote other users' roles — there is
+no separate admin invite code. <span class="tag">confirmed</span> Keeps the current invite-code signup
+flow unchanged for everyone.</div>
+
+<div class="decision"><strong>User↔company relationship:</strong> many-to-many via a new
+<code>company_follows</code> join table (<code>user_id</code>, <code>target_company_id</code>), not a
+single <code>owner_id</code> on <code>target_companies</code>. <span class="tag">confirmed</span>
+Matches "companies they follow/see" literally and lets the same company (e.g. two reps both tracking
+"Acme Corp") be tracked once and shared, rather than duplicated per owner.</div>
+
+<div class="decision"><strong>Company creation dedupe:</strong> creating a company whose name matches
+an existing <code>target_companies.name</code> case-insensitively attaches a new
+<code>company_follows</code> row to the existing record instead of inserting a duplicate.
+<span class="tag">default</span> Avoids double ingestion/AI cost for the same company and means a
+regular user's self-created company can transparently merge with one an admin already set up.</div>
+
+<div class="decision"><strong>Shared vs. per-user company fields:</strong> <code>name</code>,
+<code>keywords</code>, <code>industry</code>, and <code>is_active</code> (the global ingestion toggle)
+stay on <code>target_companies</code> and are shared/editable by any current follower or an admin —
+no per-field ownership lock for MVP (last write wins, same as today). A new per-follow
+<code>is_muted</code> flag on <code>company_follows</code> lets a user hide a company from their own
+feed/digest without touching ingestion for other followers. <span class="tag">default</span></div>
+
+<div class="decision"><strong>Delete vs. unfollow:</strong> a regular user's "remove company" action is
+always an unfollow (delete their <code>company_follows</code> row). The underlying
+<code>target_companies</code> row (and its ingested articles/signals) is hard-deleted only when an
+admin deletes it, or when a regular user unfollows and was the company's only remaining follower.
+<span class="tag">confirmed</span></div>
+
+<div class="decision"><strong>Settings scope:</strong> <code>workspace_settings</code> (company profile /
+offering description / schedules) becomes admin-only for both read and write — regular users don't need
+workspace configuration under this model. <span class="tag">confirmed</span></div>
+
+<div class="decision"><strong>Ingestion/ai pipeline:</strong> unaffected structurally — still runs once
+per active <code>target_company</code>, independent of follower count. Only the <em>read paths</em>
+(signals feed, signal detail, digest) become follow-scoped. <span class="tag">confirmed</span></div>
+
+<div class="decision"><strong>Authorization mechanism:</strong> a new <code>require_admin</code> FastAPI
+dependency (wrapping <code>get_current_user</code>, raising 403 if <code>role != admin</code>) alongside
+existing <code>get_current_user</code>; company-scoped endpoints get a
+<code>_require_company_access(user, company)</code> helper (403 unless admin or a follower).
+<span class="tag">default</span></div>
+
+<h2 id="data-model">4. Data model changes</h2>
+
+<h3>users <span class="tag">modified</span></h3>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td>role</td><td>enum(<code>admin</code>, <code>user</code>)</td><td>new; default <code>user</code>; server-side default, never client-settable at signup</td></tr>
+</table>
+
+<h3>company_follows <span class="tag">new join table</span></h3>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td>id</td><td>UUID PK</td><td></td></tr>
+<tr><td>user_id</td><td>UUID FK → users, <code>ondelete=CASCADE</code></td><td></td></tr>
+<tr><td>target_company_id</td><td>UUID FK → target_companies, <code>ondelete=CASCADE</code></td><td></td></tr>
+<tr><td>is_muted</td><td>boolean, default false</td><td>hides this company from the user's own feed/digest without affecting ingestion or other followers</td></tr>
+<tr><td>assigned_by</td><td>UUID FK → users, nullable, <code>ondelete=SET NULL</code></td><td>who created this follow — the user themself (self-serve) or an admin (assignment)</td></tr>
+<tr><td>created_at</td><td>timestamptz</td><td></td></tr>
+</table>
+<p>Unique constraint on <code>(user_id, target_company_id)</code> — following twice is a no-op.</p>
+
+<h3>target_companies <span class="tag">unchanged shape, changed meaning</span></h3>
+<p>Same columns as today (see <a href="planning.html#data-model">base planning §5</a>). Behaviorally,
+it's now a shared catalog rather than an implicitly-global list: a row only shows up for a user if a
+matching <code>company_follows</code> row exists (or the requester is an admin using the
+all-companies admin view).</p>
+
+<h2 id="permissions">5. Permission matrix</h2>
+<table>
+<tr><th>Action</th><th>Admin</th><th>Regular user</th></tr>
+<tr><td>View/update workspace settings</td><td>✅</td><td>❌</td></tr>
+<tr><td>List all users, promote/demote roles</td><td>✅</td><td>❌</td></tr>
+<tr><td>List all companies (workspace-wide catalog)</td><td>✅</td><td>❌ (only own follows)</td></tr>
+<tr><td>Create a new company (auto-followed)</td><td>✅</td><td>✅</td></tr>
+<tr><td>Assign an existing/new company to another user</td><td>✅</td><td>❌</td></tr>
+<tr><td>Edit a company's name/keywords/industry/is_active</td><td>✅ (any)</td><td>✅ (only if following it)</td></tr>
+<tr><td>Mute / unfollow a company</td><td>✅ (any)</td><td>✅ (only own follow)</td></tr>
+<tr><td>Hard-delete a company</td><td>✅ (any)</td><td>✅ only if sole remaining follower</td></tr>
+<tr><td>View signals / receive digest for a company</td><td>✅ (all, or scoped via admin filter)</td><td>✅ (only followed &amp; unmuted)</td></tr>
+<tr><td>Manual ingestion/digest trigger</td><td>✅</td><td>✅ (unchanged; still workspace-wide, rate-limited)</td></tr>
+</table>
+
+<h2 id="workflows">6. Core workflows</h2>
+
+<h3>6.1 Bootstrap &amp; role assignment</h3>
+<ol>
+  <li>Migration runs: adds <code>role</code> column defaulting to <code>user</code> for everyone, then
+      a one-time data step promotes the single earliest-created existing user to <code>admin</code>
+      (see <a href="#migration">§8</a>).</li>
+  <li>Going forward, signup (unchanged invite-code flow) always creates <code>role = user</code>; if
+      the workspace has zero users at signup time, the new account is promoted to <code>admin</code>
+      instead (covers fresh installs with no pre-existing data).</li>
+  <li>An admin can change any other user's role via <code>PATCH /admin/users/{id}/role</code>. An admin
+      cannot demote themselves if they'd be the last remaining admin (guard against workspace lockout).</li>
+</ol>
+
+<h3>6.2 Admin sets a company up for a user</h3>
+<ol>
+  <li>Admin opens the new "Users" admin page, picks a user, and either selects an existing catalog
+      company or types a new one (name + keywords/industry).</li>
+  <li><code>POST /admin/users/{user_id}/companies</code> — server looks up
+      <code>target_companies</code> by case-insensitive name; if found, reuses it, else creates it
+      (<code>created_by = admin.id</code>); either way inserts a <code>company_follows</code> row with
+      <code>user_id</code> = the target user and <code>assigned_by</code> = the admin.</li>
+  <li>The target user sees the company appear in their own dashboard/company list on next load — no
+      action required from them.</li>
+</ol>
+
+<h3>6.3 Regular user self-service company creation</h3>
+<ol>
+  <li>User adds a company from their own Companies page exactly as before.</li>
+  <li><code>POST /target-companies</code> now dedupes by name (§3) and always creates/reuses +
+      auto-follows for <code>current_user</code> (<code>assigned_by = current_user.id</code>).</li>
+</ol>
+
+<h3>6.4 Scoped signals feed &amp; digest</h3>
+<p>
+  <code>list_signals</code> and the digest builder join <code>Signal → Article → TargetCompany →
+  company_follows</code> filtered to <code>company_follows.user_id = current_user.id AND NOT
+  is_muted</code> (for regular users). Admins additionally get an optional <code>?scope=all</code>
+  query param to see workspace-wide signals for oversight/QA, defaulting to their own follows like
+  everyone else.
+</p>
+
+<h3>6.5 Ingestion (unchanged)</h3>
+<p>
+  The scheduled ingestion job still iterates every <code>target_company</code> with
+  <code>is_active = true</code>, regardless of follower count — see
+  <a href="planning.html#workflows">base planning §6.3</a>. No changes needed here beyond what's
+  already specced.
+</p>
+
+<h2 id="api">7. API surface changes</h2>
+<pre><code>GET    /auth/me                          # now includes role
+
+GET    /settings                         # now require_admin (was any authenticated user)
+PUT    /settings                         # now require_admin
+
+GET    /target-companies                 # scoped to current user's follows; admin: ?scope=all for full catalog
+POST   /target-companies                 # dedupe-by-name + auto-follow current user
+PATCH  /target-companies/{id}            # 403 unless admin or a follower
+DELETE /target-companies/{id}            # follower -&gt; unfollow (hard-delete only if sole follower); admin -&gt; hard-delete
+POST   /target-companies/{id}/mute       # follower-only: toggle company_follows.is_muted
+GET    /target-companies/{id}/followers  # admin-only: who's following this company
+
+GET    /signals?company_id=&amp;status=&amp;scope=   # scope=all is admin-only, else always follow-scoped
+
+GET    /admin/users                      # admin-only: list all users + role
+PATCH  /admin/users/{id}/role            # admin-only: promote/demote (blocks removing last admin)
+POST   /admin/users/{id}/companies       # admin-only: assign existing/new company to a user
+DELETE /admin/users/{id}/companies/{company_id}  # admin-only: remove a user's follow
+</code></pre>
+
+<h2 id="migration">8. Migration &amp; backfill plan</h2>
+<ol>
+  <li>Alembic migration: add <code>users.role</code> enum column, default <code>user</code>, not null.</li>
+  <li>Alembic migration: create <code>company_follows</code> table with the unique
+      <code>(user_id, target_company_id)</code> constraint and FKs above.</li>
+  <li>Data backfill (in the same or a follow-up migration):
+    <ul>
+      <li>Promote the user with the earliest <code>created_at</code> to <code>role = admin</code>
+          (ties broken by <code>id</code>). If the table is empty, skip — the next signup becomes
+          admin per §6.1.</li>
+      <li><strong>Full cross-join backfill:</strong> insert a <code>company_follows</code> row for
+          every existing <code>(user, target_company)</code> pair. This preserves current behavior
+          exactly at migration time (everyone already sees everything today) instead of silently
+          hiding data users could previously see. <code>assigned_by</code> is left <code>NULL</code>
+          for these backfilled rows (no single "who assigned it" is meaningful retroactively).</li>
+    </ul>
+  </li>
+</ol>
+<div class="assumption"><strong>Backfill cost:</strong> the cross-join is <code>O(users ×
+companies)</code> rows — fine at current single-workspace scale; revisit if either grows into the
+thousands before this migration runs.</div>
+
+<h2 id="frontend">9. Frontend changes</h2>
+<ul>
+  <li><code>User</code> type + <code>AuthContext</code> gain <code>role</code>; a <code>useIsAdmin()</code>
+      helper reads it off the current user.</li>
+  <li>New <code>RequireAdmin</code> route guard (mirrors whatever the existing authenticated-route guard
+      looks like), wrapping new admin-only routes; non-admins hitting them redirect to the signals feed.</li>
+  <li>New <strong>Admin → Users</strong> page: table of all users + role, promote/demote action, and an
+      "assign company" action per user (reuses the existing add-company form, posts to
+      <code>/admin/users/{id}/companies</code>).</li>
+  <li><code>SettingsTargets.tsx</code> becomes the regular user's own "My Companies" view — same CRUD UX,
+      but the list is now naturally scoped by the backend; add a mute toggle per row backed by
+      <code>POST /target-companies/{id}/mute</code>; "delete" copy changes to "Unfollow" (with a
+      "this also removes it for other users" warning shown only when the current user is the last
+      follower — the DELETE response can indicate that).</li>
+  <li>Workspace <strong>Settings</strong> (company profile / offering / schedule) page moves under an
+      admin-only nav section; regular users no longer see a link to it.</li>
+</ul>
+
+<h2 id="roadmap">10. Implementation roadmap</h2>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 1</span> Roles foundation</h4>
+  <ul class="checklist">
+    <li>Alembic migration: <code>users.role</code> enum + bootstrap-admin backfill</li>
+    <li><code>require_admin</code> dependency in <code>api/deps.py</code></li>
+    <li><code>/auth/me</code> + <code>UserResponse</code> include <code>role</code>; signup promotes
+        to admin only when the users table is empty</li>
+    <li>Gate <code>/settings</code> GET/PUT behind <code>require_admin</code></li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 2</span> Company follows</h4>
+  <ul class="checklist">
+    <li>Alembic migration: <code>company_follows</code> table + full cross-join backfill</li>
+    <li>Dedupe-by-name logic in company creation (shared helper used by both self-serve create and
+        admin assignment)</li>
+    <li>Rewrite <code>target-companies</code> list/patch/delete to be follow-scoped with the
+        admin-vs-follower rules from §5</li>
+    <li><code>POST /target-companies/{id}/mute</code> endpoint</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 3</span> Admin user management</h4>
+  <ul class="checklist">
+    <li><code>GET /admin/users</code>, <code>PATCH /admin/users/{id}/role</code> (with last-admin guard)</li>
+    <li><code>POST /admin/users/{id}/companies</code>, <code>DELETE /admin/users/{id}/companies/{company_id}</code></li>
+    <li>Audit log entries (via existing <code>core/audit.log_event</code>) for role changes and admin
+        company assignments</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 4</span> Scoped signals &amp; digest</h4>
+  <ul class="checklist">
+    <li>Join <code>company_follows</code> into <code>list_signals</code>/<code>get_signal</code>,
+        respecting <code>is_muted</code>; add admin-only <code>scope=all</code></li>
+    <li>Rewrite digest builder to select per-user unseen signals by followed, unmuted companies
+        (replacing the current "every user gets every new signal" broadcast)</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 5</span> Frontend</h4>
+  <ul class="checklist">
+    <li><code>role</code> in auth types/context, <code>RequireAdmin</code> guard</li>
+    <li>Admin → Users page (list, promote/demote, assign company)</li>
+    <li>Update Companies page: mute toggle, unfollow-vs-delete copy</li>
+    <li>Move workspace Settings page under admin-only nav</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 6</span> Tests &amp; hardening</h4>
+  <ul class="checklist">
+    <li>Backend tests: role gating on settings/admin routes, follow-scoping on signals/companies,
+        last-admin-demotion guard, dedupe-on-create merge behavior</li>
+    <li>Migration dry-run against a copy of production-shaped data to sanity-check backfill counts</li>
+    <li>Update <code>docs/planning.html</code> §2/§14/§15 to remove the now-implemented
+        "role-based permissions" / "per-user subscriptions" deferrals</li>
+  </ul>
+</div>
+
+<h2 id="assumptions">11. Open questions &amp; assumptions for follow-up sessions</h2>
+<div class="assumption"><strong>Shared-field edit conflicts</strong> — two followers editing the same
+company's keywords concurrently is last-write-wins with no locking/notification for MVP; acceptable at
+current team size, revisit if it causes real confusion.</div>
+<div class="assumption"><strong>Admin visibility into "all companies"</strong> — assumed admins want an
+escape hatch (<code>scope=all</code>) to see the full catalog/signals for oversight rather than being
+follow-scoped like everyone else; confirm this is actually wanted vs. admins also just following
+companies like anyone else.</div>
+<div class="assumption"><strong>Removing a user</strong> — deleting a user account (not currently
+supported anywhere in the app) would cascade-delete their <code>company_follows</code> rows but leave
+shared <code>target_companies</code>/<code>articles</code>/<code>signals</code> intact if other
+followers remain; no deactivation flow is specced here since none exists today.</div>
+<div class="assumption"><strong>Notifying a user when a company is assigned to them</strong> — out of
+scope for this pass; they'll simply see it next time they load the dashboard. A "you've been assigned
+X" email could be a fast-follow once the digest rework (Phase 4) is in place.</div>
+
+<h2 id="future">12. Future enhancements (explicitly out of scope here)</h2>
+<ul>
+  <li>Custom/granular roles beyond admin vs. user (e.g. a "manager" role that can assign companies
+      within a team but not touch workspace settings)</li>
+  <li>True multi-tenancy (multiple isolated workspaces, each with its own settings and admin set)</li>
+  <li>Per-company or per-user notification preferences (digest frequency, channel) beyond the existing
+      global schedule</li>
+  <li>Assignment notifications / activity feed for admins auditing who follows what</li>
+</ul>
+
+<footer>
+  NewsAtlas — role-based access &amp; company management planning document, drafted 2026-07-05.
+  Extends <a href="planning.html">planning.html</a>; intended to be read alongside it at the start of
+  the implementation session for this feature.
+</footer>
+
+</body>
+</html>
