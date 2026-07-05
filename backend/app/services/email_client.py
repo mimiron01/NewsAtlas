@@ -28,7 +28,9 @@ class EmailClient:
         self.from_address = from_address
         self.timeout = timeout
 
-    def send_email(self, *, to: str, subject: str, html_body: str) -> None:
+    def send_email(
+        self, *, to: str, subject: str, html_body: str, text_body: str | None = None
+    ) -> None:
         if not self.host:
             raise EmailClientError("SMTP_HOST is not configured")
 
@@ -36,6 +38,10 @@ class EmailClient:
         message["Subject"] = subject
         message["From"] = self.from_address
         message["To"] = to
+        # Parts must be attached plainest-first: clients render the last
+        # alternative part they're capable of displaying.
+        if text_body:
+            message.attach(MIMEText(text_body, "plain"))
         message.attach(MIMEText(html_body, "html"))
 
         try:

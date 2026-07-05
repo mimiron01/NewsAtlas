@@ -2,56 +2,75 @@ import { FormEvent, useEffect, useState } from "react";
 
 import { api, ApiError } from "../api/client";
 import type { TargetCompany } from "../api/types";
+import TagInput from "../components/TagInput";
+import { useToast } from "../context/ToastContext";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function SettingsTargets() {
+  usePageTitle("Target companies");
+  const { showToast } = useToast();
   const [companies, setCompanies] = useState<TargetCompany[]>([]);
   const [name, setName] = useState("");
-  const [keywords, setKeywords] = useState("");
+  const [keywords, setKeywords] = useState<string[]>([]);
   const [industry, setIndustry] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
   function loadCompanies() {
     api
       .get<TargetCompany[]>("/target-companies")
       .then(setCompanies)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load companies"));
+      .catch((err) => showToast(err instanceof ApiError ? err.message : "Failed to load companies", "error"));
   }
 
   useEffect(loadCompanies, []);
 
   async function handleAdd(event: FormEvent) {
     event.preventDefault();
-    setError(null);
     setIsSubmitting(true);
     try {
       await api.post<TargetCompany>("/target-companies", {
         name,
-        keywords: keywords
-          .split(",")
-          .map((k) => k.trim())
-          .filter(Boolean),
+        keywords,
         industry: industry || null,
       });
       setName("");
-      setKeywords("");
+      setKeywords([]);
       setIndustry("");
+      showToast("Target company added.", "success");
       loadCompanies();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to add company");
+      showToast(err instanceof ApiError ? err.message : "Failed to add company", "error");
     } finally {
       setIsSubmitting(false);
     }
   }
 
   async function toggleActive(company: TargetCompany) {
-    await api.patch(`/target-companies/${company.id}`, { is_active: !company.is_active });
-    loadCompanies();
+    setPendingId(company.id);
+    try {
+      await api.patch(`/target-companies/${company.id}`, { is_active: !company.is_active });
+      loadCompanies();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Failed to update company", "error");
+    } finally {
+      setPendingId(null);
+    }
   }
 
   async function remove(company: TargetCompany) {
-    await api.delete(`/target-companies/${company.id}`);
-    loadCompanies();
+    setPendingId(company.id);
+    try {
+      await api.delete(`/target-companies/${company.id}`);
+      showToast(`Deleted "${company.name}".`, "success");
+      loadCompanies();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Failed to delete company", "error");
+    } finally {
+      setPendingId(null);
+      setConfirmingId(null);
+    }
   }
 
   return (
@@ -72,10 +91,13 @@ export default function SettingsTargets() {
           </label>
         </div>
         <label>
-          Keywords / aliases (comma separated)
-          <input value={keywords} onChange={(e) => setKeywords(e.target.value)} />
+          Keywords / aliases
+          <TagInput
+            tags={keywords}
+            onChange={setKeywords}
+            placeholder="Type a keyword and press Enter"
+          />
         </label>
-        {error && <p className="error-text">{error}</p>}
         <button type="submit" disabled={isSubmitting}>
           Add target company
         </button>
@@ -95,12 +117,32 @@ export default function SettingsTargets() {
                 )}
               </div>
               <div className="actions">
-                <button type="button" onClick={() => toggleActive(company)}>
+                <button
+                  type="button"
+                  disabled={pendingId === company.id}
+                  onClick={() => toggleActive(company)}
+                >
                   {company.is_active ? "Pause" : "Resume"}
                 </button>
-                <button type="button" className="danger" onClick={() => remove(company)}>
-                  Delete
-                </button>
+                {confirmingId === company.id ? (
+                  <>
+                    <button
+                      type="button"
+                      className="danger"
+                      disabled={pendingId === company.id}
+                      onClick={() => remove(company)}
+                    >
+                      Confirm delete
+                    </button>
+                    <button type="button" onClick={() => setConfirmingId(null)}>
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="danger" onClick={() => setConfirmingId(company.id)}>
+                    Delete
+                  </button>
+                )}
               </div>
             </li>
           ))}

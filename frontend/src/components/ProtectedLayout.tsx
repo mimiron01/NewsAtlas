@@ -1,9 +1,25 @@
-import { NavLink, Navigate, Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../hooks/useTheme";
+import { MenuIcon, MoonIcon, ProfileIcon, SignalsIcon, SunIcon, TargetsIcon } from "./icons/NavIcons";
+
+const THEME_LABEL: Record<string, string> = {
+  light: "Light",
+  dark: "Dark",
+  system: "System",
+};
 
 export default function ProtectedLayout() {
   const { user, isLoading, logout } = useAuth();
+  const { theme, cycleTheme } = useTheme();
+  const [isNavOpen, setIsNavOpen] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    setIsNavOpen(false);
+  }, [location.pathname]);
 
   if (isLoading) {
     return <p className="centered">Loading...</p>;
@@ -15,16 +31,35 @@ export default function ProtectedLayout() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
+      <button
+        type="button"
+        className="nav-toggle"
+        aria-label="Toggle navigation"
+        onClick={() => setIsNavOpen((open) => !open)}
+      >
+        <MenuIcon />
+      </button>
+      {isNavOpen && (
+        <div className="nav-backdrop" onClick={() => setIsNavOpen(false)} aria-hidden="true" />
+      )}
+      <aside className={`sidebar ${isNavOpen ? "open" : ""}`}>
         <h1 className="brand">NewsAtlas</h1>
         <nav>
           <NavLink to="/" end>
-            Signals
+            <SignalsIcon /> Signals
           </NavLink>
-          <NavLink to="/settings/profile">Company profile</NavLink>
-          <NavLink to="/settings/targets">Target companies</NavLink>
+          <NavLink to="/settings/profile">
+            <ProfileIcon /> Company profile
+          </NavLink>
+          <NavLink to="/settings/targets">
+            <TargetsIcon /> Target companies
+          </NavLink>
         </nav>
         <div className="sidebar-footer">
+          <button type="button" className="theme-toggle" onClick={cycleTheme}>
+            {theme === "dark" ? <MoonIcon /> : <SunIcon />}
+            {THEME_LABEL[theme]} theme
+          </button>
           <span>{user.name}</span>
           <button type="button" className="link-button" onClick={logout}>
             Log out
