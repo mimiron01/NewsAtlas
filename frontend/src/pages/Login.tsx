@@ -3,8 +3,11 @@ import { useNavigate } from "react-router-dom";
 
 import { ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
+import EmptyStateIllustration from "../components/icons/EmptyStateIllustration";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function Login() {
+  usePageTitle();
   const { login, signup } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -36,6 +39,9 @@ export default function Login() {
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={handleSubmit}>
+        <div className="auth-illustration">
+          <EmptyStateIllustration />
+        </div>
         <h1>NewsAtlas</h1>
         <p className="subtitle">
           {mode === "login" ? "Sign in to your workspace" : "Create a workspace account"}
@@ -65,6 +71,7 @@ export default function Login() {
             required
             minLength={10}
           />
+          <span className="field-hint">At least 10 characters</span>
         </label>
         {mode === "signup" && (
           <label>

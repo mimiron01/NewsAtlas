@@ -3,19 +3,20 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api, ApiError } from "../api/client";
 import type { Signal, SignalStatus } from "../api/types";
-
-const STATUS_TRANSITIONS: { value: SignalStatus; label: string }[] = [
-  { value: "reviewed", label: "Mark reviewed" },
-  { value: "archived", label: "Archive" },
-  { value: "dismissed", label: "Dismiss" },
-];
+import Skeleton from "../components/Skeleton";
+import { STATUS_TRANSITIONS } from "../constants/signalStatus";
+import { useToast } from "../context/ToastContext";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function SignalDetail() {
   const { signalId } = useParams<{ signalId: string }>();
   const navigate = useNavigate();
+  const { showToast } = useToast();
   const [signal, setSignal] = useState<Signal | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  usePageTitle(signal?.article_title);
 
   useEffect(() => {
     if (!signalId) return;
@@ -27,7 +28,7 @@ export default function SignalDetail() {
           navigate("/", { replace: true });
           return;
         }
-        setError(err instanceof ApiError ? err.message : "Failed to load signal");
+        setLoadError(err instanceof ApiError ? err.message : "Failed to load signal");
       });
   }, [signalId, navigate]);
 
@@ -37,7 +38,7 @@ export default function SignalDetail() {
       const updated = await api.patch<Signal>(`/signals/${signal.id}`, { status });
       setSignal(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to update status");
+      showToast(err instanceof ApiError ? err.message : "Failed to update status", "error");
     }
   }
 
@@ -48,12 +49,16 @@ export default function SignalDetail() {
     setTimeout(() => setCopied(false), 2000);
   }
 
-  if (error) {
-    return <p className="error-text">{error}</p>;
+  if (loadError) {
+    return <p className="error-text">{loadError}</p>;
   }
 
   if (!signal) {
-    return <p className="subtitle">Loading...</p>;
+    return (
+      <div className="panel-card">
+        <Skeleton rows={5} />
+      </div>
+    );
   }
 
   return (

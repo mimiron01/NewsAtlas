@@ -2,25 +2,27 @@ import { FormEvent, useEffect, useState } from "react";
 
 import { api, ApiError } from "../api/client";
 import type { WorkspaceSettings } from "../api/types";
+import Skeleton from "../components/Skeleton";
+import { useToast } from "../context/ToastContext";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function SettingsProfile() {
+  usePageTitle("Company profile");
+  const { showToast } = useToast();
   const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     api
       .get<WorkspaceSettings>("/settings")
       .then(setSettings)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load settings"));
+      .catch((err) => setLoadError(err instanceof ApiError ? err.message : "Failed to load settings"));
   }, []);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (!settings) return;
-    setError(null);
-    setSavedMessage(null);
     setIsSaving(true);
     try {
       const updated = await api.put<WorkspaceSettings>("/settings", {
@@ -30,16 +32,24 @@ export default function SettingsProfile() {
         ingestion_interval_hours: settings.ingestion_interval_hours,
       });
       setSettings(updated);
-      setSavedMessage("Settings saved.");
+      showToast("Settings saved.", "success");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Failed to save settings");
+      showToast(err instanceof ApiError ? err.message : "Failed to save settings", "error");
     } finally {
       setIsSaving(false);
     }
   }
 
+  if (loadError) {
+    return <p className="error-text">{loadError}</p>;
+  }
+
   if (!settings) {
-    return <p>{error ?? "Loading settings..."}</p>;
+    return (
+      <div className="panel-card">
+        <Skeleton rows={4} />
+      </div>
+    );
   }
 
   return (
@@ -91,9 +101,6 @@ export default function SettingsProfile() {
           />
         </label>
       </div>
-
-      {error && <p className="error-text">{error}</p>}
-      {savedMessage && <p className="success-text">{savedMessage}</p>}
 
       <button type="submit" disabled={isSaving}>
         {isSaving ? "Saving..." : "Save settings"}

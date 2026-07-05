@@ -25,6 +25,18 @@ def _new_signal_rows(db: Session):
     )
 
 
+def _preheader_text(rows: list[tuple[Signal, Article, TargetCompany]]) -> str:
+    company_names = []
+    for _signal, _article, target_company in rows:
+        if target_company.name not in company_names:
+            company_names.append(target_company.name)
+    preview = ", ".join(company_names[:3])
+    if len(company_names) > 3:
+        preview += ", ..."
+    count = len(rows)
+    return f"{count} new signal{'s' if count != 1 else ''}: {preview}"
+
+
 def _render_digest_html(rows: list[tuple[Signal, Article, TargetCompany]], frontend_base_url: str) -> str:
     items_html = []
     for signal, article, target_company in rows:
@@ -48,12 +60,38 @@ def _render_digest_html(rows: list[tuple[Signal, Article, TargetCompany]], front
             </div>
             """
         )
+    preheader = html.escape(_preheader_text(rows))
+    preferences_url = html.escape(f"{frontend_base_url}/settings/profile")
     return (
         '<html><body style="font-family:sans-serif;color:#1a1d23;">'
+        f'<span style="display:none;max-height:0;overflow:hidden;">{preheader}</span>'
         "<h2>Your daily NewsAtlas signals</h2>"
         f"{''.join(items_html)}"
+        '<p style="margin-top:24px;padding-top:16px;border-top:1px solid #e2e5ea;'
+        'font-size:12px;color:#5b6270;">'
+        f'You\'re receiving this because you have a NewsAtlas account. '
+        f'<a href="{preferences_url}">Manage email preferences</a>'
+        "</p>"
         "</body></html>"
     )
+
+
+def _render_digest_text(rows: list[tuple[Signal, Article, TargetCompany]], frontend_base_url: str) -> str:
+    lines = ["Your daily NewsAtlas signals", ""]
+    for signal, article, target_company in rows:
+        lines.extend(
+            [
+                f"{target_company.name}",
+                f"{article.title} ({article.url})",
+                signal.summary,
+                f"Why it matters: {signal.business_relevance}",
+                f"Outreach snippet: {signal.outreach_snippet}",
+                f"View in NewsAtlas: {frontend_base_url}/signals/{signal.id}",
+                "",
+            ]
+        )
+    lines.append(f"Manage email preferences: {frontend_base_url}/settings/profile")
+    return "\n".join(lines)
 
 
 def send_daily_digest(db: Session, email_client: EmailClient | None = None) -> DigestRunResult:
@@ -71,6 +109,7 @@ def send_daily_digest(db: Session, email_client: EmailClient | None = None) -> D
         return DigestRunResult(users_emailed=0, signals_included=0, errors=[])
 
     html_body = _render_digest_html(rows, app_settings.frontend_base_url)
+    text_body = _render_digest_text(rows, app_settings.frontend_base_url)
     subject = f"NewsAtlas: {len(rows)} new signal{'s' if len(rows) != 1 else ''}"
 
     users = db.query(User).all()
@@ -80,7 +119,9 @@ def send_daily_digest(db: Session, email_client: EmailClient | None = None) -> D
 
     for user in users:
         try:
-            email_client.send_email(to=user.email, subject=subject, html_body=html_body)
+            email_client.send_email(
+                to=user.email, subject=subject, html_body=html_body, text_body=text_body
+            )
         except EmailClientError as exc:
             errors.append(f"{user.email}: {exc}")
             continue

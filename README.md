@@ -7,8 +7,10 @@ actionable sales signals — in a web dashboard and as a daily email digest with
 ready-to-use outreach snippets.
 
 See [`docs/planning.html`](docs/planning.html) for the full architecture and
-roadmap, and [`docs/security-review.html`](docs/security-review.html) for the
-security posture and remediation history.
+roadmap, [`docs/security-review.html`](docs/security-review.html) for the
+security posture and remediation history, and
+[`docs/ui-ux-review.html`](docs/ui-ux-review.html) for a usability/UX review
+of the current frontend with a prioritized improvement roadmap.
 
 ## Project layout
 

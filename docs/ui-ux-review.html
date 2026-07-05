@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NewsAtlas — UI/UX Design Review</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6270;
+    --accent: #2757c7;
+    --accent-bg: #eef2fc;
+    --border: #e2e5ea;
+    --code-bg: #f5f6f8;
+    --critical: #b3261e;
+    --critical-bg: #fdecec;
+    --high: #a15c00;
+    --high-bg: #fdf4e3;
+    --medium: #8a6d00;
+    --medium-bg: #fdf8e3;
+    --low: #2757c7;
+    --low-bg: #eef2fc;
+    --ok: #1a7f4e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.05rem; margin-top: 0; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  .meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 12px 0 32px;
+    padding: 12px 16px;
+    background: var(--accent-bg);
+    border-radius: 8px;
+  }
+  .meta strong { color: var(--fg); }
+  nav.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin: 24px 0 40px;
+  }
+  nav.toc h2 { margin-top: 0; border: none; font-size: 1.05rem; padding-bottom: 4px; }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+  nav.toc a:hover { text-decoration: underline; }
+
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.88rem; }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--code-bg); font-weight: 600; }
+  .summary-table td:first-child { white-space: nowrap; }
+
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .badge-critical { background: var(--critical-bg); color: var(--critical); }
+  .badge-high { background: var(--high-bg); color: var(--high); }
+  .badge-medium { background: var(--medium-bg); color: var(--medium); }
+  .badge-low { background: var(--low-bg); color: var(--low); }
+  .badge-ok { background: #e9f9f1; color: var(--ok); }
+  .badge-fixed { background: #e9f9f1; color: var(--ok); }
+
+  .recommendation {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-bg);
+    padding: 10px 16px;
+    margin: 14px 0 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+  .recommendation strong { color: var(--accent); }
+
+  .finding {
+    border: 1px solid var(--border);
+    border-left-width: 5px;
+    border-radius: 0 10px 10px 0;
+    padding: 18px 22px;
+    margin: 20px 0;
+  }
+  .finding.critical { border-left-color: var(--critical); }
+  .finding.high { border-left-color: var(--high); }
+  .finding.medium { border-left-color: var(--medium); }
+  .finding.low { border-left-color: var(--low); }
+  .finding-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .finding-header h3 { margin: 0; }
+  .finding .location {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 4px 0 12px;
+  }
+  .finding h4 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+    margin: 16px 0 4px;
+  }
+
+  .positive {
+    border-left: 4px solid var(--ok);
+    background: #e9f9f1;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+
+  .solution {
+    border-left: 4px solid var(--ok);
+    background: #f3fbf7;
+    padding: 4px 20px 14px;
+    margin: 14px 0 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.9rem;
+  }
+  .solution h4 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--ok);
+    margin: 14px 0 4px;
+  }
+  .solution ol, .solution ul { margin: 6px 0 6px 20px; padding: 0; }
+  .solution li { margin-bottom: 8px; }
+  .solution pre { margin: 8px 0; background: #ffffff; }
+  .dod {
+    font-size: 0.85rem;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+  }
+  .dod strong { color: var(--ok); }
+
+  .update-banner {
+    border-left: 4px solid var(--ok);
+    background: #e9f9f1;
+    padding: 14px 18px;
+    margin: 20px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.92rem;
+  }
+
+  ul.checklist { list-style: none; padding-left: 4px; }
+  ul.checklist li { margin-bottom: 8px; }
+  ul.checklist li::before { content: "☐ "; color: var(--muted); }
+
+  .heur-good { color: var(--ok); font-weight: 600; }
+  .heur-partial { color: var(--medium); font-weight: 600; }
+  .heur-poor { color: var(--critical); font-weight: 600; }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>NewsAtlas — UI/UX Design Review</h1>
+<p class="subtitle">How the current frontend measures up against usability and interaction-design best practices, and what would make it feel fun, easy, and intuitive.</p>
+
+<div class="meta">
+  <div><strong>Scope:</strong> React/TypeScript SPA in <code>frontend/</code> (login, signals feed, signal detail, company profile, target companies) and the daily digest email HTML rendered by <code>backend/app/services/digest.py</code></div>
+  <div><strong>Reviewed at:</strong> commit <code>b5d5fd3</code></div>
+  <div><strong>Method:</strong> manual source review of every page/component and the shared stylesheet, no dynamic browser testing performed</div>
+  <div><strong>Not in scope:</strong> backend API design, data model, deployment/security posture (see <code>docs/security-review.html</code>)</div>
+</div>
+
+<p>
+  NewsAtlas is a small B2B tool for sales/BD teams: it ingests news about a workspace's target
+  companies, has an AI summarize why each article matters and draft an outreach snippet, and
+  presents the result as a triage queue ("signals") in a dashboard plus a daily email digest.
+  The frontend is a lean, unstyled-framework React app — no component library, no CSS framework,
+  a single hand-written stylesheet (<code>frontend/src/styles.css</code>). That minimalism is a
+  reasonable starting point, but several gaps currently work against the goal of the app feeling
+  fun, easy, and intuitive — most importantly for the person who has to open this dashboard every
+  day and triage a growing list of signals.
+</p>
+
+<div class="update-banner">
+  <strong>Update — 2026-07-05: a concrete proposed solution has been added for every finding.</strong>
+  Each finding below (F1–F13) now includes a "Proposed solution" block with the implementation
+  approach, ordered steps, file/code pointers into the existing codebase, and a "Definition of
+  done" so any of these can be picked up and implemented directly — by a person or by Claude Code —
+  without re-deriving the design first.
+</div>
+
+<div class="update-banner">
+  <strong>Update — 2026-07-05: all 13 findings have been implemented.</strong>
+  Every item (F1–F13) was built in the same session this review was written, following the
+  proposed solutions above. Each finding section now has a green "Fixed" note describing what
+  shipped and where. Verified with a full frontend build/typecheck, all 64 backend tests passing,
+  and a Playwright-driven walkthrough of the running app. Re-run a fresh review after any further
+  frontend changes.
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary of findings</a></li>
+    <li><a href="#heuristics">Heuristic evaluation (Nielsen's 10)</a></li>
+    <li><a href="#f1">F1. No responsive/mobile layout at all</a></li>
+    <li><a href="#f2">F2. Destructive actions have no confirmation</a></li>
+    <li><a href="#f3">F3. Core triage loop requires a full page visit per signal</a></li>
+    <li><a href="#f4">F4. Zero onboarding or empty-state guidance</a></li>
+    <li><a href="#f5">F5. All feedback is static inline text — no toasts, spinners, or skeletons</a></li>
+    <li><a href="#f6">F6. Signals feed has no search, sort, or pagination</a></li>
+    <li><a href="#f7">F7. Visual design has no personality, hierarchy aids, or motion</a></li>
+    <li><a href="#f8">F8. Accessibility gaps (focus states, labels, contrast unverified)</a></li>
+    <li><a href="#f9">F9. Email digest: compliance and readability gaps</a></li>
+    <li><a href="#f10">F10. "Fetch new signals" gives no progress feedback for a slow action</a></li>
+    <li><a href="#f11">F11. Forms lack real-time validation and forgiving input</a></li>
+    <li><a href="#f12">F12. No dark mode</a></li>
+    <li><a href="#f13">F13. Static browser tab title and no favicon</a></li>
+    <li><a href="#positives">What's already working well</a></li>
+    <li><a href="#roadmap">Prioritized roadmap</a></li>
+    <li><a href="#follow-ups">Deliberately deferred stretch items</a></li>
+    <li><a href="#roadmap">Prioritized roadmap</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">Summary of findings</h2>
+<table class="summary-table">
+  <tr><th>#</th><th>Impact</th><th>Finding</th><th>Status</th></tr>
+  <tr><td>F1</td><td><span class="badge badge-high">High</span></td><td>No responsive/mobile layout — fixed sidebar + fixed content width, zero media queries</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F2</td><td><span class="badge badge-high">High</span></td><td>Deleting a target company happens instantly on click, no confirmation or undo</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F3</td><td><span class="badge badge-high">High</span></td><td>Triaging signals (the app's core daily task) requires a full navigation per item, no bulk or keyboard actions</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F4</td><td><span class="badge badge-medium">Medium</span></td><td>New workspaces get a bare "no signals yet" line with no setup checklist or sample data</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F5</td><td><span class="badge badge-medium">Medium</span></td><td>All loading/success/error feedback is plain inline text; no toasts, spinners, or skeleton states</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F6</td><td><span class="badge badge-medium">Medium</span></td><td>Signals feed has no search, no sort order control, and no pagination/virtualization</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F7</td><td><span class="badge badge-medium">Medium</span></td><td>Visual design is flat and generic — no icons, illustration, brand color use, or motion anywhere</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F8</td><td><span class="badge badge-medium">Medium</span></td><td>Missing ARIA labels on icon-only/status-only controls, no visible focus styling, contrast unverified</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F9</td><td><span class="badge badge-medium">Medium</span></td><td>Digest email has no unsubscribe link, no plain-text part, and isn't mobile-responsive</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F10</td><td><span class="badge badge-low">Low</span></td><td>"Fetch new signals" blocks with only a button-label change — no progress or long-run affordance</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F11</td><td><span class="badge badge-low">Low</span></td><td>Forms validate only on submit; password/keyword fields give no live guidance</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F12</td><td><span class="badge badge-low">Low</span></td><td>No dark mode despite a CSS custom-property structure that would make it cheap to add</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F13</td><td><span class="badge badge-low">Low</span></td><td>Document title never changes per route; no favicon</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+</table>
+
+<h2 id="heuristics">Heuristic evaluation (Nielsen's 10 usability heuristics)</h2>
+<table>
+  <tr><th>Heuristic</th><th>Rating</th><th>Notes</th></tr>
+  <tr><td>Visibility of system status</td><td><span class="heur-poor">Poor</span></td><td>No spinners/skeletons, ingestion runs give no progress, status changes have no transition feedback beyond a badge re-render.</td></tr>
+  <tr><td>Match between system &amp; real world</td><td><span class="heur-good">Good</span></td><td>Language ("signals", "target companies", "outreach snippet") matches the sales workflow well; copy is plain English throughout.</td></tr>
+  <tr><td>User control &amp; freedom</td><td><span class="heur-poor">Poor</span></td><td>No undo anywhere (delete, status change, dismiss are all one-way); no confirm dialogs on destructive actions.</td></tr>
+  <tr><td>Consistency &amp; standards</td><td><span class="heur-good">Good</span></td><td>Card/badge/button patterns are reused consistently across all four pages — a real strength given no component library is used.</td></tr>
+  <tr><td>Error prevention</td><td><span class="heur-partial">Partial</span></td><td>Required fields exist, but no confirmation before delete, and comma-separated keyword input is easy to get wrong with no live preview.</td></tr>
+  <tr><td>Recognition rather than recall</td><td><span class="heur-good">Good</span></td><td>Sidebar nav is always visible with an active-state highlight; filters are visible, not hidden in a menu.</td></tr>
+  <tr><td>Flexibility &amp; efficiency of use</td><td><span class="heur-poor">Poor</span></td><td>No keyboard shortcuts, no bulk actions, no saved filters — a daily power user has no way to go faster than a first-time user.</td></tr>
+  <tr><td>Aesthetic &amp; minimalist design</td><td><span class="heur-partial">Partial</span></td><td>Minimalism is present but tips into "unfinished" — no icons, no illustration, no motion, everything is text and a single accent blue.</td></tr>
+  <tr><td>Help users recognize/recover from errors</td><td><span class="heur-partial">Partial</span></td><td>Errors surface as plain red text from the API message, which is honest but not always actionable for a non-technical user.</td></tr>
+  <tr><td>Help &amp; documentation</td><td><span class="heur-poor">Poor</span></td><td>No in-app help, tooltips, or onboarding copy beyond one line of settings-page description text.</td></tr>
+</table>
+
+<h2 id="f1">F1. No responsive/mobile layout at all <span class="badge badge-high">High</span></h2>
+<div class="finding high">
+  <p class="location"><code>frontend/src/styles.css</code> — <code>.app-shell</code>, <code>.sidebar</code>, <code>.content</code> (no <code>@media</code> queries exist anywhere in the file); <code>frontend/src/components/ProtectedLayout.tsx</code></p>
+  <h4>Issue</h4>
+  <p>
+    The whole app is one fixed <code>display:flex</code> row: a 220px sidebar plus a content column, with
+    no <code>@media</code> query anywhere in <code>styles.css</code> to collapse or restack it. On a
+    phone-width viewport this leaves roughly 150px for the content column, so signal titles, summaries,
+    and form fields all get crushed into a sliver, and the sidebar can't be hidden or collapsed at all
+    — there is no hamburger/toggle affordance in <code>ProtectedLayout.tsx</code>. A sales rep checking
+    signals from their phone between meetings — a very plausible use case for this product — gets an
+    unusable page.
+  </p>
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Add a breakpoint that turns the sidebar into an off-canvas drawer toggled by a hamburger button, and let content use fluid width.</p>
+    <ol>
+      <li>Add <code>const [isNavOpen, setIsNavOpen] = useState(false);</code> to <code>ProtectedLayout.tsx</code>, and a <code>&lt;button className="nav-toggle" aria-label="Toggle navigation" onClick={() =&gt; setIsNavOpen((v) =&gt; !v)}&gt;☰&lt;/button&gt;</code> rendered before <code>&lt;aside&gt;</code>.</li>
+      <li>Give <code>&lt;aside className={`sidebar ${isNavOpen ? "open" : ""}`}&gt;</code> the conditional class, and close it on navigation (<code>useEffect</code> on <code>useLocation()</code> calling <code>setIsNavOpen(false)</code>).</li>
+      <li>Add the breakpoint to <code>styles.css</code>:
+<pre><code>.nav-toggle { display: none; }
+
+@media (max-width: 720px) {
+  .nav-toggle { display: block; }
+  .app-shell { flex-direction: column; }
+  .sidebar {
+    position: fixed; inset: 0 25% 0 0; z-index: 20;
+    transform: translateX(-100%);
+    transition: transform 200ms ease;
+  }
+  .sidebar.open { transform: translateX(0); }
+  .content { max-width: 100%; padding: 16px; }
+}</code></pre>
+      </li>
+      <li>Add a semi-transparent backdrop <code>&lt;div&gt;</code> behind the open drawer that closes it on click, so the pattern matches standard mobile nav conventions.</li>
+    </ol>
+    <div class="remediation"><strong>Fixed:</strong> added a <code>nav-toggle</code> hamburger button and off-canvas drawer with backdrop to <code>ProtectedLayout.tsx</code>, plus the 720px breakpoint in <code>styles.css</code>. Verified at 375px with Playwright: no horizontal scroll, drawer opens/closes correctly.</div>
+    <p class="dod"><strong>Definition of done:</strong> at 375px viewport width, no horizontal scroll appears anywhere in the app, the sidebar is reachable via the toggle, and closes itself after picking a destination.</p>
+  </div>
+</div>
+
+<h2 id="f2">F2. Destructive actions have no confirmation <span class="badge badge-high">High</span></h2>
+<div class="finding high">
+  <p class="location"><code>frontend/src/pages/SettingsTargets.tsx:52-55</code> — <code>remove()</code> calls <code>api.delete</code> directly from the button's <code>onClick</code></p>
+  <h4>Issue</h4>
+  <p>
+    Clicking "Delete" next to a target company deletes it immediately, with no confirmation step and
+    no undo. Since a target company likely has accumulated articles/signals tied to it, this is an
+    easy, silent way to lose real triage history with a single misclick — there's no visual "are you
+    sure" friction that destructive actions conventionally get.
+  </p>
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Require a second, explicit click before anything is deleted, using a plain inline state swap — no modal library needed.</p>
+    <ol>
+      <li>Add <code>const [confirmingId, setConfirmingId] = useState&lt;string | null&gt;(null);</code> in <code>SettingsTargets.tsx</code>.</li>
+      <li>Replace the delete button per row with:
+<pre><code>{confirmingId === company.id ? (
+  &lt;&gt;
+    &lt;button type="button" className="danger"
+      onClick={async () =&gt; { await remove(company); setConfirmingId(null); }}&gt;
+      Confirm delete
+    &lt;/button&gt;
+    &lt;button type="button" onClick={() =&gt; setConfirmingId(null)}&gt;Cancel&lt;/button&gt;
+  &lt;/&gt;
+) : (
+  &lt;button type="button" className="danger"
+    onClick={() =&gt; setConfirmingId(company.id)}&gt;
+    Delete
+  &lt;/button&gt;
+)}</code></pre>
+      </li>
+      <li>Reset <code>confirmingId</code> whenever the list reloads, so a stale confirm state can't linger after a delete elsewhere in the list.</li>
+      <li><em>Stretch:</em> if the backend adds soft-delete, skip the confirm step entirely and instead show an "Undo" toast (see F5) for ~5 seconds that calls a restore endpoint — friendlier than a blocking confirm for a reversible action.</li>
+    </ol>
+    <div class="remediation"><strong>Fixed:</strong> <code>SettingsTargets.tsx</code> now tracks <code>confirmingId</code> and swaps the row's action into "Confirm delete" / "Cancel" before calling the delete endpoint. Verified with Playwright: canceling leaves the row intact.</div>
+    <p class="dod"><strong>Definition of done:</strong> a single click on "Delete" never removes data; deletion only happens after a second, distinctly-labeled click.</p>
+  </div>
+</div>
+
+<h2 id="f3">F3. Core triage loop requires a full page visit per signal <span class="badge badge-high">High</span></h2>
+<div class="finding high">
+  <p class="location"><code>frontend/src/pages/SignalsFeed.tsx</code> (list has no inline actions) and <code>frontend/src/pages/SignalDetail.tsx:91-102</code> (status transitions only live here)</p>
+  <h4>Issue</h4>
+  <p>
+    The entire product's daily job is: open the feed, look at a growing list of signals, and mark each
+    one reviewed/archived/dismissed. Today that requires clicking into <code>/signals/:id</code>,
+    reading the detail, clicking a transition button, then clicking "Back to signals" — for every
+    single item. There's no way to mark a signal reviewed/dismissed directly from the list, no bulk
+    "select multiple → archive", and no keyboard shortcuts (e.g. <code>j</code>/<code>k</code> to move,
+    <code>e</code> to archive, as in Gmail/Superhuman-style triage tools). For a workspace tracking
+    several target companies, this list only grows, and the per-item round-trip cost compounds daily —
+    this is the single biggest thing standing between the app and feeling "easy," since it's the most
+    repeated interaction in the whole product.
+  </p>
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Move status transitions onto the feed itself (optimistic, no navigation), then layer bulk and keyboard actions on top.</p>
+    <ol>
+      <li>Extract <code>STATUS_TRANSITIONS</code> out of <code>SignalDetail.tsx</code> into a shared module (e.g. <code>frontend/src/constants/signalStatus.ts</code>) so both the feed and the detail page use the same list.</li>
+      <li>In <code>SignalsFeed.tsx</code>, add an optimistic transition helper and render the transition buttons inline in <code>.signal-row-main</code>:
+<pre><code>async function transitionSignal(id: string, status: SignalStatus) {
+  const updated = await api.patch&lt;Signal&gt;(`/signals/${id}`, { status });
+  setSignals((prev) =&gt; prev.map((s) =&gt; (s.id === id ? updated : s)));
+}</code></pre>
+        Stop the click from also following the <code>Link</code> to the detail page with <code>event.preventDefault(); event.stopPropagation();</code> on the button handler.
+      </li>
+      <li>Add a checkbox per row plus a "select all" control in the toolbar; track selection in <code>const [selectedIds, setSelectedIds] = useState&lt;Set&lt;string&gt;&gt;(new Set());</code>.</li>
+      <li>Show a bulk-action bar when <code>selectedIds.size &gt; 0</code> with "Mark reviewed / Archive / Dismiss" buttons that run <code>Promise.all([...selectedIds].map((id) =&gt; transitionSignal(id, status)))</code>.</li>
+      <li><em>Stretch — keyboard triage:</em> track <code>focusedIndex</code> in state, add a <code>window</code> keydown listener for <code>j</code>/<code>k</code> (move focus), <code>r</code>/<code>a</code>/<code>d</code> (apply reviewed/archived/dismissed to the focused row), and give the focused row a visible highlight (<code>.signal-row.focused</code>).</li>
+    </ol>
+    <div class="remediation"><strong>Fixed:</strong> <code>SignalsFeed.tsx</code> now renders inline status buttons per row and a checkbox + bulk action bar, both using the shared <code>STATUS_TRANSITIONS</code> constant. Keyboard-driven triage was left as a follow-up (see roadmap) since it adds meaningful focus-management complexity beyond this pass. Verified with Playwright: inline archive and bulk dismiss both update status without navigation.</div>
+    <p class="dod"><strong>Definition of done:</strong> a signal's status can be changed without ever leaving the feed page, and 10 signals can be triaged in far fewer than 10 navigations via either inline row actions or the bulk bar.</p>
+  </div>
+</div>
+
+<h2 id="f4">F4. Zero onboarding or empty-state guidance <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <p class="location"><code>frontend/src/pages/SignalsFeed.tsx:121-125</code>, <code>frontend/src/pages/SettingsTargets.tsx:86</code>, <code>frontend/src/pages/SettingsProfile.tsx</code></p>
+  <h4>Issue</h4>
+  <p>
+    A brand-new workspace lands on an empty signals feed with one muted sentence ("No signals yet. Add
+    target companies and click 'Fetch new signals' to get started.") and no visual path to the two
+    pages that sentence references. There's no first-run checklist ("1. Set your company profile → 2.
+    Add a target company → 3. Fetch signals"), no sample/demo signal to show what a good result looks
+    like, and the company-profile textarea placeholder is the only hint about why that field matters.
+    A new user has to read carefully and self-navigate through three unconnected pages before the
+    product produces any value.
+  </p>
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Add a conditional setup checklist and gate the ingestion action on having something to ingest for.</p>
+    <ol>
+      <li>In <code>SignalsFeed.tsx</code>, also load <code>/settings</code> alongside <code>/target-companies</code> (already fetched there) to know whether <code>offering_description</code> is empty and whether <code>companies.length === 0</code>.</li>
+      <li>Add a <code>&lt;SetupChecklist&gt;</code> component rendered above <code>.feed-toolbar</code> only when either condition is true, with three linked steps:
+        <ul>
+          <li>"Describe your company" → <code>&lt;Link to="/settings/profile"&gt;</code>, checked once <code>offering_description</code> is non-empty.</li>
+          <li>"Add a target company" → <code>&lt;Link to="/settings/targets"&gt;</code>, checked once <code>companies.length &gt; 0</code>.</li>
+          <li>"Fetch your first signals" → highlights the "Fetch new signals" button, checked once <code>signals.length &gt; 0</code>.</li>
+        </ul>
+      </li>
+      <li>Disable "Fetch new signals" with <code>disabled={companies.length === 0}</code> and a <code>title="Add a target company first"</code> tooltip, so the empty-click dead-end described in the current empty-state sentence can't happen.</li>
+    </ol>
+    <div class="remediation"><strong>Fixed:</strong> added <code>SetupChecklist.tsx</code>, shown on the feed whenever the profile/targets/signals are incomplete, and the "Fetch new signals" button is now <code>disabled</code> until a target company exists. Verified with Playwright: checklist appears for a new signup, checks off as steps complete, and the fetch button is disabled until a target company is added.</div>
+    <p class="dod"><strong>Definition of done:</strong> a brand-new workspace sees a 3-step checklist with working links instead of a single sentence, and the fetch action is unavailable (not just unhelpful) until there's something to fetch for.</p>
+  </div>
+</div>
+
+<h2 id="f5">F5. All feedback is static inline text — no toasts, spinners, or skeletons <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <p class="location"><code>frontend/src/pages/SignalsFeed.tsx:120</code> (<code>"Loading signals..."</code>), <code>SignalDetail.tsx:56</code>, <code>SettingsProfile.tsx:42</code>, <code>SettingsTargets.tsx</code> (no loading state at all for add/toggle/delete)</p>
+  <h4>Issue</h4>
+  <p>
+    Every async state in the app is represented by a line of muted text appearing/disappearing —
+    "Loading...", "Loading settings...", button labels swapping to "Saving.../Fetching...". There's no
+    skeleton layout to hold the page shape while data loads (so the page visibly jumps once content
+    arrives), no toast/snackbar system for confirmations (a saved settings message just appears as a
+    green sentence under the button, easy to miss if the button isn't in view), and several actions —
+    <code>toggleActive</code> and <code>remove</code> in <code>SettingsTargets.tsx</code> — have no
+    loading indicator or disabled state at all, so a double-click can fire the request twice.
+  </p>
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Add one small toast system, a generic skeleton placeholder, and consistent pending-state handling — none of it needs a dependency.</p>
+    <ol>
+      <li>Add <code>frontend/src/context/ToastContext.tsx</code> exporting a <code>ToastProvider</code> and <code>useToast()</code> hook returning <code>showToast(message, variant)</code>; render an <code>aria-live="polite"</code> fixed-position stack that auto-dismisses each toast after ~3s. Wrap <code>&lt;App /&gt;</code> with it in <code>main.tsx</code>.</li>
+      <li>Replace the ad-hoc <code>savedMessage</code>/inline "Settings saved." pattern in <code>SettingsProfile.tsx</code> with <code>showToast("Settings saved.", "success")</code>; do the same for other mutation confirmations and for surfaced <code>ApiError</code> messages across all four pages.</li>
+      <li>Add a small <code>&lt;Skeleton rows={n} /&gt;</code> component — a few <code>div</code>s styled with the existing <code>--border</code>/<code>--bg</code> tokens and a shared <code>@keyframes pulse { 50% { opacity: .5; } }</code> — and swap it in for the bare <code>"Loading signals..."</code> / <code>"Loading..."</code> / <code>"Loading settings..."</code> text in <code>SignalsFeed.tsx</code>, <code>SignalDetail.tsx</code>, and <code>SettingsProfile.tsx</code>.</li>
+      <li>Add local pending state around <code>toggleActive</code> and <code>remove</code> in <code>SettingsTargets.tsx</code> (currently the only two mutations in the app with no loading/disabled state at all) and disable that row's buttons while the request is in flight.</li>
+    </ol>
+    <div class="remediation"><strong>Fixed:</strong> added <code>ToastContext.tsx</code> (wired into <code>main.tsx</code>) and <code>Skeleton.tsx</code>, used across all four pages; <code>toggleActive</code>/<code>remove</code> in <code>SettingsTargets.tsx</code> now track a <code>pendingId</code> and disable the row's buttons while in flight. Verified with Playwright: the "Target company added." toast renders and auto-dismisses.</div>
+    <p class="dod"><strong>Definition of done:</strong> every mutation in the app shows a pending state on its trigger, confirms or errors via a toast, and can't be double-fired by a fast double-click; every page's loading state preserves the layout shape instead of a layout jump.</p>
+  </div>
+</div>
+
+<h2 id="f6">F6. Signals feed has no search, sort, or pagination <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <p class="location"><code>frontend/src/pages/SignalsFeed.tsx:25-36</code> — <code>loadSignals()</code> fetches the full filtered list with no <code>limit</code>/<code>offset</code>/<code>search</code> params, and renders it as one flat <code>&lt;ul&gt;</code></p>
+  <h4>Issue</h4>
+  <p>
+    The feed can be filtered by company and status, which is a good start, but there's no free-text
+    search, no way to sort by newest/oldest or relevance, and no pagination or virtualization. As
+    signals accumulate over weeks, this list will grow unbounded in one render — both a usability
+    problem (can't find an older signal about a specific keyword) and eventually a performance one.
+  </p>
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Add client-side search and sort now (cheap, no backend change), and plan a paginated path for when volume grows.</p>
+    <ol>
+      <li>Add a search <code>&lt;input&gt;</code> to the filter panel in <code>SignalsFeed.tsx</code>, and derive the rendered list with:
+<pre><code>const visibleSignals = useMemo(() =&gt; {
+  const q = searchQuery.trim().toLowerCase();
+  if (!q) return signals;
+  return signals.filter((s) =&gt;
+    s.article_title.toLowerCase().includes(q) ||
+    s.summary.toLowerCase().includes(q) ||
+    s.target_company_name.toLowerCase().includes(q)
+  );
+}, [signals, searchQuery]);</code></pre>
+      </li>
+      <li>Add a sort <code>&lt;select&gt;</code> ("Newest first" / "Oldest first") and sort <code>visibleSignals</code> by <code>created_at</code> accordingly before rendering.</li>
+      <li>Once a workspace's signal count regularly exceeds ~50, extend <code>loadSignals()</code> to pass <code>limit</code>/<code>offset</code> query params and add a "Load more" button (or an intersection-observer-triggered infinite scroll) instead of fetching the full history on every load.</li>
+    </ol>
+    <div class="remediation"><strong>Fixed:</strong> added client-side search and a newest/oldest sort control to <code>SignalsFeed.tsx</code> via a <code>useMemo</code>-derived <code>visibleSignals</code> list. Server-side pagination was left as a follow-up (see roadmap) since it isn't yet needed at current signal volumes. Verified with Playwright: searching "VP of Sales" against 3 seeded signals correctly narrowed the list to 1.</div>
+    <p class="dod"><strong>Definition of done:</strong> a user can find a specific past signal by typing a keyword or company name without scrolling the full history, and the feed stays fast as signal volume grows over weeks.</p>
+  </div>
+</div>
+
+<h2 id="f7">F7. Visual design has no personality, hierarchy aids, or motion <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <p class="location"><code>frontend/src/styles.css</code> — entire file: one accent color, no icon usage, no <code>transition</code>/<code>animation</code> declarations, no illustration/imagery anywhere</p>
+  <h4>Issue</h4>
+  <p>
+    Every screen is built from the same three shapes (card, badge, button) in one accent blue with no
+    supporting visual language: no icon set (not even for nav items or status badges), no illustration
+    for empty states, no hover/active transitions on any interactive element (buttons, links, and rows
+    all snap instantly), and no use of color beyond the single accent + status badges. This is
+    internally consistent, which is good, but it reads as an admin/internal tool rather than a product
+    a user would enjoy opening every day — directly working against the "fun" half of the brief.
+  </p>
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Layer in an icon set, motion, and a touch of illustration incrementally — no new dependency required.</p>
+    <ol>
+      <li>Add a small local icon set as inline SVG components under <code>frontend/src/components/icons/</code> (e.g. <code>SignalsIcon</code>, <code>ProfileIcon</code>, <code>TargetsIcon</code> for the sidebar; a status-specific glyph for each <code>status-badge</code> variant) — each just a plain <code>&lt;svg&gt;</code> functional component, no icon-font or package needed.</li>
+      <li>Add global transitions in <code>styles.css</code>:
+<pre><code>button, a.signal-row, .sidebar nav a, .target-list li {
+  transition: background-color 150ms ease, transform 150ms ease;
+}
+button:hover:not(:disabled) { transform: translateY(-1px); }
+a.signal-row:hover { background: var(--bg); }</code></pre>
+      </li>
+      <li>Add one reusable empty-state illustration (a simple inline SVG — e.g. a stylized radar/newspaper glyph in <code>--accent</code>) used both on the empty signals feed and beside the login form, paired with warmer copy than the current single muted sentence.</li>
+    </ol>
+    <div class="remediation"><strong>Fixed:</strong> added an inline SVG icon set (<code>components/icons/NavIcons.tsx</code>) for sidebar nav and the theme toggle, hover/focus transitions on buttons and rows, and a reusable <code>EmptyStateIllustration.tsx</code> used on both the empty feed and the login screen. Status-badge icons were left as-is since the color+text pattern already reads clearly; icons there would add visual noise for little gain.</div>
+    <p class="dod"><strong>Definition of done:</strong> the sidebar and status badges use icons alongside text, hovering any interactive element produces a visible response, and the two most "blank" screens (empty feed, login) no longer read as bare forms on gray backgrounds.</p>
+  </div>
+</div>
+
+<h2 id="f8">F8. Accessibility gaps <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <p class="location"><code>frontend/src/pages/SignalDetail.tsx:87-89</code> (copy button, icon-free but ambiguous state), status badges throughout, no custom <code>:focus-visible</code> styling anywhere in <code>styles.css</code></p>
+  <h4>Issue</h4>
+  <p>
+    No element in the app has a custom focus style, so keyboard users rely entirely on the browser's
+    default outline, which is inconsistent across browsers and easy to miss against the card
+    backgrounds used here. Status badges convey state via color + text (good — not color alone), but
+    several interactive controls have no <code>aria-label</code> beyond their visible text, which is
+    fine for buttons with clear labels but would matter as soon as any icon-only control is added per
+    F7. Color contrast (e.g. <code>--muted: #5b6270</code> on <code>--bg: #f6f7fb</code>) looks broadly
+    acceptable by eye but hasn't been measured against WCAG AA and should be audited, especially the
+    0.68rem status-badge text.
+  </p>
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Add a global focus style, audit contrast, and route status messaging through an accessible live region.</p>
+    <ol>
+      <li>Add to <code>styles.css</code> (purely additive — nothing currently suppresses the default outline, so this only improves consistency):
+<pre><code>:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}</code></pre>
+      </li>
+      <li>Run Lighthouse or axe DevTools against all four routes (login, feed, detail, settings); if <code>--muted</code> (<code>#5b6270</code> on <code>#f6f7fb</code>) or the 0.68rem status-badge text fails WCAG AA, darken <code>--muted</code> slightly (e.g. towards <code>#4b5361</code>) or bump the badge font-size — both are single-line changes since colors are centralized as CSS variables.</li>
+      <li>Once the toast system from F5 exists, ensure its container has <code>aria-live="polite"</code> so confirmations and errors are announced to screen reader users automatically, not just sighted ones.</li>
+    </ol>
+    <div class="remediation"><strong>Fixed:</strong> added a global <code>:focus-visible</code> outline in <code>styles.css</code>, and the new toast container uses <code>aria-live="polite"</code>. Contrast was calculated directly (WCAG relative-luminance formula) for every foreground/background pair in both the light and new dark palette rather than via a browser audit tool (none was available in this environment) — all pairs clear 4.5:1 for normal text, so no color changes were needed.</div>
+    <p class="dod"><strong>Definition of done:</strong> tabbing through any page shows a visible focus indicator at every stop, and an automated audit reports no critical color-contrast violations.</p>
+  </div>
+</div>
+
+<h2 id="f9">F9. Digest email: compliance and readability gaps <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <p class="location"><code>backend/app/services/digest.py:28-56</code> — <code>_render_digest_html()</code></p>
+  <h4>Issue</h4>
+  <p>
+    The daily digest is a reasonable, on-brand HTML block (reuses the same accent color and card
+    styling as the app), but it has no unsubscribe/preference link (email best practice, and a legal
+    requirement in several jurisdictions for automated bulk mail), no plain-text
+    <code>multipart/alternative</code> part for clients that block HTML or for accessibility, no
+    preheader text (the snippet shown next to the subject line in inbox previews is currently
+    whatever text happens to render first), and the layout uses plain <code>&lt;div&gt;</code>s rather
+    than the table-based structure that's still needed for consistent rendering in Outlook/older
+    clients.
+  </p>
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Bring the digest up to standard transactional-email practice: an unsubscribe path, a plain-text part, and a preview snippet.</p>
+    <ol>
+      <li>In <code>_render_digest_html()</code>, append a footer block with a preferences link, e.g. <code>&lt;a href="{frontend_base_url}/settings/profile"&gt;Manage email preferences&lt;/a&gt;</code> (or a dedicated unsubscribe endpoint if per-user opt-out is added later).</li>
+      <li>Add a sibling <code>_render_digest_text(rows)</code> in <code>digest.py</code> that builds a plain-text equivalent (company name, title, summary, "why it matters", and the article/signal URLs, one per line), and extend <code>EmailClient.send_email</code> (<code>backend/app/services/email_client.py</code>) to accept an optional <code>text_body</code> and send both parts as <code>multipart/alternative</code>.</li>
+      <li>Add a hidden preheader immediately after <code>&lt;body&gt;</code>:
+<pre><code>&lt;span style="display:none;max-height:0;overflow:hidden;"&gt;
+  {n} new signals: {first_company}, {second_company}...
+&lt;/span&gt;</code></pre>
+      </li>
+      <li>If Outlook desktop is a realistic client for this audience, wrap <code>items_html</code> in a single-column <code>&lt;table role="presentation" width="100%"&gt;</code> instead of nested <code>&lt;div&gt;</code>s, since Outlook's rendering engine (Word-based) handles tables far more reliably than flexbox-adjacent div layouts.</li>
+    </ol>
+    <div class="remediation"><strong>Fixed:</strong> <code>digest.py</code> now renders a hidden preheader and a "Manage email preferences" footer link, plus a new <code>_render_digest_text()</code> plain-text alternative sent via <code>EmailClient.send_email</code>'s new optional <code>text_body</code> parameter (attached plainest-first per MIME convention). The Outlook table-layout stretch item was left as-is since it's conditional on Outlook desktop being a realistic client for this audience, which hasn't been established. Covered by an updated backend test asserting both parts contain the expected content.</div>
+    <p class="dod"><strong>Definition of done:</strong> every digest email includes a working preferences/unsubscribe link, renders sensibly with images/HTML blocked, and shows a useful preview line in inbox lists (Gmail, Outlook, Apple Mail).</p>
+  </div>
+</div>
+
+<h2 id="f10">F10. "Fetch new signals" gives no progress feedback <span class="badge badge-low">Low</span></h2>
+<div class="finding low">
+  <p class="location"><code>frontend/src/pages/SignalsFeed.tsx:44-57</code> — <code>handleRunIngestion()</code></p>
+  <h4>Issue</h4>
+  <p>
+    Triggering ingestion swaps the button label to "Fetching..." and disables it, which is correct as
+    far as it goes, but for a job that fetches from external news sources and calls an AI model per
+    article (potentially tens of seconds), a label change alone doesn't reassure the user that
+    anything is actually happening versus the page being stuck.
+  </p>
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Add a visible animated indicator now, and real progress if the backend can support it later.</p>
+    <ol>
+      <li>Add a small CSS spinner to <code>styles.css</code>:
+<pre><code>@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  display: inline-block; width: 14px; height: 14px;
+  border: 2px solid rgba(255,255,255,.4);
+  border-top-color: #fff; border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}</code></pre>
+        and render <code>{isRunningIngestion &amp;&amp; &lt;span className="spinner" /&gt;}</code> next to the button label in <code>SignalsFeed.tsx</code>.
+      </li>
+      <li><em>Stretch:</em> if <code>/ingestion/run-now</code> can be changed to report per-company progress (e.g. a polling <code>/ingestion/status</code> endpoint, or converting the run to a background job with a job id the frontend polls), replace the static "Fetching..." label with "Checking {company} ({i}/{n})".</li>
+    </ol>
+    <div class="remediation"><strong>Fixed:</strong> added the <code>.spinner</code> CSS animation and wired it into the "Fetch new signals" button in <code>SignalsFeed.tsx</code>. Backend progress reporting was left as a follow-up stretch item since it needs a new polling/job-status endpoint, out of scope for a frontend-focused pass.</div>
+    <p class="dod"><strong>Definition of done:</strong> any ingestion run longer than ~2 seconds shows a visibly animating indicator, not just a static label swap that could be mistaken for a stuck page.</p>
+  </div>
+</div>
+
+<h2 id="f11">F11. Forms lack real-time validation and forgiving input <span class="badge badge-low">Low</span></h2>
+<div class="finding low">
+  <p class="location"><code>frontend/src/pages/Login.tsx:66</code> (<code>minLength={10}</code> with no visible hint), <code>frontend/src/pages/SettingsTargets.tsx:30-34</code> (comma-separated keywords as a single text input)</p>
+  <h4>Issue</h4>
+  <p>
+    The password field enforces a 10-character minimum only via the browser's native validation
+    popup on submit — there's no visible hint up front ("at least 10 characters") or live
+    strength/length indicator, so a user only discovers the rule after a failed submit. Separately,
+    keywords/aliases are entered as one comma-separated string (<code>frontend/src/pages/SettingsTargets.tsx:30-34</code>);
+    this is compact but easy to fat-finger (stray comma, no trim feedback, no visual confirmation of
+    what will actually be saved as individual tags).
+  </p>
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Make the password rule visible up front, and replace the raw comma-separated keyword field with a chip-style tag input.</p>
+    <ol>
+      <li>In <code>Login.tsx</code>, add a static <code>&lt;span className="subtitle"&gt;At least 10 characters&lt;/span&gt;</code> directly under the password <code>&lt;input&gt;</code>, always visible — not gated behind a failed submit.</li>
+      <li>Replace the keywords <code>&lt;input&gt;</code> in <code>SettingsTargets.tsx</code> with a small <code>&lt;TagInput&gt;</code> component that keeps <code>keywords: string[]</code> directly in state instead of a joined string: typing and pressing Enter/comma appends a chip, each chip renders with a small "×" to remove it, and Backspace on an empty input removes the last chip. Submit <code>keywords</code> as the array directly, dropping the current <code>.split(",").map(k =&gt; k.trim()).filter(Boolean)</code> parsing step entirely.</li>
+    </ol>
+    <div class="remediation"><strong>Fixed:</strong> added a static password hint under the field in <code>Login.tsx</code>, and a new <code>TagInput.tsx</code> component now backs the keywords field in <code>SettingsTargets.tsx</code>, keeping <code>keywords: string[]</code> directly in state. Verified with Playwright: typing and pressing Enter renders removable chips.</div>
+    <p class="dod"><strong>Definition of done:</strong> the password rule is visible before a user ever submits the form, and adding/removing a keyword shows the exact list that will be saved, with no parsing surprises from stray commas or whitespace.</p>
+  </div>
+</div>
+
+<h2 id="f12">F12. No dark mode <span class="badge badge-low">Low</span></h2>
+<div class="finding low">
+  <p class="location"><code>frontend/src/styles.css:1-10</code> — all colors are already centralized as CSS custom properties on <code>:root</code></p>
+  <h4>Issue</h4>
+  <p>
+    Every color in the app already flows through a small set of CSS variables (<code>--bg</code>,
+    <code>--panel</code>, <code>--fg</code>, <code>--muted</code>, <code>--accent</code>,
+    <code>--border</code>), which is exactly the structure that makes dark mode cheap to add — but no
+    dark variant exists, and there's no theme toggle or <code>prefers-color-scheme</code> handling.
+    For a dashboard likely to be left open in a browser tab all day, this is a commonly-expected
+    option its target audience (software/sales-tool users) will notice is missing.
+  </p>
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Layer a dark palette onto the existing CSS variables and add a small persisted toggle.</p>
+    <ol>
+      <li>Add to <code>styles.css</code>:
+<pre><code>@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #14161b; --panel: #1c1f26; --fg: #e8eaed;
+    --muted: #9aa2b1; --border: #2a2e37; --accent: #6c93e8;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #14161b; --panel: #1c1f26; --fg: #e8eaed;
+  --muted: #9aa2b1; --border: #2a2e37; --accent: #6c93e8;
+}</code></pre>
+      </li>
+      <li>Add a small toggle button in <code>.sidebar-footer</code> (<code>ProtectedLayout.tsx</code>) cycling light → dark → system, storing the choice in <code>localStorage</code> and setting <code>document.documentElement.dataset.theme</code> on load and on change.</li>
+    </ol>
+    <div class="remediation"><strong>Fixed:</strong> added the dark palette (with <code>--danger</code>/<code>--ok</code> lightened specifically for dark backgrounds to keep 4.5:1+ contrast) and a <code>useTheme.ts</code> hook plus a light/dark/system toggle in the sidebar footer, persisted via <code>localStorage</code>. Verified with Playwright: cycling the toggle sets <code>data-theme="dark"</code> and the palette updates accordingly.</div>
+    <p class="dod"><strong>Definition of done:</strong> a dark palette is available, meets the same contrast bar validated in F8, can be toggled independently of the OS setting, and persists across reloads.</p>
+  </div>
+</div>
+
+<h2 id="f13">F13. Static browser tab title and no favicon <span class="badge badge-low">Low</span></h2>
+<div class="finding low">
+  <p class="location"><code>frontend/index.html:1-11</code> — <code>&lt;title&gt;NewsAtlas&lt;/title&gt;</code> never changes; no <code>&lt;link rel="icon"&gt;</code></p>
+  <h4>Issue</h4>
+  <p>
+    Every route renders under the same static "NewsAtlas" tab title, so a user with multiple tabs
+    open (e.g. the feed and a signal detail) can't distinguish them from the tab bar, and there's no
+    favicon, so the tab is also visually anonymous next to other open tabs. Both are quick wins for
+    day-to-day orientation.
+  </p>
+  <div class="solution">
+    <h4>Proposed solution</h4>
+    <p>Add a tiny reusable title hook and a favicon asset.</p>
+    <ol>
+      <li>Add a <code>usePageTitle</code> hook (e.g. <code>frontend/src/hooks/usePageTitle.ts</code>):
+<pre><code>export function usePageTitle(title?: string) {
+  useEffect(() =&gt; {
+    document.title = title ? `${title} · NewsAtlas` : "NewsAtlas";
+  }, [title]);
+}</code></pre>
+        and call it in each page: <code>usePageTitle("Signals")</code> in <code>SignalsFeed.tsx</code>, <code>usePageTitle("Company profile")</code> in <code>SettingsProfile.tsx</code>, <code>usePageTitle("Target companies")</code> in <code>SettingsTargets.tsx</code>, and <code>usePageTitle(signal?.article_title)</code> in <code>SignalDetail.tsx</code> once the signal loads.
+      </li>
+      <li>Add a favicon file under <code>frontend/public/favicon.svg</code> (a simple mark, e.g. the accent-blue glyph proposed in F7) and reference it in <code>index.html</code>: <code>&lt;link rel="icon" href="/favicon.svg" type="image/svg+xml"&gt;</code>.</li>
+    </ol>
+    <div class="remediation"><strong>Fixed:</strong> added <code>usePageTitle.ts</code>, called from every page, and <code>frontend/public/favicon.svg</code> referenced from <code>index.html</code>. Verified with Playwright: <code>document.title</code> updates per route (e.g. "Target companies · NewsAtlas").</div>
+    <p class="dod"><strong>Definition of done:</strong> each open tab shows a distinct, meaningful title (e.g. the signal's article title on its detail page) and a NewsAtlas favicon instead of the browser default.</p>
+  </div>
+</div>
+
+<h2 id="positives">What's already working well</h2>
+<div class="positive">
+  <strong>Consistent component vocabulary.</strong> Cards, status badges, and the two button variants
+  (<code>secondary</code>, <code>danger</code>) are reused identically across all four pages despite
+  there being no shared component library — that discipline will make every recommendation above
+  cheaper to apply consistently.
+</div>
+<div class="positive">
+  <strong>Clear, jargon-appropriate copy.</strong> Labels like "Target company", "Signals feed", and
+  "Outreach snippet" match how the target user (sales/BD) actually thinks, and helper text like the
+  company-profile description explains <em>why</em> a field matters, not just what to type.
+</div>
+<div class="positive">
+  <strong>Sensible information architecture.</strong> A persistent sidebar with three destinations,
+  filters surfaced directly on the feed rather than hidden behind a menu, and a detail page that leads
+  with the AI's answer (summary → why it matters → outreach snippet) mirrors the order a salesperson
+  actually needs the information in.
+</div>
+<div class="positive">
+  <strong>Small delight already present.</strong> The "Copy snippet" button's "Copied!" confirmation
+  (<code>SignalDetail.tsx:44-49</code>) is exactly the kind of low-cost, high-value micro-interaction
+  the rest of the app is currently missing elsewhere — worth using as the template for other action
+  feedback (see F5).
+</div>
+
+<h2 id="roadmap">Prioritized roadmap</h2>
+<table>
+  <tr><th>Priority</th><th>Item</th><th>Why first</th><th>Relative effort</th></tr>
+  <tr><td>1</td><td>F3 — inline/bulk triage actions on the feed</td><td>Directly reduces friction in the single most-repeated user action</td><td>Medium</td></tr>
+  <tr><td>2</td><td>F2 — confirm before delete</td><td>Prevents accidental data loss; small, isolated change</td><td>Small</td></tr>
+  <tr><td>3</td><td>F1 — responsive layout</td><td>Currently blocks mobile use entirely</td><td>Medium</td></tr>
+  <tr><td>4</td><td>F5 — toasts/spinners/skeletons</td><td>Improves every screen at once; unlocks safe disabling of double-click bugs</td><td>Medium</td></tr>
+  <tr><td>5</td><td>F4 — onboarding checklist</td><td>First impression for every new workspace</td><td>Small–Medium</td></tr>
+  <tr><td>6</td><td>F7 — icons, transitions, empty-state illustration</td><td>Biggest lever on "fun"; can be done incrementally</td><td>Medium</td></tr>
+  <tr><td>7</td><td>F6 — search/sort/pagination on feed</td><td>Becomes urgent as signal volume grows; not yet painful</td><td>Medium</td></tr>
+  <tr><td>8</td><td>F9 — digest email fixes</td><td>Compliance-adjacent (unsubscribe link) plus reach (plain-text part)</td><td>Small</td></tr>
+  <tr><td>9</td><td>F8 — accessibility audit + focus states</td><td>Low effort, broad correctness improvement</td><td>Small</td></tr>
+  <tr><td>10</td><td>F12 — dark mode</td><td>Cheap given existing CSS variable structure; pure polish</td><td>Small</td></tr>
+  <tr><td>11</td><td>F13, F10, F11 — title/favicon, ingestion progress, form guidance</td><td>Isolated polish items, do opportunistically</td><td>Small</td></tr>
+</table>
+
+<p>All 11 items above are now <span class="badge badge-fixed">Fixed</span> — see each finding's remediation note for what shipped.</p>
+
+<h2 id="follow-ups">Deliberately deferred stretch items</h2>
+<p>
+  A few sub-items called out as optional "stretch" work in the original solutions were intentionally
+  left out of this pass, since they add real complexity or need backend/architecture changes beyond a
+  frontend-focused implementation:
+</p>
+<ul class="checklist">
+  <li>Keyboard-driven triage (<code>j</code>/<code>k</code>/<code>r</code>/<code>a</code>/<code>d</code>) on the signals feed (F3) — needs focus-management state on top of the inline/bulk actions already shipped.</li>
+  <li>Server-side pagination for the signals feed (F6) — not yet needed at current signal volumes; client-side search/sort covers today's usage.</li>
+  <li>Ingestion progress reporting from the backend (F10) — needs a new polling/job-status endpoint.</li>
+  <li>Outlook-safe table-based layout for the digest email (F9) — conditional on Outlook desktop being a realistic client for this audience, which hasn't been established.</li>
+</ul>
+
+<footer>
+  Prepared as a source-only design review (no dynamic/browser testing performed); solutions were
+  added in a follow-up pass with concrete implementation steps for each finding, and all 13 were
+  then implemented and verified with a full build/typecheck, the backend test suite, and a
+  Playwright-driven walkthrough of the running app. Re-run a fresh review after any further
+  significant frontend changes.
+</footer>
+
+</body>
+</html>

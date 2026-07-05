@@ -13,11 +13,13 @@ class FakeEmailClient:
     def __init__(self, fail_for: set[str] | None = None):
         self.fail_for = fail_for or set()
         self.sent: list[tuple[str, str, str]] = []
+        self.text_bodies: list[str] = []
 
-    def send_email(self, *, to, subject, html_body):
+    def send_email(self, *, to, subject, html_body, text_body=None):
         if to in self.fail_for:
             raise EmailClientError("simulated failure")
         self.sent.append((to, subject, html_body))
+        self.text_bodies.append(text_body)
 
 
 def _make_user(db_session, email="rep@proair.com") -> User:
@@ -86,6 +88,12 @@ def test_send_daily_digest_emails_all_users_and_marks_signals(db_session):
 
     digest_logs = db_session.query(DigestLog).all()
     assert len(digest_logs) == 2
+
+    _to, _subject, html_body = fake_email.sent[0]
+    assert "Manage email preferences" in html_body
+    assert "Acme raises funding" in html_body
+    assert all(text_body and "Acme raises funding" in text_body for text_body in fake_email.text_bodies)
+    assert all("Manage email preferences" in text_body for text_body in fake_email.text_bodies)
 
 
 def test_send_daily_digest_skips_already_emailed_signals(db_session):

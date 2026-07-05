@@ -1,8 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { api, ApiError } from "../api/client";
-import type { IngestionRunResult, Signal, SignalStatus, TargetCompany } from "../api/types";
+import type { IngestionRunResult, Signal, SignalStatus, TargetCompany, WorkspaceSettings } from "../api/types";
+import Skeleton from "../components/Skeleton";
+import SetupChecklist from "../components/SetupChecklist";
+import EmptyStateIllustration from "../components/icons/EmptyStateIllustration";
+import { STATUS_TRANSITIONS } from "../constants/signalStatus";
+import { useToast } from "../context/ToastContext";
+import { usePageTitle } from "../hooks/usePageTitle";
 
 const STATUS_OPTIONS: { value: SignalStatus | ""; label: string }[] = [
   { value: "", label: "All statuses" },
@@ -12,12 +18,20 @@ const STATUS_OPTIONS: { value: SignalStatus | ""; label: string }[] = [
   { value: "dismissed", label: "Dismissed" },
 ];
 
+type SortOrder = "newest" | "oldest";
+
 export default function SignalsFeed() {
+  usePageTitle("Signals");
+  const { showToast } = useToast();
   const [signals, setSignals] = useState<Signal[]>([]);
   const [companies, setCompanies] = useState<TargetCompany[]>([]);
+  const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
   const [companyFilter, setCompanyFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<SignalStatus | "">("");
-  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRunningIngestion, setIsRunningIngestion] = useState(false);
   const [ingestionResult, setIngestionResult] = useState<IngestionRunResult | null>(null);
@@ -30,19 +44,26 @@ export default function SignalsFeed() {
     const query = params.toString();
     api
       .get<Signal[]>(`/signals${query ? `?${query}` : ""}`)
-      .then(setSignals)
-      .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load signals"))
+      .then((result) => {
+        setSignals(result);
+        setLoadError(null);
+      })
+      .catch((err) => setLoadError(err instanceof ApiError ? err.message : "Failed to load signals"))
       .finally(() => setIsLoading(false));
   }
 
   useEffect(() => {
     api.get<TargetCompany[]>("/target-companies").then(setCompanies).catch(() => undefined);
+    api.get<WorkspaceSettings>("/settings").then(setSettings).catch(() => undefined);
   }, []);
 
   useEffect(loadSignals, [companyFilter, statusFilter]);
 
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [signals]);
+
   async function handleRunIngestion() {
-    setError(null);
     setIngestionResult(null);
     setIsRunningIngestion(true);
     try {
@@ -50,11 +71,73 @@ export default function SignalsFeed() {
       setIngestionResult(result);
       loadSignals();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Ingestion run failed");
+      showToast(err instanceof ApiError ? err.message : "Ingestion run failed", "error");
     } finally {
       setIsRunningIngestion(false);
     }
   }
+
+  async function transitionSignal(id: string, status: SignalStatus) {
+    try {
+      const updated = await api.patch<Signal>(`/signals/${id}`, { status });
+      setSignals((prev) => prev.map((s) => (s.id === id ? updated : s)));
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Failed to update signal", "error");
+    }
+  }
+
+  async function transitionSelected(status: SignalStatus) {
+    const ids = [...selectedIds];
+    try {
+      const updates = await Promise.all(
+        ids.map((id) => api.patch<Signal>(`/signals/${id}`, { status }))
+      );
+      setSignals((prev) =>
+        prev.map((s) => updates.find((updated) => updated.id === s.id) ?? s)
+      );
+      setSelectedIds(new Set());
+      showToast(`Updated ${ids.length} signal${ids.length === 1 ? "" : "s"}.`, "success");
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Bulk update failed", "error");
+    }
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) => (prev.size === visibleSignals.length ? new Set() : new Set(visibleSignals.map((s) => s.id))));
+  }
+
+  const visibleSignals = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    const filtered = query
+      ? signals.filter(
+          (s) =>
+            s.article_title.toLowerCase().includes(query) ||
+            s.summary.toLowerCase().includes(query) ||
+            s.target_company_name.toLowerCase().includes(query)
+        )
+      : signals;
+    const sorted = [...filtered].sort((a, b) => {
+      const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      return sortOrder === "newest" ? -diff : diff;
+    });
+    return sorted;
+  }, [signals, searchQuery, sortOrder]);
+
+  const hasCompanyProfile = Boolean(settings?.offering_description.trim());
+  const hasTargetCompany = companies.length > 0;
+  const showChecklist = settings !== null && (!hasCompanyProfile || !hasTargetCompany || signals.length === 0);
 
   return (
     <div>
@@ -63,10 +146,24 @@ export default function SignalsFeed() {
           <h2>Signals feed</h2>
           <p className="subtitle">News signals for your target companies, summarized by AI.</p>
         </div>
-        <button type="button" onClick={handleRunIngestion} disabled={isRunningIngestion}>
+        <button
+          type="button"
+          onClick={handleRunIngestion}
+          disabled={isRunningIngestion || !hasTargetCompany}
+          title={hasTargetCompany ? undefined : "Add a target company first"}
+        >
+          {isRunningIngestion && <span className="spinner" aria-hidden="true" />}
           {isRunningIngestion ? "Fetching..." : "Fetch new signals"}
         </button>
       </div>
+
+      {showChecklist && (
+        <SetupChecklist
+          hasCompanyProfile={hasCompanyProfile}
+          hasTargetCompany={hasTargetCompany}
+          hasSignals={signals.length > 0}
+        />
+      )}
 
       {ingestionResult && (
         <div className="panel-card">
@@ -115,31 +212,105 @@ export default function SignalsFeed() {
             </select>
           </label>
         </div>
+        <div className="field-row">
+          <label>
+            Search
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search title, summary, or company..."
+            />
+          </label>
+          <label>
+            Sort
+            <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as SortOrder)}>
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </label>
+        </div>
 
-        {error && <p className="error-text">{error}</p>}
-        {isLoading && <p className="subtitle">Loading signals...</p>}
-        {!isLoading && signals.length === 0 && (
-          <p className="subtitle">
-            No signals yet. Add target companies and click "Fetch new signals" to get started.
-          </p>
+        {loadError && <p className="error-text">{loadError}</p>}
+        {isLoading && <Skeleton rows={4} />}
+        {!isLoading && !loadError && visibleSignals.length === 0 && signals.length === 0 && (
+          <div className="empty-state">
+            <EmptyStateIllustration />
+            <p className="subtitle">
+              No signals yet. Add target companies and click "Fetch new signals" to get started.
+            </p>
+          </div>
+        )}
+        {!isLoading && !loadError && visibleSignals.length === 0 && signals.length > 0 && (
+          <p className="subtitle">No signals match your search.</p>
         )}
 
-        <ul className="signal-list">
-          {signals.map((signal) => (
-            <li key={signal.id}>
-              <Link to={`/signals/${signal.id}`} className="signal-row">
-                <div className="signal-row-main">
-                  <span className={`status-badge status-${signal.status}`}>{signal.status}</span>
-                  <div>
-                    <strong>{signal.target_company_name}</strong>
-                    <div className="signal-title">{signal.article_title}</div>
-                    <div className="subtitle">{signal.summary}</div>
-                  </div>
+        {!isLoading && visibleSignals.length > 0 && (
+          <>
+            <div className="feed-select-all">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.size === visibleSignals.length}
+                  onChange={toggleSelectAll}
+                />
+                Select all
+              </label>
+              {selectedIds.size > 0 && (
+                <div className="bulk-actions">
+                  <span className="subtitle">{selectedIds.size} selected</span>
+                  {STATUS_TRANSITIONS.map((transition) => (
+                    <button
+                      type="button"
+                      key={transition.value}
+                      className="secondary"
+                      onClick={() => transitionSelected(transition.value)}
+                    >
+                      {transition.label}
+                    </button>
+                  ))}
                 </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
+              )}
+            </div>
+
+            <ul className="signal-list">
+              {visibleSignals.map((signal) => (
+                <li key={signal.id}>
+                  <div className="signal-row">
+                    <input
+                      type="checkbox"
+                      className="signal-checkbox"
+                      checked={selectedIds.has(signal.id)}
+                      onChange={() => toggleSelected(signal.id)}
+                      aria-label={`Select ${signal.article_title}`}
+                    />
+                    <Link to={`/signals/${signal.id}`} className="signal-row-link">
+                      <div className="signal-row-main">
+                        <span className={`status-badge status-${signal.status}`}>{signal.status}</span>
+                        <div>
+                          <strong>{signal.target_company_name}</strong>
+                          <div className="signal-title">{signal.article_title}</div>
+                          <div className="subtitle">{signal.summary}</div>
+                        </div>
+                      </div>
+                    </Link>
+                    <div className="signal-row-actions">
+                      {STATUS_TRANSITIONS.filter((t) => t.value !== signal.status).map((transition) => (
+                        <button
+                          type="button"
+                          key={transition.value}
+                          className="secondary"
+                          onClick={() => transitionSignal(signal.id, transition.value)}
+                        >
+                          {transition.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </div>
     </div>
   );
