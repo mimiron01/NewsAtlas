@@ -28,3 +28,7 @@ class WorkspaceSettings(Base, UUIDPrimaryKeyMixin):
     last_manual_digest_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Short, rule-based steering note derived from dismissed-signal patterns (no LLM call
+    # involved in computing it — see services/feedback.py) and injected into future
+    # summarization prompts to bias away from categories users keep dismissing.
+    ai_feedback_note: Mapped[str] = mapped_column(Text, nullable=False, default="")

@@ -36,7 +36,7 @@ def _make_signal(db_session, company_name="Acme Corp") -> Signal:
         article_id=article.id,
         summary="Acme raised funding",
         business_relevance="They have budget now",
-        outreach_snippet="Congrats on the raise...",
+        outreach_snippet_email="Congrats on the raise...",
     )
     db_session.add(signal)
     db_session.commit()

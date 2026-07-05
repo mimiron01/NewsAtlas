@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -11,7 +12,14 @@ class SignalResponse(BaseModel):
     status: SignalStatus
     summary: str
     business_relevance: str
-    outreach_snippet: str
+    supporting_quote: str
+    outreach_snippet_email: str
+    outreach_snippet_linkedin: str
+    outreach_call_opener: str
+    relevance_score: int | None
+    signal_type: str | None
+    confidence: str | None
+    entities: dict[str, Any] | None
     created_at: datetime
     article_id: uuid.UUID
     article_title: str

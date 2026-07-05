@@ -52,7 +52,7 @@ def _make_signal(db_session, title="Acme raises funding") -> Signal:
         article_id=article.id,
         summary="summary",
         business_relevance="relevance",
-        outreach_snippet="snippet",
+        outreach_snippet_email="snippet",
     )
     db_session.add(signal)
     db_session.commit()

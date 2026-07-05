@@ -27,6 +27,16 @@ class Settings(BaseSettings):
     newsapi_api_key: str = ""
     mistral_api_key: str = ""
     mistral_model: str = "mistral-large-latest"
+    # Cheap model used for the pre-summarization relevance triage pass (see ai_client.py,
+    # ingestion.py) — filters out low-value articles before spending a full mistral_model call.
+    mistral_triage_model: str = "mistral-small-latest"
+    mistral_embed_model: str = "mistral-embed"
+    # Cosine-similarity threshold above which a new article is treated as a semantic
+    # duplicate of an existing one for the same target company (skips triage + summarization).
+    mistral_dedupe_similarity_threshold: float = 0.90
+    # Toggle for the small-model triage pass; disabling sends every article straight to
+    # the full summarization call (higher cost, useful for debugging/comparison).
+    mistral_triage_enabled: bool = True
 
     smtp_host: str = ""
     smtp_port: int = 587

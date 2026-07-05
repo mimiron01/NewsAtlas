@@ -361,6 +361,49 @@ button.link-button:hover:not(:disabled) { text-decoration: underline; transform:
 .status-archived { background: var(--bg); color: var(--muted); }
 .status-dismissed { background: #fdecec; color: var(--danger); }
 
+.signal-detail-badges { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+.score-badge,
+.signal-type-badge,
+.confidence-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+  margin-bottom: 6px;
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.score-badge.score-5, .score-badge.score-4 { background: #e9f9f1; color: var(--ok); border-color: transparent; }
+.score-badge.score-1, .score-badge.score-2 { background: var(--bg); color: var(--muted); }
+.signal-type-badge { background: #e6f0ff; color: var(--accent); border-color: transparent; }
+.confidence-badge { background: #fdf4e3; color: #a15c00; border-color: transparent; }
+
+.supporting-quote {
+  margin: 8px 0 16px;
+  padding: 8px 14px;
+  border-left: 3px solid var(--border);
+  color: var(--muted);
+  font-style: italic;
+}
+
+.entities-list { list-style: none; padding: 0; margin: 0 0 16px; }
+.entities-list li { padding: 3px 0; font-size: 0.92rem; }
+
+.snippet-tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+.snippet-tab {
+  background: var(--bg);
+  color: var(--muted);
+  border: 1px solid var(--border);
+  padding: 4px 12px;
+  font-size: 0.82rem;
+  border-radius: 20px;
+}
+.snippet-tab.active { background: var(--accent); color: white; border-color: transparent; }
+
 .setup-checklist { border: 1px solid var(--accent); }
 .checklist-steps { list-style: none; padding: 0; margin: 8px 0 0; }
 .checklist-steps li {
@@ -410,6 +453,25 @@ button.link-button:hover:not(:disabled) { text-decoration: underline; transform:
   margin-bottom: 12px;
   white-space: pre-wrap;
 }
+
+.usage-totals {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.usage-totals > div { display: flex; flex-direction: column; }
+.usage-totals strong { font-size: 1.4rem; }
+.usage-totals span { color: var(--muted); font-size: 0.82rem; }
+
+.usage-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.usage-table th, .usage-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+.usage-table th { color: var(--muted); font-weight: 600; }
 
 .status-actions { display: flex; gap: 8px; margin-top: 20px; }
 .status-actions button.secondary,
