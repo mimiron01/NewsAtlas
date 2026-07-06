@@ -12,7 +12,7 @@ from app.schemas.ingestion import IngestionRunResult
 from app.services.ai_client import AIClient, AIClientError, MistralUsage
 from app.services.feedback import refresh_feedback_note
 from app.services.news_client import NewsClient, NewsClientError
-from app.services.workspace_settings import get_or_create_workspace_settings
+from app.services.workspace_settings import get_or_create_workspace_settings, resolve_mistral_api_key
 
 MIN_LOOKBACK_HOURS = 24
 RECENT_SIGNALS_FOR_CONTEXT = 2
@@ -31,10 +31,10 @@ def run_ingestion(
 
     news_client = news_client or NewsClient(api_key=app_settings.newsapi_api_key)
     ai_client = ai_client or AIClient(
-        api_key=app_settings.mistral_api_key,
-        model=app_settings.mistral_model,
-        triage_model=app_settings.mistral_triage_model,
-        embed_model=app_settings.mistral_embed_model,
+        api_key=resolve_mistral_api_key(workspace_settings, app_settings),
+        model=workspace_settings.mistral_model,
+        triage_model=workspace_settings.mistral_triage_model,
+        embed_model=workspace_settings.mistral_embed_model,
     )
 
     lookback_hours = max(workspace_settings.ingestion_interval_hours * 2, MIN_LOOKBACK_HOURS)
@@ -95,7 +95,6 @@ def run_ingestion(
         signals_created_here, duplicates_here, triaged_out_here, batch_errors = _process_new_articles(
             db,
             ai_client=ai_client,
-            app_settings=app_settings,
             workspace_settings=workspace_settings,
             target_company=target_company,
             new_articles=new_articles,
@@ -120,7 +119,6 @@ def _process_new_articles(
     db: Session,
     *,
     ai_client: AIClient,
-    app_settings,
     workspace_settings,
     target_company: TargetCompany,
     new_articles: list[Article],
@@ -163,7 +161,7 @@ def _process_new_articles(
     for article in new_articles:
         if article.embedding is not None:
             duplicate = _find_duplicate(
-                article, candidates, app_settings.mistral_dedupe_similarity_threshold
+                article, candidates, workspace_settings.mistral_dedupe_similarity_threshold
             )
             if duplicate is not None:
                 article.duplicate_of_article_id = duplicate.id
@@ -177,7 +175,7 @@ def _process_new_articles(
                 continue
             candidates.insert(0, article)
 
-        if app_settings.mistral_triage_enabled:
+        if workspace_settings.mistral_triage_enabled:
             try:
                 triage, triage_usage = ai_client.triage_article(
                     company_name=workspace_settings.company_name,

@@ -24,12 +24,36 @@ export interface CompanyFollower {
   created_at: string;
 }
 
+export type MistralApiKeySource = "workspace" | "environment" | "unset";
+
 export interface WorkspaceSettings {
   id: string;
   company_name: string;
   offering_description: string;
   digest_send_time: string;
   ingestion_interval_hours: number;
+  mistral_model: string;
+  mistral_triage_model: string;
+  mistral_embed_model: string;
+  mistral_triage_enabled: boolean;
+  mistral_dedupe_similarity_threshold: number;
+  mistral_api_key_configured: boolean;
+  mistral_api_key_source: MistralApiKeySource;
+  mistral_api_key_last4: string | null;
+}
+
+export interface WorkspaceSettingsUpdatePayload {
+  company_name: string;
+  offering_description: string;
+  digest_send_time: string;
+  ingestion_interval_hours: number;
+  mistral_model: string;
+  mistral_triage_model: string;
+  mistral_embed_model: string;
+  mistral_triage_enabled: boolean;
+  mistral_dedupe_similarity_threshold: number;
+  // Omit to leave the current key unchanged; "" clears the in-app override.
+  mistral_api_key?: string;
 }
 
 export interface TargetCompany {
