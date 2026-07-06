@@ -15,6 +15,17 @@ export function ProfileIcon() {
   );
 }
 
+export function UsersIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="9" cy="8" r="3" />
+      <path d="M3 20c1.2-3.5 4-5 6-5s4.8 1.5 6 5" strokeLinecap="round" />
+      <path d="M16 4.5a3 3 0 0 1 0 5.8" strokeLinecap="round" />
+      <path d="M15.5 15c2 .3 3.8 1.7 4.5 5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function TargetsIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

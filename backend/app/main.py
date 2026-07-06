@@ -6,7 +6,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
-from app.api import ai_usage, auth, digest, ingestion, settings, signals, target_companies
+from app.api import admin, ai_usage, auth, digest, ingestion, settings, signals, target_companies
 from app.core.body_limit import MaxBodySizeMiddleware
 from app.core.config import assert_secure_for_production, get_settings
 from app.core.limiter import limiter
@@ -68,6 +68,7 @@ app.include_router(ingestion.router)
 app.include_router(signals.router)
 app.include_router(digest.router)
 app.include_router(ai_usage.router)
+app.include_router(admin.router)
 
 
 @app.get("/health")

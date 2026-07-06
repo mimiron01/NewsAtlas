@@ -4,11 +4,13 @@ import { api, ApiError } from "../api/client";
 import type { TargetCompany } from "../api/types";
 import TagInput from "../components/TagInput";
 import { useToast } from "../context/ToastContext";
+import { useIsAdmin } from "../hooks/useIsAdmin";
 import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function SettingsTargets() {
-  usePageTitle("Target companies");
+  usePageTitle("My companies");
   const { showToast } = useToast();
+  const isAdmin = useIsAdmin();
   const [companies, setCompanies] = useState<TargetCompany[]>([]);
   const [name, setName] = useState("");
   const [keywords, setKeywords] = useState<string[]>([]);
@@ -59,24 +61,53 @@ export default function SettingsTargets() {
     }
   }
 
+  async function toggleMute(company: TargetCompany) {
+    setPendingId(company.id);
+    try {
+      await api.post(`/target-companies/${company.id}/mute`);
+      loadCompanies();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Failed to update company", "error");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
   async function remove(company: TargetCompany) {
     setPendingId(company.id);
     try {
       await api.delete(`/target-companies/${company.id}`);
-      showToast(`Deleted "${company.name}".`, "success");
+      showToast(
+        isAdmin ? `Deleted "${company.name}".` : `Unfollowed "${company.name}".`,
+        "success"
+      );
       loadCompanies();
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Failed to delete company", "error");
+      showToast(err instanceof ApiError ? err.message : "Failed to remove company", "error");
     } finally {
       setPendingId(null);
       setConfirmingId(null);
     }
   }
 
+  function removeLabel(): string {
+    return isAdmin ? "Delete" : "Unfollow";
+  }
+
+  function confirmCopy(company: TargetCompany): string {
+    if (isAdmin) {
+      return `This permanently deletes "${company.name}" and all its signals for every user. Continue?`;
+    }
+    if (company.follower_count <= 1) {
+      return `You're the only follower — unfollowing "${company.name}" removes it (and its signals) for everyone. Continue?`;
+    }
+    return `Unfollow "${company.name}"? Other users tracking it keep seeing it.`;
+  }
+
   return (
     <div>
       <form className="panel-card" onSubmit={handleAdd}>
-        <h2>Target companies</h2>
+        <h2>My companies</h2>
         <p className="subtitle">
           Add the companies you want news signals for. Keywords/aliases help match more articles.
         </p>
@@ -112,11 +143,19 @@ export default function SettingsTargets() {
               <div>
                 <strong>{company.name}</strong>
                 {company.industry && <span className="tag">{company.industry}</span>}
+                {company.is_muted && <span className="tag">Muted</span>}
                 {company.keywords.length > 0 && (
                   <div className="keywords">{company.keywords.join(", ")}</div>
                 )}
               </div>
               <div className="actions">
+                <button
+                  type="button"
+                  disabled={pendingId === company.id}
+                  onClick={() => toggleMute(company)}
+                >
+                  {company.is_muted ? "Unmute" : "Mute"}
+                </button>
                 <button
                   type="button"
                   disabled={pendingId === company.id}
@@ -132,18 +171,24 @@ export default function SettingsTargets() {
                       disabled={pendingId === company.id}
                       onClick={() => remove(company)}
                     >
-                      Confirm delete
+                      Confirm {removeLabel().toLowerCase()}
                     </button>
                     <button type="button" onClick={() => setConfirmingId(null)}>
                       Cancel
                     </button>
                   </>
                 ) : (
-                  <button type="button" className="danger" onClick={() => setConfirmingId(company.id)}>
-                    Delete
+                  <button
+                    type="button"
+                    className="danger"
+                    title={confirmCopy(company)}
+                    onClick={() => setConfirmingId(company.id)}
+                  >
+                    {removeLabel()}
                   </button>
                 )}
               </div>
+              {confirmingId === company.id && <p className="subtitle">{confirmCopy(company)}</p>}
             </li>
           ))}
         </ul>

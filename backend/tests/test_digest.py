@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from app.models.article import Article
+from app.models.company_follow import CompanyFollow
 from app.models.digest_log import DigestLog
 from app.models.signal import Signal
 from app.models.target_company import TargetCompany
@@ -60,6 +61,16 @@ def _make_signal(db_session, title="Acme raises funding") -> Signal:
     return signal
 
 
+def _follow(db_session, user, signal, *, is_muted=False) -> None:
+    article = db_session.get(Article, signal.article_id)
+    db_session.add(
+        CompanyFollow(
+            user_id=user.id, target_company_id=article.target_company_id, is_muted=is_muted
+        )
+    )
+    db_session.commit()
+
+
 def test_send_daily_digest_no_new_signals_sends_nothing(db_session):
     _make_user(db_session)
     result = send_daily_digest(db_session, email_client=FakeEmailClient())
@@ -72,6 +83,8 @@ def test_send_daily_digest_emails_all_users_and_marks_signals(db_session):
     user_a = _make_user(db_session, "a@proair.com")
     user_b = _make_user(db_session, "b@proair.com")
     signal = _make_signal(db_session)
+    _follow(db_session, user_a, signal)
+    _follow(db_session, user_b, signal)
 
     fake_email = FakeEmailClient()
     result = send_daily_digest(db_session, email_client=fake_email)
@@ -97,8 +110,9 @@ def test_send_daily_digest_emails_all_users_and_marks_signals(db_session):
 
 
 def test_send_daily_digest_skips_already_emailed_signals(db_session):
-    _make_user(db_session)
-    _make_signal(db_session)
+    user = _make_user(db_session)
+    signal = _make_signal(db_session)
+    _follow(db_session, user, signal)
 
     send_daily_digest(db_session, email_client=FakeEmailClient())
     second_result = send_daily_digest(db_session, email_client=FakeEmailClient())
@@ -109,8 +123,10 @@ def test_send_daily_digest_skips_already_emailed_signals(db_session):
 
 def test_send_daily_digest_continues_after_one_user_fails(db_session):
     user_a = _make_user(db_session, "a@proair.com")
-    _make_user(db_session, "b@proair.com")
-    _make_signal(db_session)
+    user_b = _make_user(db_session, "b@proair.com")
+    signal = _make_signal(db_session)
+    _follow(db_session, user_a, signal)
+    _follow(db_session, user_b, signal)
 
     fake_email = FakeEmailClient(fail_for={"a@proair.com"})
     result = send_daily_digest(db_session, email_client=fake_email)
@@ -118,3 +134,24 @@ def test_send_daily_digest_continues_after_one_user_fails(db_session):
     assert result.users_emailed == 1
     assert len(result.errors) == 1
     assert user_a.email in result.errors[0]
+
+
+def test_send_daily_digest_skips_users_not_following_or_muted(db_session):
+    following_user = _make_user(db_session, "following@proair.com")
+    muted_user = _make_user(db_session, "muted@proair.com")
+    not_following_user = _make_user(db_session, "other@proair.com")
+    signal = _make_signal(db_session)
+    _follow(db_session, following_user, signal)
+    _follow(db_session, muted_user, signal, is_muted=True)
+
+    fake_email = FakeEmailClient()
+    result = send_daily_digest(db_session, email_client=fake_email)
+
+    assert result.users_emailed == 1
+    recipients = {to for to, _subject, _body in fake_email.sent}
+    assert recipients == {following_user.email}
+    assert not_following_user.email not in recipients
+    assert muted_user.email not in recipients
+
+    db_session.refresh(signal)
+    assert signal.emailed_at is not None

@@ -1,7 +1,27 @@
+export type UserRole = "admin" | "user";
+
 export interface User {
   id: string;
   email: string;
   name: string;
+  role: UserRole;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  created_at: string;
+}
+
+export interface CompanyFollower {
+  user_id: string;
+  email: string;
+  name: string;
+  is_muted: boolean;
+  assigned_by: string | null;
+  created_at: string;
 }
 
 export interface WorkspaceSettings {
@@ -18,6 +38,8 @@ export interface TargetCompany {
   keywords: string[];
   industry: string | null;
   is_active: boolean;
+  is_muted: boolean | null;
+  follower_count: number;
 }
 
 export type SignalStatus = "new" | "reviewed" | "archived" | "dismissed";

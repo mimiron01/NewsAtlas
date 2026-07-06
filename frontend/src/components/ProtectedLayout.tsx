@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { useIsAdmin } from "../hooks/useIsAdmin";
 import { useTheme } from "../hooks/useTheme";
-import { MenuIcon, MoonIcon, ProfileIcon, SignalsIcon, SunIcon, TargetsIcon, UsageIcon } from "./icons/NavIcons";
+import { MenuIcon, MoonIcon, ProfileIcon, SignalsIcon, SunIcon, TargetsIcon, UsageIcon, UsersIcon } from "./icons/NavIcons";
 
 const THEME_LABEL: Record<string, string> = {
   light: "Light",
@@ -13,6 +14,7 @@ const THEME_LABEL: Record<string, string> = {
 
 export default function ProtectedLayout() {
   const { user, isLoading, logout } = useAuth();
+  const isAdmin = useIsAdmin();
   const { theme, cycleTheme } = useTheme();
   const [isNavOpen, setIsNavOpen] = useState(false);
   const location = useLocation();
@@ -48,15 +50,22 @@ export default function ProtectedLayout() {
           <NavLink to="/" end>
             <SignalsIcon /> Signals
           </NavLink>
-          <NavLink to="/settings/profile">
-            <ProfileIcon /> Company profile
-          </NavLink>
           <NavLink to="/settings/targets">
-            <TargetsIcon /> Target companies
+            <TargetsIcon /> My companies
           </NavLink>
-          <NavLink to="/settings/ai-usage">
-            <UsageIcon /> AI usage
-          </NavLink>
+          {isAdmin && (
+            <>
+              <NavLink to="/settings/profile">
+                <ProfileIcon /> Company profile
+              </NavLink>
+              <NavLink to="/settings/ai-usage">
+                <UsageIcon /> AI usage
+              </NavLink>
+              <NavLink to="/admin/users">
+                <UsersIcon /> Users
+              </NavLink>
+            </>
+          )}
         </nav>
         <div className="sidebar-footer">
           <button type="button" className="theme-toggle" onClick={cycleTheme}>

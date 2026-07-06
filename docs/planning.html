@@ -212,7 +212,6 @@
 <ul>
   <li>Multi-tenant/multi-organization support (each with isolated settings) — single workspace for now.</li>
   <li>CRM integrations (Salesforce/HubSpot push) — future phase.</li>
-  <li>Per-user assignment of target companies / role-based permissions beyond basic auth.</li>
   <li>Sentiment scoring, lead scoring, or predictive analytics on signals.</li>
   <li>Real-time/streaming ingestion (push webhooks) — polling is sufficient for MVP.</li>
 </ul>
@@ -592,9 +591,10 @@ going live.</div>
 <div class="assumption"><strong>Mistral model &amp; cost</strong> — default assumption is
 <code>mistral-large-latest</code>; confirm API key/account and evaluate whether a smaller model
 (e.g. <code>mistral-small-latest</code>) is sufficient/cheaper for summarization at scale.</div>
-<div class="assumption"><strong>Digest scope</strong> — MVP assumes every user receives the same
-digest (all new signals across all target companies). Per-user subscription to specific target
-companies is a plausible fast-follow, not required for MVP.</div>
+<div class="assumption"><strong>Digest scope</strong> — resolved: see
+<a href="role-based-company-management-planning.html">role-based-company-management-planning.html</a>.
+The digest and dashboard are now scoped per-user to followed, unmuted companies via the
+<code>company_follows</code> table rather than broadcasting every signal to every user.</div>
 <div class="assumption"><strong>Time zone</strong> for <code>digest_send_time</code> — assumed a
 single workspace-wide time zone setting; per-user time zones deferred.</div>
 
@@ -602,7 +602,6 @@ single workspace-wide time zone setting; per-user time zones deferred.</div>
 <ul>
   <li>Multi-tenant support (multiple organizations, isolated data)</li>
   <li>CRM push integrations (Salesforce, HubSpot, Outreach.io)</li>
-  <li>Per-user target-company subscriptions and notification preferences</li>
   <li>Feedback loop: let users mark signals as "not relevant" to tune future filtering/prompting</li>
   <li>Multiple outreach snippet variants (email vs. LinkedIn vs. cold call opener)</li>
   <li>Sentiment/urgency scoring, lead scoring integration</li>
