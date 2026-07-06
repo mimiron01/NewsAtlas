@@ -9,7 +9,7 @@ from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.auth import LoginRequest, SignupRequest, TokenResponse, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -41,10 +41,12 @@ def signup(request: Request, payload: SignupRequest, db: Session = Depends(get_d
             detail="Unable to create an account with the provided details.",
         )
 
+    is_first_user = db.query(User).count() == 0
     user = User(
         email=payload.email,
         password_hash=hash_password(payload.password),
         name=payload.name,
+        role=UserRole.ADMIN if is_first_user else UserRole.USER,
     )
     db.add(user)
     db.commit()

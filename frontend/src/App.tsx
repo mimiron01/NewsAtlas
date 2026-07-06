@@ -1,7 +1,9 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import ProtectedLayout from "./components/ProtectedLayout";
+import RequireAdmin from "./components/RequireAdmin";
 import { useAuth } from "./context/AuthContext";
+import AdminUsers from "./pages/AdminUsers";
 import Login from "./pages/Login";
 import SettingsProfile from "./pages/SettingsProfile";
 import SettingsTargets from "./pages/SettingsTargets";
@@ -20,8 +22,11 @@ export default function App() {
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<SignalsFeed />} />
         <Route path="/signals/:signalId" element={<SignalDetail />} />
-        <Route path="/settings/profile" element={<SettingsProfile />} />
         <Route path="/settings/targets" element={<SettingsTargets />} />
+        <Route element={<RequireAdmin />}>
+          <Route path="/settings/profile" element={<SettingsProfile />} />
+          <Route path="/admin/users" element={<AdminUsers />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
