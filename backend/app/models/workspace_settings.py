@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, Text, func
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -28,3 +28,18 @@ class WorkspaceSettings(Base, UUIDPrimaryKeyMixin):
     last_manual_digest_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Short, rule-based steering note derived from dismissed-signal patterns (no LLM call
+    # involved in computing it — see services/feedback.py) and injected into future
+    # summarization prompts to bias away from categories users keep dismissing.
+    ai_feedback_note: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    # --- Admin-configurable Mistral integration settings (see api/settings.py) ---
+    # Empty string means "no in-app override" — the effective key falls back to the
+    # MISTRAL_API_KEY env var (app/core/config.py) so existing .env-based deployments
+    # keep working until an admin explicitly sets/rotates a key here.
+    mistral_api_key: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    mistral_model: Mapped[str] = mapped_column(String(100), nullable=False, default="mistral-large-latest")
+    mistral_triage_model: Mapped[str] = mapped_column(String(100), nullable=False, default="mistral-small-latest")
+    mistral_embed_model: Mapped[str] = mapped_column(String(100), nullable=False, default="mistral-embed")
+    mistral_triage_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    mistral_dedupe_similarity_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=0.90)

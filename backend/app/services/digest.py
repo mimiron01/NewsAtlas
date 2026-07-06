@@ -21,7 +21,7 @@ def _new_signal_rows(db: Session):
         .join(Article, Signal.article_id == Article.id)
         .join(TargetCompany, Article.target_company_id == TargetCompany.id)
         .filter(Signal.emailed_at.is_(None))
-        .order_by(Signal.created_at.asc())
+        .order_by(Signal.relevance_score.desc().nullslast(), Signal.created_at.asc())
         .all()
     )
 
@@ -41,11 +41,18 @@ def _preheader_text(rows: list[tuple[Signal, Article, TargetCompany]]) -> str:
 def _render_digest_html(rows: list[tuple[Signal, Article, TargetCompany]], frontend_base_url: str) -> str:
     items_html = []
     for signal, article, target_company in rows:
+        score_badge = (
+            f'<span style="background:#eef2fc;color:#2757c7;font-size:11px;font-weight:600;'
+            f'padding:2px 8px;border-radius:10px;margin-left:8px;">'
+            f"score {signal.relevance_score}/5</span>"
+            if signal.relevance_score is not None
+            else ""
+        )
         items_html.append(
             f"""
             <div style="margin-bottom:24px;padding:16px;border:1px solid #e2e5ea;border-radius:8px;">
               <div style="font-size:12px;color:#5b6270;text-transform:uppercase;">
-                {html.escape(target_company.name)}
+                {html.escape(target_company.name)}{score_badge}
               </div>
               <h3 style="margin:4px 0;">
                 <a href="{html.escape(article.url)}">{html.escape(article.title)}</a>
@@ -53,7 +60,7 @@ def _render_digest_html(rows: list[tuple[Signal, Article, TargetCompany]], front
               <p>{html.escape(signal.summary)}</p>
               <p><strong>Why it matters:</strong> {html.escape(signal.business_relevance)}</p>
               <div style="background:#f5f6f8;border-left:3px solid #2757c7;padding:10px 14px;margin-top:8px;">
-                <strong>Outreach snippet:</strong><br>{html.escape(signal.outreach_snippet)}
+                <strong>Outreach snippet:</strong><br>{html.escape(signal.outreach_snippet_email)}
               </div>
               <p style="margin-top:8px;">
                 <a href="{html.escape(frontend_base_url)}/signals/{signal.id}">View in NewsAtlas &rarr;</a>
@@ -80,13 +87,14 @@ def _render_digest_html(rows: list[tuple[Signal, Article, TargetCompany]], front
 def _render_digest_text(rows: list[tuple[Signal, Article, TargetCompany]], frontend_base_url: str) -> str:
     lines = ["Your daily NewsAtlas signals", ""]
     for signal, article, target_company in rows:
+        score_suffix = f" (score {signal.relevance_score}/5)" if signal.relevance_score is not None else ""
         lines.extend(
             [
-                f"{target_company.name}",
+                f"{target_company.name}{score_suffix}",
                 f"{article.title} ({article.url})",
                 signal.summary,
                 f"Why it matters: {signal.business_relevance}",
-                f"Outreach snippet: {signal.outreach_snippet}",
+                f"Outreach snippet: {signal.outreach_snippet_email}",
                 f"View in NewsAtlas: {frontend_base_url}/signals/{signal.id}",
                 "",
             ]

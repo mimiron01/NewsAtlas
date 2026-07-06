@@ -4,6 +4,7 @@ import ProtectedLayout from "./components/ProtectedLayout";
 import RequireAdmin from "./components/RequireAdmin";
 import { useAuth } from "./context/AuthContext";
 import AdminUsers from "./pages/AdminUsers";
+import AIUsage from "./pages/AIUsage";
 import Login from "./pages/Login";
 import SettingsProfile from "./pages/SettingsProfile";
 import SettingsTargets from "./pages/SettingsTargets";
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="/settings/targets" element={<SettingsTargets />} />
         <Route element={<RequireAdmin />}>
           <Route path="/settings/profile" element={<SettingsProfile />} />
+          <Route path="/settings/ai-usage" element={<AIUsage />} />
           <Route path="/admin/users" element={<AdminUsers />} />
         </Route>
       </Route>

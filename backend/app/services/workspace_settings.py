@@ -1,9 +1,37 @@
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import Settings
 from app.models.workspace_settings import WorkspaceSettings
+
+
+@dataclass
+class MistralApiKeyStatus:
+    configured: bool
+    source: str  # "workspace" | "environment" | "unset"
+    last4: str | None
+
+
+def resolve_mistral_api_key(workspace_settings: WorkspaceSettings, app_settings: Settings) -> str:
+    """The in-app override (set by an admin via /settings) always wins when present;
+    otherwise falls back to the MISTRAL_API_KEY env var so existing .env-based
+    deployments keep working without requiring an admin to re-enter anything."""
+    return workspace_settings.mistral_api_key or app_settings.mistral_api_key
+
+
+def get_mistral_api_key_status(
+    workspace_settings: WorkspaceSettings, app_settings: Settings
+) -> MistralApiKeyStatus:
+    if workspace_settings.mistral_api_key:
+        key, source = workspace_settings.mistral_api_key, "workspace"
+    elif app_settings.mistral_api_key:
+        key, source = app_settings.mistral_api_key, "environment"
+    else:
+        return MistralApiKeyStatus(configured=False, source="unset", last4=None)
+    return MistralApiKeyStatus(configured=True, source=source, last4=key[-4:] if len(key) >= 4 else key)
 
 
 def get_or_create_workspace_settings(db: Session) -> WorkspaceSettings:

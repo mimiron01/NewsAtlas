@@ -1,3 +1,4 @@
+from app.models.ai_usage_log import AIUsageLog
 from app.models.article import Article
 from app.models.company_follow import CompanyFollow
 from app.models.digest_log import DigestLog
@@ -7,6 +8,7 @@ from app.models.user import User, UserRole
 from app.models.workspace_settings import WorkspaceSettings
 
 __all__ = [
+    "AIUsageLog",
     "Article",
     "CompanyFollow",
     "DigestLog",

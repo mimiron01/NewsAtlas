@@ -8,9 +8,11 @@ ready-to-use outreach snippets.
 
 See [`docs/planning.html`](docs/planning.html) for the full architecture and
 roadmap, [`docs/security-review.html`](docs/security-review.html) for the
-security posture and remediation history, and
+security posture and remediation history,
 [`docs/ui-ux-review.html`](docs/ui-ux-review.html) for a usability/UX review
-of the current frontend with a prioritized improvement roadmap.
+of the current frontend with a prioritized improvement roadmap, and
+[`docs/mistral-ai-roadmap.html`](docs/mistral-ai-roadmap.html) for an analysis
+of the current Mistral AI integration and a phased roadmap for deepening it.
 
 ## Project layout
 

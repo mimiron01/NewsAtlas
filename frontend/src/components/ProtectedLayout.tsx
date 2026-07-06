@@ -4,7 +4,7 @@ import { NavLink, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { useTheme } from "../hooks/useTheme";
-import { MenuIcon, MoonIcon, ProfileIcon, SignalsIcon, SunIcon, TargetsIcon, UsersIcon } from "./icons/NavIcons";
+import { MenuIcon, MoonIcon, ProfileIcon, SignalsIcon, SunIcon, TargetsIcon, UsageIcon, UsersIcon } from "./icons/NavIcons";
 
 const THEME_LABEL: Record<string, string> = {
   light: "Light",
@@ -57,6 +57,9 @@ export default function ProtectedLayout() {
             <>
               <NavLink to="/settings/profile">
                 <ProfileIcon /> Company profile
+              </NavLink>
+              <NavLink to="/settings/ai-usage">
+                <UsageIcon /> AI usage
               </NavLink>
               <NavLink to="/admin/users">
                 <UsersIcon /> Users

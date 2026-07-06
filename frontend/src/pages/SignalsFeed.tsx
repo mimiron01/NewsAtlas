@@ -18,7 +18,7 @@ const STATUS_OPTIONS: { value: SignalStatus | ""; label: string }[] = [
   { value: "dismissed", label: "Dismissed" },
 ];
 
-type SortOrder = "newest" | "oldest";
+type SortOrder = "newest" | "oldest" | "relevance";
 
 export default function SignalsFeed() {
   usePageTitle("Signals");
@@ -129,6 +129,11 @@ export default function SignalsFeed() {
         )
       : signals;
     const sorted = [...filtered].sort((a, b) => {
+      if (sortOrder === "relevance") {
+        const diff = (b.relevance_score ?? 0) - (a.relevance_score ?? 0);
+        if (diff !== 0) return diff;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
       const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
       return sortOrder === "newest" ? -diff : diff;
     });
@@ -171,7 +176,15 @@ export default function SignalsFeed() {
             Checked {ingestionResult.target_companies_processed} target compan
             {ingestionResult.target_companies_processed === 1 ? "y" : "ies"}, found{" "}
             {ingestionResult.articles_new} new article(s), created {ingestionResult.signals_created}{" "}
-            signal(s).
+            signal(s)
+            {(ingestionResult.duplicates_skipped > 0 || ingestionResult.triaged_out > 0) && (
+              <>
+                {" "}({ingestionResult.duplicates_skipped} duplicate(s) and{" "}
+                {ingestionResult.triaged_out} low-relevance article(s) skipped without a full
+                AI call)
+              </>
+            )}
+            .
           </p>
           {ingestionResult.errors.length > 0 && (
             <ul className="error-list">
@@ -226,6 +239,7 @@ export default function SignalsFeed() {
             <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as SortOrder)}>
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
+              <option value="relevance">Most relevant first</option>
             </select>
           </label>
         </div>
@@ -286,6 +300,11 @@ export default function SignalsFeed() {
                     <Link to={`/signals/${signal.id}`} className="signal-row-link">
                       <div className="signal-row-main">
                         <span className={`status-badge status-${signal.status}`}>{signal.status}</span>
+                        {signal.relevance_score !== null && (
+                          <span className={`score-badge score-${signal.relevance_score}`}>
+                            {signal.relevance_score}/5
+                          </span>
+                        )}
                         <div>
                           <strong>{signal.target_company_name}</strong>
                           <div className="signal-title">{signal.article_title}</div>
