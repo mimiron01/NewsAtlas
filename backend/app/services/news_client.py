@@ -3,6 +3,8 @@ from datetime import datetime
 
 import httpx
 
+from app.services.news_query import build_or_query, is_safe_article_url
+
 
 class NewsClientError(Exception):
     """Raised when the news provider can't be reached or returns an error."""
@@ -61,10 +63,7 @@ class NewsClient:
     @staticmethod
     def _parse_article(item: dict) -> NewsArticle | None:
         url = item.get("url")
-        # Only ever store http(s) URLs — this is rendered as a clickable link in the
-        # dashboard and in digest emails, so a javascript:/data: URL here would be a
-        # stored-XSS vector if the upstream feed is ever malicious or compromised.
-        if not url or not url.startswith(("http://", "https://")):
+        if not is_safe_article_url(url):
             return None
 
         published_at = None
@@ -85,13 +84,4 @@ class NewsClient:
 
     @staticmethod
     def _build_query(name: str, keywords: list[str]) -> str:
-        terms = [name, *keywords]
-        seen: set[str] = set()
-        quoted_terms: list[str] = []
-        for term in terms:
-            term = term.strip()
-            if not term or term.lower() in seen:
-                continue
-            seen.add(term.lower())
-            quoted_terms.append(f'"{term}"' if " " in term else term)
-        return " OR ".join(quoted_terms)
+        return build_or_query(name, keywords)

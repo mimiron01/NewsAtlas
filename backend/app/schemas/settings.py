@@ -22,6 +22,25 @@ class WorkspaceSettingsResponse(BaseModel):
     mistral_api_key_source: Literal["workspace", "environment", "unset"]
     mistral_api_key_last4: str | None
 
+    # --- News sources ---
+    newsapi_enabled: bool
+    newsapi_max_requests_per_day: int
+
+    google_news_rss_enabled: bool
+    google_news_rss_country: str
+    google_news_rss_language: str
+    google_news_rss_max_requests_per_minute: int
+
+    newsdata_enabled: bool
+    newsdata_api_key_configured: bool
+    newsdata_api_key_source: Literal["workspace", "environment", "unset"]
+    newsdata_api_key_last4: str | None
+    newsdata_full_content_enabled: bool
+    newsdata_use_native_dedupe: bool
+    newsdata_backfill_days: int
+    newsdata_max_requests_per_day: int
+    newsdata_max_requests_per_minute: int
+
     model_config = {"from_attributes": True}
 
 
@@ -40,3 +59,21 @@ class WorkspaceSettingsUpdate(BaseModel):
     # "" = explicitly clear the in-app override, reverting to the env-var key if any.
     # Any other value = set/replace the in-app override.
     mistral_api_key: str | None = Field(default=None, max_length=200)
+
+    # --- News sources ---
+    newsapi_enabled: bool = True
+    newsapi_max_requests_per_day: int = Field(ge=1, le=100_000)
+
+    google_news_rss_enabled: bool = False
+    google_news_rss_country: str = Field(min_length=2, max_length=8)
+    google_news_rss_language: str = Field(min_length=2, max_length=8)
+    google_news_rss_max_requests_per_minute: int = Field(ge=1, le=1000)
+
+    newsdata_enabled: bool = False
+    # Same set/clear/leave-unchanged convention as mistral_api_key.
+    newsdata_api_key: str | None = Field(default=None, max_length=200)
+    newsdata_full_content_enabled: bool = True
+    newsdata_use_native_dedupe: bool = True
+    newsdata_backfill_days: int = Field(ge=0, le=1825)
+    newsdata_max_requests_per_day: int = Field(ge=1, le=100_000)
+    newsdata_max_requests_per_minute: int = Field(ge=1, le=1000)

@@ -10,9 +10,13 @@ See [`docs/planning.html`](docs/planning.html) for the full architecture and
 roadmap, [`docs/security-review.html`](docs/security-review.html) for the
 security posture and remediation history,
 [`docs/ui-ux-review.html`](docs/ui-ux-review.html) for a usability/UX review
-of the current frontend with a prioritized improvement roadmap, and
+of the current frontend with a prioritized improvement roadmap,
 [`docs/mistral-ai-roadmap.html`](docs/mistral-ai-roadmap.html) for an analysis
-of the current Mistral AI integration and a phased roadmap for deepening it.
+of the current Mistral AI integration and a phased roadmap for deepening it, and
+[`docs/news-source-expansion-planning.html`](docs/news-source-expansion-planning.html)
+for the plan (now implemented) to add Google News RSS and NewsData.io as additional
+news sources alongside NewsAPI.org, each with its own enforced rate limit and inline
+usage view in Settings.
 
 ## Project layout
 
@@ -119,6 +123,10 @@ Then edit `.env` and set, at minimum:
   invite; signup is disabled entirely without this set
 - `NEWSAPI_API_KEY`, `MISTRAL_API_KEY`, and the `SMTP_*` variables, once you
   have them
+- `NEWSDATA_API_KEY`, if you want to enable NewsData.io as a news source — optional,
+  and can also be set later as an in-app override from Settings → News sources; Google
+  News RSS needs no key at all and is off by default (see Settings → News sources for
+  both)
 
 ```bash
 chmod 600 .env

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api, ApiError } from "../api/client";
+import { ARTICLE_SOURCE_LABELS } from "../api/types";
 import type { Signal, SignalStatus } from "../api/types";
 import Skeleton from "../components/Skeleton";
 import { STATUS_TRANSITIONS } from "../constants/signalStatus";
@@ -113,6 +114,7 @@ export default function SignalDetail() {
               {signal.confidence} confidence
             </span>
           )}
+          <span className="source-badge">{ARTICLE_SOURCE_LABELS[signal.article_source]}</span>
         </div>
         <h2>{signal.article_title}</h2>
         <p className="subtitle">
@@ -156,6 +158,18 @@ export default function SignalDetail() {
               )}
             </ul>
           </>
+        )}
+
+        {(signal.article_external_sentiment || (signal.article_external_tags && signal.article_external_tags.length > 0)) && (
+          <p className="field-hint">
+            {signal.article_external_sentiment && (
+              <>NewsData.io sentiment: {signal.article_external_sentiment}</>
+            )}
+            {signal.article_external_sentiment && signal.article_external_tags && signal.article_external_tags.length > 0 && " · "}
+            {signal.article_external_tags && signal.article_external_tags.length > 0 && (
+              <>NewsData.io tags: {signal.article_external_tags.join(", ")}</>
+            )}
+          </p>
         )}
 
         <h3>Outreach snippet</h3>

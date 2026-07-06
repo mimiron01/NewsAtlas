@@ -40,6 +40,24 @@ export interface WorkspaceSettings {
   mistral_api_key_configured: boolean;
   mistral_api_key_source: MistralApiKeySource;
   mistral_api_key_last4: string | null;
+
+  newsapi_enabled: boolean;
+  newsapi_max_requests_per_day: number;
+
+  google_news_rss_enabled: boolean;
+  google_news_rss_country: string;
+  google_news_rss_language: string;
+  google_news_rss_max_requests_per_minute: number;
+
+  newsdata_enabled: boolean;
+  newsdata_api_key_configured: boolean;
+  newsdata_api_key_source: MistralApiKeySource;
+  newsdata_api_key_last4: string | null;
+  newsdata_full_content_enabled: boolean;
+  newsdata_use_native_dedupe: boolean;
+  newsdata_backfill_days: number;
+  newsdata_max_requests_per_day: number;
+  newsdata_max_requests_per_minute: number;
 }
 
 export interface WorkspaceSettingsUpdatePayload {
@@ -54,6 +72,60 @@ export interface WorkspaceSettingsUpdatePayload {
   mistral_dedupe_similarity_threshold: number;
   // Omit to leave the current key unchanged; "" clears the in-app override.
   mistral_api_key?: string;
+
+  newsapi_enabled: boolean;
+  newsapi_max_requests_per_day: number;
+
+  google_news_rss_enabled: boolean;
+  google_news_rss_country: string;
+  google_news_rss_language: string;
+  google_news_rss_max_requests_per_minute: number;
+
+  newsdata_enabled: boolean;
+  // Omit to leave the current key unchanged; "" clears the in-app override.
+  newsdata_api_key?: string;
+  newsdata_full_content_enabled: boolean;
+  newsdata_use_native_dedupe: boolean;
+  newsdata_backfill_days: number;
+  newsdata_max_requests_per_day: number;
+  newsdata_max_requests_per_minute: number;
+}
+
+export type ArticleSource = "newsapi" | "google_news_rss" | "newsdata";
+
+export const ARTICLE_SOURCE_LABELS: Record<ArticleSource, string> = {
+  newsapi: "NewsAPI.org",
+  google_news_rss: "Google News",
+  newsdata: "NewsData.io",
+};
+
+export interface NewsSourceUsageEntry {
+  call_type: string;
+  target_company_name: string | null;
+  requests_used: number;
+  articles_returned: number;
+  created_at: string;
+}
+
+export interface NewsSourceUsageStat {
+  source: ArticleSource;
+  enabled: boolean;
+  requests_last_minute: number;
+  requests_per_minute_limit: number | null;
+  requests_today: number;
+  requests_per_day_limit: number | null;
+  rate_limited_last_24h: number;
+  recent: NewsSourceUsageEntry[];
+}
+
+export interface NewsUsageSummary {
+  sources: NewsSourceUsageStat[];
+}
+
+export interface BackfillTriggerResult {
+  scheduled: boolean;
+  message: string;
+  target_company_id: string;
 }
 
 export interface TargetCompany {
@@ -64,6 +136,7 @@ export interface TargetCompany {
   is_active: boolean;
   is_muted: boolean | null;
   follower_count: number;
+  backfilled_at: string | null;
 }
 
 export type SignalStatus = "new" | "reviewed" | "archived" | "dismissed";
@@ -106,6 +179,9 @@ export interface Signal {
   article_url: string;
   article_source_name: string;
   article_published_at: string | null;
+  article_source: ArticleSource;
+  article_external_sentiment: string | null;
+  article_external_tags: string[] | null;
   target_company_id: string;
   target_company_name: string;
 }
@@ -117,6 +193,8 @@ export interface IngestionRunResult {
   signals_created: number;
   duplicates_skipped: number;
   triaged_out: number;
+  by_source: Record<string, number>;
+  rate_limited: Record<string, number>;
   errors: string[];
 }
 

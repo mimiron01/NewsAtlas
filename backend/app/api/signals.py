@@ -50,6 +50,9 @@ def _to_response(signal: Signal, article: Article, target_company: TargetCompany
         article_url=article.url,
         article_source_name=article.source_name,
         article_published_at=article.published_at,
+        article_source=article.source,
+        article_external_sentiment=article.external_sentiment,
+        article_external_tags=article.external_tags,
         target_company_id=target_company.id,
         target_company_name=target_company.name,
     )

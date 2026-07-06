@@ -70,6 +70,7 @@ class FakeAIClient:
         self.last_recent_signals = recent_signals
         self.last_industry = industry
         self.last_feedback_note = feedback_note
+        self.last_article_description = article_description
         return (
             AISummaryResult(
                 summary=f"Summary of {article_title}",
