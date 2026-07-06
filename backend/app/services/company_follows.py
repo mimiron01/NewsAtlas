@@ -96,4 +96,5 @@ def to_response(
         is_active=company.is_active,
         is_muted=follow.is_muted if follow is not None else None,
         follower_count=follower_count(db, company.id),
+        backfilled_at=company.backfilled_at,
     )

@@ -5,37 +5,79 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.ai_usage_log import AIUsageLog
-from app.models.article import Article
+from app.models.article import Article, ArticleSource
 from app.models.signal import Signal
 from app.models.target_company import TargetCompany
 from app.schemas.ingestion import IngestionRunResult
 from app.services.ai_client import AIClient, AIClientError, MistralUsage, cosine_similarity, vector_norm
 from app.services.feedback import refresh_feedback_note
+from app.services.google_news_rss_client import GoogleNewsRSSClient
 from app.services.news_client import NewsClient, NewsClientError
-from app.services.workspace_settings import get_or_create_workspace_settings, resolve_mistral_api_key
+from app.services.news_rate_limiter import has_headroom
+from app.services.news_usage import log_rate_limited
+from app.services.news_usage import log_usage as log_news_usage
+from app.services.newsdata_client import NewsDataClient
+from app.services.workspace_settings import (
+    get_or_create_workspace_settings,
+    resolve_mistral_api_key,
+    resolve_newsdata_api_key,
+)
 
 MIN_LOOKBACK_HOURS = 24
 RECENT_SIGNALS_FOR_CONTEXT = 2
 RECENT_ARTICLES_FOR_DEDUPE = 50
 SUMMARY_CONTEXT_TRUNCATE = 160
+# Caps how much of a NewsData.io full-content article is sent to Mistral (embedding or
+# chat) — full articles can run to many thousands of characters, and grounding quality
+# gains from going past a few thousand characters are marginal relative to token cost.
+FULL_TEXT_TRUNCATE = 6000
 
 
 def run_ingestion(
     db: Session,
     news_client: NewsClient | None = None,
     ai_client: AIClient | None = None,
+    *,
+    google_news_client: GoogleNewsRSSClient | None = None,
+    newsdata_client: NewsDataClient | None = None,
 ) -> IngestionRunResult:
     app_settings = get_settings()
     workspace_settings = get_or_create_workspace_settings(db)
     refresh_feedback_note(db, workspace_settings)
 
-    news_client = news_client or NewsClient(api_key=app_settings.newsapi_api_key)
     ai_client = ai_client or AIClient(
         api_key=resolve_mistral_api_key(workspace_settings, app_settings),
         model=workspace_settings.mistral_model,
         triage_model=workspace_settings.mistral_triage_model,
         embed_model=workspace_settings.mistral_embed_model,
     )
+
+    # Every enabled source gets a slot in this list; disabled sources are simply never
+    # called (see docs/news-source-expansion-planning.html §8) — a source explicitly
+    # injected for testing is used even if the caller didn't also flip its toggle, so
+    # existing single-source tests keep working unchanged.
+    providers: list[tuple[ArticleSource, object]] = []
+    if workspace_settings.newsapi_enabled or news_client is not None:
+        providers.append((ArticleSource.NEWSAPI, news_client or NewsClient(api_key=app_settings.newsapi_api_key)))
+    if workspace_settings.google_news_rss_enabled or google_news_client is not None:
+        providers.append(
+            (
+                ArticleSource.GOOGLE_NEWS_RSS,
+                google_news_client
+                or GoogleNewsRSSClient(
+                    country=workspace_settings.google_news_rss_country,
+                    language=workspace_settings.google_news_rss_language,
+                ),
+            )
+        )
+    if workspace_settings.newsdata_enabled or newsdata_client is not None:
+        providers.append(
+            (
+                ArticleSource.NEWSDATA,
+                newsdata_client
+                or NewsDataClient(api_key=resolve_newsdata_api_key(workspace_settings, app_settings)),
+            )
+        )
 
     lookback_hours = max(workspace_settings.ingestion_interval_hours * 2, MIN_LOOKBACK_HOURS)
     since = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
@@ -47,26 +89,53 @@ def run_ingestion(
     signals_created = 0
     duplicates_skipped = 0
     triaged_out = 0
+    by_source: dict[str, int] = {}
+    rate_limited: dict[str, int] = {}
     errors: list[str] = []
 
     for target_company in target_companies:
-        try:
-            fetched_articles = news_client.fetch_articles(
-                name=target_company.name, keywords=target_company.keywords, since=since
-            )
-        except NewsClientError as exc:
-            errors.append(f"[{target_company.name}] news fetch failed: {exc}")
-            continue
+        fetched_items: list[tuple[ArticleSource, object]] = []
 
-        articles_fetched += len(fetched_articles)
+        for source, client in providers:
+            per_minute_limit, per_day_limit = _rate_limit_config(workspace_settings, source)
+            if not has_headroom(db, source, per_minute_limit=per_minute_limit, per_day_limit=per_day_limit):
+                rate_limited[source.value] = rate_limited.get(source.value, 0) + 1
+                log_rate_limited(db, source=source, target_company_id=target_company.id)
+                continue
+
+            try:
+                fetched, requests_used = _fetch_from_source(
+                    source, client, workspace_settings, target_company, since
+                )
+            except NewsClientError as exc:
+                errors.append(f"[{target_company.name}] {source.value} fetch failed: {exc}")
+                continue
+
+            by_source[source.value] = by_source.get(source.value, 0) + len(fetched)
+            articles_fetched += len(fetched)
+            log_news_usage(
+                db,
+                source=source,
+                call_type="latest",
+                target_company_id=target_company.id,
+                requests_used=requests_used,
+                articles_returned=len(fetched),
+            )
+            fetched_items.extend((source, article) for article in fetched)
+
+        if not fetched_items:
+            continue
 
         new_articles: list[Article] = []
         seen_urls: set[str] = set()
-        for fetched in fetched_articles:
-            # Guards against the same URL appearing twice in one fetch response, not just
-            # against previously-ingested articles: the batched commit below means the DB
-            # query alone (autoflush is off) wouldn't see a duplicate added earlier in this
-            # same loop, and Article.url has a unique constraint.
+        for source, fetched in fetched_items:
+            # Guards against the same URL appearing twice across this company's combined
+            # fetch results (whether from one provider or two), not just against
+            # previously-ingested articles: the batched commit below means the DB query
+            # alone (autoflush is off) wouldn't see a duplicate added earlier in this same
+            # loop, and Article.url has a unique constraint. This also doubles as the
+            # first, free cross-source dedupe pass — NewsAPI.org and NewsData.io both tend
+            # to return the same canonical publisher URL for the same story.
             if fetched.url in seen_urls:
                 continue
             existing = db.query(Article).filter(Article.url == fetched.url).first()
@@ -75,11 +144,15 @@ def run_ingestion(
             seen_urls.add(fetched.url)
             article = Article(
                 target_company_id=target_company.id,
+                source=source,
                 source_name=fetched.source_name,
                 title=fetched.title,
                 url=fetched.url,
                 description=fetched.description,
                 published_at=fetched.published_at,
+                full_content=getattr(fetched, "full_content", None),
+                external_sentiment=getattr(fetched, "sentiment", None),
+                external_tags=getattr(fetched, "tags", None),
             )
             db.add(article)
             new_articles.append(article)
@@ -112,8 +185,48 @@ def run_ingestion(
         signals_created=signals_created,
         duplicates_skipped=duplicates_skipped,
         triaged_out=triaged_out,
+        by_source=by_source,
+        rate_limited=rate_limited,
         errors=errors,
     )
+
+
+def _rate_limit_config(workspace_settings, source: ArticleSource) -> tuple[int | None, int | None]:
+    """Returns (per_minute_limit, per_day_limit) for a source's enforced rate limit
+    (see services/news_rate_limiter.py). A None limit means that dimension isn't
+    configured for this source and is never checked."""
+    if source == ArticleSource.NEWSAPI:
+        return None, workspace_settings.newsapi_max_requests_per_day
+    if source == ArticleSource.GOOGLE_NEWS_RSS:
+        return workspace_settings.google_news_rss_max_requests_per_minute, None
+    if source == ArticleSource.NEWSDATA:
+        return (
+            workspace_settings.newsdata_max_requests_per_minute,
+            workspace_settings.newsdata_max_requests_per_day,
+        )
+    return None, None
+
+
+def _fetch_from_source(
+    source: ArticleSource,
+    client,
+    workspace_settings,
+    target_company: TargetCompany,
+    since: datetime,
+) -> tuple[list, int]:
+    """Normalizes each provider's fetch_articles() call to a uniform (articles,
+    requests_used) return, since only NewsDataClient reports a per-call credit cost —
+    the others are treated as costing exactly one request per call."""
+    if source == ArticleSource.NEWSDATA:
+        return client.fetch_articles(
+            name=target_company.name,
+            keywords=target_company.keywords,
+            since=since,
+            full_content=workspace_settings.newsdata_full_content_enabled,
+            use_native_dedupe=workspace_settings.newsdata_use_native_dedupe,
+        )
+    articles = client.fetch_articles(name=target_company.name, keywords=target_company.keywords, since=since)
+    return articles, 1
 
 
 def _process_new_articles(
@@ -130,9 +243,10 @@ def _process_new_articles(
     triaged_out = 0
 
     # One embeddings request for every new article in this batch, instead of one call
-    # per article — the main lever for keeping dedupe cheap at scale.
+    # per article — the main lever for keeping dedupe cheap at scale. Grounds on full
+    # content when NewsData.io provided it (better semantic dedupe than a snippet).
     try:
-        embed_inputs = [f"{a.title}\n{a.description or ''}" for a in new_articles]
+        embed_inputs = [f"{a.title}\n{_grounding_text(a)}" for a in new_articles]
         vectors, embed_usage = ai_client.embed_texts(embed_inputs)
         _log_usage(db, "embedding", ai_client.embed_model, embed_usage, target_company.id)
         for article, vector in zip(new_articles, vectors):
@@ -187,7 +301,7 @@ def _process_new_articles(
                     offering_description=workspace_settings.offering_description,
                     target_company_name=target_company.name,
                     article_title=article.title,
-                    article_description=article.description,
+                    article_description=_grounding_text(article),
                 )
                 _log_usage(
                     db, "triage", ai_client.triage_model, triage_usage, target_company.id, commit=False
@@ -209,7 +323,7 @@ def _process_new_articles(
                 offering_description=workspace_settings.offering_description,
                 target_company_name=target_company.name,
                 article_title=article.title,
-                article_description=article.description,
+                article_description=_grounding_text(article),
                 industry=target_company.industry,
                 # A copy, not the live list: it's mutated below as new signals are
                 # created, and the callee must see the state as of *this* call, not
@@ -246,6 +360,18 @@ def _process_new_articles(
         del recent_signal_summaries[RECENT_SIGNALS_FOR_CONTEXT:]
 
     return signals_created, duplicates_skipped, triaged_out, errors
+
+
+def _grounding_text(article: Article) -> str:
+    """Full article body when NewsData.io's full-content option provided one (a genuine
+    quality upgrade over a snippet — a supporting quote pulled from a full article is far
+    more checkable than one inferred from two sentences); falls back to the short
+    description every other source provides. Truncated defensively since full articles
+    can run far longer than a snippet."""
+    text = article.full_content or article.description or ""
+    if len(text) > FULL_TEXT_TRUNCATE:
+        text = text[:FULL_TEXT_TRUNCATE].rsplit(" ", 1)[0] + "..."
+    return text
 
 
 def _skip_article(db: Session, article: Article, reason: str) -> None:

@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 
 import { api, ApiError } from "../api/client";
-import type { TargetCompany } from "../api/types";
+import type { BackfillTriggerResult, TargetCompany, WorkspaceSettings } from "../api/types";
 import TagInput from "../components/TagInput";
 import { useToast } from "../context/ToastContext";
 import { useIsAdmin } from "../hooks/useIsAdmin";
@@ -18,6 +18,11 @@ export default function SettingsTargets() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
+  // Only admins can read /settings, so backfill-related UI (the "backfilling..."
+  // indicator and the manual trigger button) is admin-only — a regular user has no way
+  // to know whether NewsData.io backfill is configured, and asking would just 403.
+  const [backfillEnabled, setBackfillEnabled] = useState(false);
 
   function loadCompanies() {
     api
@@ -28,11 +33,19 @@ export default function SettingsTargets() {
 
   useEffect(loadCompanies, []);
 
+  useEffect(() => {
+    if (!isAdmin) return;
+    api
+      .get<WorkspaceSettings>("/settings")
+      .then((settings) => setBackfillEnabled(settings.newsdata_enabled && settings.newsdata_backfill_days > 0))
+      .catch(() => undefined);
+  }, [isAdmin]);
+
   async function handleAdd(event: FormEvent) {
     event.preventDefault();
     setIsSubmitting(true);
     try {
-      await api.post<TargetCompany>("/target-companies", {
+      const created = await api.post<TargetCompany>("/target-companies", {
         name,
         keywords,
         industry: industry || null,
@@ -41,6 +54,9 @@ export default function SettingsTargets() {
       setKeywords([]);
       setIndustry("");
       showToast("Target company added.", "success");
+      if (backfillEnabled && created.backfilled_at === null) {
+        setJustCreatedId(created.id);
+      }
       loadCompanies();
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : "Failed to add company", "error");
@@ -87,6 +103,19 @@ export default function SettingsTargets() {
     } finally {
       setPendingId(null);
       setConfirmingId(null);
+    }
+  }
+
+  async function triggerBackfill(company: TargetCompany) {
+    setPendingId(company.id);
+    try {
+      const result = await api.post<BackfillTriggerResult>(`/target-companies/${company.id}/backfill`);
+      showToast(result.message, "success");
+      setJustCreatedId(company.id);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Failed to trigger backfill", "error");
+    } finally {
+      setPendingId(null);
     }
   }
 
@@ -147,8 +176,21 @@ export default function SettingsTargets() {
                 {company.keywords.length > 0 && (
                   <div className="keywords">{company.keywords.join(", ")}</div>
                 )}
+                {company.id === justCreatedId && company.backfilled_at === null && (
+                  <div className="field-hint">Backfilling historical coverage from NewsData.io...</div>
+                )}
               </div>
               <div className="actions">
+                {isAdmin && backfillEnabled && company.backfilled_at === null && company.id !== justCreatedId && (
+                  <button
+                    type="button"
+                    disabled={pendingId === company.id}
+                    onClick={() => triggerBackfill(company)}
+                    title="Pull historical coverage for this company from NewsData.io's archive"
+                  >
+                    Backfill history
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={pendingId === company.id}

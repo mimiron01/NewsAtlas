@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     signup_invite_code: str = ""
 
     newsapi_api_key: str = ""
+    # Env-var fallback only, mirroring mistral_api_key — the in-app workspace_settings
+    # override (see services/workspace_settings.py) always wins once an admin sets one.
+    newsdata_api_key: str = ""
     mistral_api_key: str = ""
     mistral_model: str = "mistral-large-latest"
     # Cheap model used for the pre-summarization relevance triage pass (see ai_client.py,

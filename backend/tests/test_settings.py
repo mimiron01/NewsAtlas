@@ -32,6 +32,18 @@ def _full_update_payload(**overrides):
         "mistral_embed_model": "mistral-embed",
         "mistral_triage_enabled": True,
         "mistral_dedupe_similarity_threshold": 0.9,
+        "newsapi_enabled": True,
+        "newsapi_max_requests_per_day": 100,
+        "google_news_rss_enabled": False,
+        "google_news_rss_country": "US",
+        "google_news_rss_language": "en",
+        "google_news_rss_max_requests_per_minute": 20,
+        "newsdata_enabled": False,
+        "newsdata_full_content_enabled": True,
+        "newsdata_use_native_dedupe": True,
+        "newsdata_backfill_days": 0,
+        "newsdata_max_requests_per_day": 200,
+        "newsdata_max_requests_per_minute": 30,
     }
     payload.update(overrides)
     return payload

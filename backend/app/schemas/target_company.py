@@ -27,6 +27,11 @@ class TargetCompanyResponse(BaseModel):
     # themselves follow this company.
     is_muted: bool | None = None
     follower_count: int
+    # Set once a NewsData.io historical archive backfill has run for this company; None
+    # means either backfill isn't configured/enabled, or it hasn't completed yet — the
+    # frontend uses this to show a "backfilling..." indicator (see
+    # docs/news-source-expansion-planning.html §10.4).
+    backfilled_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 

@@ -1,6 +1,7 @@
 import uuid
+from datetime import datetime
 
-from sqlalchemy import ARRAY, Boolean, ForeignKey, String
+from sqlalchemy import ARRAY, Boolean, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,3 +19,7 @@ class TargetCompany(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # Set once a NewsData.io historical archive backfill has run for this company (see
+    # services/newsdata_backfill.py) — guards against re-spending archive credits every
+    # time a paused company is reactivated.
+    backfilled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

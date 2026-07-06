@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { api, ApiError } from "../api/client";
+import { ARTICLE_SOURCE_LABELS } from "../api/types";
 import type { IngestionRunResult, Signal, SignalStatus, TargetCompany, WorkspaceSettings } from "../api/types";
 import Skeleton from "../components/Skeleton";
 import SetupChecklist from "../components/SetupChecklist";
@@ -186,6 +187,22 @@ export default function SignalsFeed() {
             )}
             .
           </p>
+          {Object.keys(ingestionResult.by_source).length > 0 && (
+            <p className="field-hint">
+              By source:{" "}
+              {Object.entries(ingestionResult.by_source)
+                .map(([source, count]) => `${ARTICLE_SOURCE_LABELS[source as keyof typeof ARTICLE_SOURCE_LABELS] ?? source}: ${count}`)
+                .join(", ")}
+            </p>
+          )}
+          {Object.keys(ingestionResult.rate_limited).length > 0 && (
+            <p className="field-hint error-text">
+              Rate limited (skipped, no request made):{" "}
+              {Object.entries(ingestionResult.rate_limited)
+                .map(([source, count]) => `${ARTICLE_SOURCE_LABELS[source as keyof typeof ARTICLE_SOURCE_LABELS] ?? source}: ${count} compan${count === 1 ? "y" : "ies"}`)
+                .join(", ")}
+            </p>
+          )}
           {ingestionResult.errors.length > 0 && (
             <ul className="error-list">
               {ingestionResult.errors.map((message) => (
@@ -305,6 +322,7 @@ export default function SignalsFeed() {
                             {signal.relevance_score}/5
                           </span>
                         )}
+                        <span className="source-badge">{ARTICLE_SOURCE_LABELS[signal.article_source]}</span>
                         <div>
                           <strong>{signal.target_company_name}</strong>
                           <div className="signal-title">{signal.article_title}</div>
