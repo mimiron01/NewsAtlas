@@ -1,6 +1,6 @@
 import pytest
 
-from app.services.ai_client import AIClient, AIClientError, MistralUsage
+from app.services.ai_client import AIClient, AIClientError, MistralUsage, cosine_similarity
 
 
 def _client():
@@ -267,8 +267,15 @@ def test_embed_texts_empty_input_short_circuits():
 
 
 def test_cosine_similarity_identical_vectors():
-    assert AIClient.cosine_similarity([1.0, 0.0], [1.0, 0.0]) == pytest.approx(1.0)
+    assert cosine_similarity([1.0, 0.0], [1.0, 0.0]) == pytest.approx(1.0)
 
 
 def test_cosine_similarity_orthogonal_vectors():
-    assert AIClient.cosine_similarity([1.0, 0.0], [0.0, 1.0]) == pytest.approx(0.0)
+    assert cosine_similarity([1.0, 0.0], [0.0, 1.0]) == pytest.approx(0.0)
+
+
+def test_cosine_similarity_accepts_precomputed_norm_a():
+    from app.services.ai_client import vector_norm
+
+    a = [3.0, 4.0]
+    assert cosine_similarity(a, [3.0, 4.0], norm_a=vector_norm(a)) == pytest.approx(1.0)

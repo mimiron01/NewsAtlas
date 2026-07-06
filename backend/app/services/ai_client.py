@@ -125,12 +125,19 @@ def _sum_usage(a: MistralUsage, b: MistralUsage) -> MistralUsage:
     )
 
 
-def _cosine_similarity(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
-    norm_a = math.sqrt(sum(x * x for x in a))
-    norm_b = math.sqrt(sum(y * y for y in b))
+def vector_norm(v: list[float]) -> float:
+    return math.sqrt(sum(x * x for x in v))
+
+
+def cosine_similarity(a: list[float], b: list[float], *, norm_a: float | None = None) -> float:
+    """norm_a can be precomputed by the caller when comparing the same vector `a`
+    against many candidates in a loop (see ingestion._find_duplicate), to avoid
+    recomputing it on every comparison."""
+    norm_a = vector_norm(a) if norm_a is None else norm_a
+    norm_b = vector_norm(b)
     if norm_a == 0 or norm_b == 0:
         return 0.0
+    dot = sum(x * y for x, y in zip(a, b))
     return dot / (norm_a * norm_b)
 
 
@@ -291,10 +298,6 @@ class AIClient:
             total_tokens=usage_body.get("total_tokens", usage_body.get("prompt_tokens", 0)),
         )
         return vectors, usage
-
-    @staticmethod
-    def cosine_similarity(a: list[float], b: list[float]) -> float:
-        return _cosine_similarity(a, b)
 
     def _headers(self) -> dict:
         return {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}

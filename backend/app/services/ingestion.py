@@ -9,7 +9,7 @@ from app.models.article import Article
 from app.models.signal import Signal
 from app.models.target_company import TargetCompany
 from app.schemas.ingestion import IngestionRunResult
-from app.services.ai_client import AIClient, AIClientError, MistralUsage
+from app.services.ai_client import AIClient, AIClientError, MistralUsage, cosine_similarity, vector_norm
 from app.services.feedback import refresh_feedback_note
 from app.services.news_client import NewsClient, NewsClientError
 from app.services.workspace_settings import get_or_create_workspace_settings, resolve_mistral_api_key
@@ -87,9 +87,10 @@ def run_ingestion(
         if not new_articles:
             continue
 
+        # A single commit (session default expire_on_commit=True) is enough — any later
+        # attribute access lazily re-fetches from the DB as needed, so an eager
+        # db.refresh() per article here would just be N redundant round trips.
         db.commit()
-        for article in new_articles:
-            db.refresh(article)
         articles_new += len(new_articles)
 
         signals_created_here, duplicates_here, triaged_out_here, batch_errors = _process_new_articles(
@@ -158,6 +159,11 @@ def _process_new_articles(
         .all()
     )
 
+    # Fetched once per target company rather than once per article: articles created
+    # earlier in *this same batch* are prepended as they're summarized, so continuity
+    # context still reflects the full run without a DB round trip per article.
+    recent_signal_summaries = _recent_signal_context(db, target_company.id)
+
     for article in new_articles:
         if article.embedding is not None:
             duplicate = _find_duplicate(
@@ -165,8 +171,7 @@ def _process_new_articles(
             )
             if duplicate is not None:
                 article.duplicate_of_article_id = duplicate.id
-                article.skip_reason = "duplicate"
-                db.commit()
+                _skip_article(db, article, "duplicate")
                 duplicates_skipped += 1
                 # Still added as a dedupe anchor: a later article in this same batch may
                 # be a closer paraphrase of THIS duplicate than of the original, so
@@ -184,7 +189,9 @@ def _process_new_articles(
                     article_title=article.title,
                     article_description=article.description,
                 )
-                _log_usage(db, "triage", ai_client.triage_model, triage_usage, target_company.id)
+                _log_usage(
+                    db, "triage", ai_client.triage_model, triage_usage, target_company.id, commit=False
+                )
             except AIClientError as exc:
                 errors.append(
                     f"[{target_company.name}] triage failed for {article.url}: {exc} "
@@ -192,12 +199,9 @@ def _process_new_articles(
                 )
                 triage = None
             if triage is not None and not triage.relevant:
-                article.skip_reason = "triaged_out"
-                db.commit()
+                _skip_article(db, article, "triaged_out")
                 triaged_out += 1
                 continue
-
-        recent_signals = _recent_signal_context(db, target_company.id)
 
         try:
             result, usage = ai_client.summarize_article(
@@ -207,13 +211,15 @@ def _process_new_articles(
                 article_title=article.title,
                 article_description=article.description,
                 industry=target_company.industry,
-                recent_signals=recent_signals,
+                # A copy, not the live list: it's mutated below as new signals are
+                # created, and the callee must see the state as of *this* call, not
+                # whatever the list looks like by the time it's inspected later.
+                recent_signals=list(recent_signal_summaries),
                 feedback_note=workspace_settings.ai_feedback_note,
             )
-            _log_usage(db, "summarize", ai_client.model, usage, target_company.id)
+            _log_usage(db, "summarize", ai_client.model, usage, target_company.id, commit=False)
         except AIClientError as exc:
-            article.skip_reason = "ai_error"
-            db.commit()
+            _skip_article(db, article, "ai_error")
             errors.append(f"[{target_company.name}] summarization failed for {article.url}: {exc}")
             continue
 
@@ -236,12 +242,27 @@ def _process_new_articles(
         db.add(signal)
         db.commit()
         signals_created += 1
+        recent_signal_summaries.insert(0, _truncate_summary(result.summary))
+        del recent_signal_summaries[RECENT_SIGNALS_FOR_CONTEXT:]
 
     return signals_created, duplicates_skipped, triaged_out, errors
 
 
+def _skip_article(db: Session, article: Article, reason: str) -> None:
+    """Commits the skip_reason together with any pending (not-yet-committed) usage-log
+    rows added earlier for this article, instead of a separate commit per write."""
+    article.skip_reason = reason
+    db.commit()
+
+
 def _log_usage(
-    db: Session, call_type: str, model: str, usage: MistralUsage, target_company_id
+    db: Session,
+    call_type: str,
+    model: str,
+    usage: MistralUsage,
+    target_company_id,
+    *,
+    commit: bool = True,
 ) -> None:
     db.add(
         AIUsageLog(
@@ -253,22 +274,31 @@ def _log_usage(
             target_company_id=target_company_id,
         )
     )
-    db.commit()
+    if commit:
+        db.commit()
 
 
 def _find_duplicate(
     article: Article, candidates: list[Article], threshold: float
 ) -> Article | None:
+    norm_a = vector_norm(article.embedding)
     best: Article | None = None
     best_sim = 0.0
     for candidate in candidates:
         if candidate.embedding is None:
             continue
-        sim = AIClient.cosine_similarity(article.embedding, candidate.embedding)
+        sim = cosine_similarity(article.embedding, candidate.embedding, norm_a=norm_a)
         if sim > best_sim:
             best_sim = sim
             best = candidate
     return best if best_sim >= threshold else None
+
+
+def _truncate_summary(text: str) -> str:
+    text = text.strip()
+    if len(text) > SUMMARY_CONTEXT_TRUNCATE:
+        text = text[:SUMMARY_CONTEXT_TRUNCATE].rsplit(" ", 1)[0] + "..."
+    return text
 
 
 def _recent_signal_context(db: Session, target_company_id) -> list[str]:
@@ -280,10 +310,4 @@ def _recent_signal_context(db: Session, target_company_id) -> list[str]:
         .limit(RECENT_SIGNALS_FOR_CONTEXT)
         .all()
     )
-    lines = []
-    for signal in rows:
-        text = signal.summary.strip()
-        if len(text) > SUMMARY_CONTEXT_TRUNCATE:
-            text = text[:SUMMARY_CONTEXT_TRUNCATE].rsplit(" ", 1)[0] + "..."
-        lines.append(text)
-    return lines
+    return [_truncate_summary(signal.summary) for signal in rows]

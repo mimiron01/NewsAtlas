@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.models.signal import Signal, SignalStatus
@@ -13,16 +14,20 @@ DISMISS_RATE_THRESHOLD = 0.6
 def refresh_feedback_note(db: Session, workspace_settings: WorkspaceSettings) -> None:
     """Recomputes a short steering note from dismissed-vs-reviewed signal patterns.
 
-    Deliberately rule-based (plain aggregation in Python, no LLM call) rather than
-    asking Mistral to analyze the pattern: it runs on every ingestion pass, so keeping
-    it free avoids burning tokens on something a simple count already answers. The
-    resulting note is short (one line) and only adds a small, fixed number of tokens to
-    each future summarization prompt.
+    Deliberately rule-based (a SQL aggregation, no LLM call) rather than asking Mistral
+    to analyze the pattern: it runs on every ingestion pass, so keeping it free avoids
+    burning tokens on something a GROUP BY already answers. The resulting note is short
+    (one line) and only adds a small, fixed number of tokens to each future
+    summarization prompt.
     """
     since = datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS)
 
     rows = (
-        db.query(Signal.signal_type, Signal.status)
+        db.query(
+            Signal.signal_type,
+            func.count(Signal.id),
+            func.sum(case((Signal.status == SignalStatus.DISMISSED, 1), else_=0)),
+        )
         .filter(
             Signal.created_at >= since,
             Signal.status.in_(
@@ -30,21 +35,14 @@ def refresh_feedback_note(db: Session, workspace_settings: WorkspaceSettings) ->
             ),
             Signal.signal_type.isnot(None),
         )
+        .group_by(Signal.signal_type)
         .all()
     )
 
-    totals: dict[str, int] = {}
-    dismissed: dict[str, int] = {}
-    for signal_type, status in rows:
-        totals[signal_type] = totals.get(signal_type, 0) + 1
-        if status == SignalStatus.DISMISSED:
-            dismissed[signal_type] = dismissed.get(signal_type, 0) + 1
-
     low_value_types = sorted(
         signal_type
-        for signal_type, total in totals.items()
-        if total >= MIN_SAMPLE_SIZE
-        and (dismissed.get(signal_type, 0) / total) >= DISMISS_RATE_THRESHOLD
+        for signal_type, total, dismissed in rows
+        if total >= MIN_SAMPLE_SIZE and (dismissed / total) >= DISMISS_RATE_THRESHOLD
     )
 
     note = (
