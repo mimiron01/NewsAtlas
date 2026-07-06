@@ -1,8 +1,15 @@
-from sqlalchemy import Integer, String
+import enum
+
+from sqlalchemy import Enum, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
+
+
+class UserRole(str, enum.Enum):
+    ADMIN = "admin"
+    USER = "user"
 
 
 class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -17,3 +24,8 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     # — a counter avoids the precision issues a timestamp-based cutoff would have against
     # JWT's whole-second "iat" granularity.
     token_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    role: Mapped[UserRole] = mapped_column(
+        Enum(UserRole, name="user_role", values_callable=lambda enum_cls: [e.value for e in enum_cls]),
+        nullable=False,
+        default=UserRole.USER,
+    )

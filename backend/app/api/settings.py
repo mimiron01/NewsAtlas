@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import require_admin
 from app.db.session import get_db
 from app.models.user import User
 from app.models.workspace_settings import WorkspaceSettings
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 @router.get("", response_model=WorkspaceSettingsResponse)
 def get_settings(
     db: Session = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(require_admin),
 ) -> WorkspaceSettings:
     return get_or_create_workspace_settings(db)
 
@@ -24,7 +24,7 @@ def get_settings(
 def update_settings(
     payload: WorkspaceSettingsUpdate,
     db: Session = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    _current_user: User = Depends(require_admin),
 ) -> WorkspaceSettings:
     settings = get_or_create_workspace_settings(db)
     settings.company_name = payload.company_name

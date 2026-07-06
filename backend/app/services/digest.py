@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.article import Article
+from app.models.company_follow import CompanyFollow
 from app.models.digest_log import DigestLog
 from app.models.signal import Signal
 from app.models.target_company import TargetCompany
@@ -108,16 +109,24 @@ def send_daily_digest(db: Session, email_client: EmailClient | None = None) -> D
     if not rows:
         return DigestRunResult(users_emailed=0, signals_included=0, errors=[])
 
-    html_body = _render_digest_html(rows, app_settings.frontend_base_url)
-    text_body = _render_digest_text(rows, app_settings.frontend_base_url)
-    subject = f"NewsAtlas: {len(rows)} new signal{'s' if len(rows) != 1 else ''}"
-
     users = db.query(User).all()
-    signal_ids = [signal.id for signal, _article, _target_company in rows]
     errors: list[str] = []
     users_emailed = 0
 
     for user in users:
+        followed_company_ids = {
+            follow.target_company_id
+            for follow in db.query(CompanyFollow).filter(
+                CompanyFollow.user_id == user.id, CompanyFollow.is_muted.is_(False)
+            )
+        }
+        user_rows = [row for row in rows if row[2].id in followed_company_ids]
+        if not user_rows:
+            continue
+
+        html_body = _render_digest_html(user_rows, app_settings.frontend_base_url)
+        text_body = _render_digest_text(user_rows, app_settings.frontend_base_url)
+        subject = f"NewsAtlas: {len(user_rows)} new signal{'s' if len(user_rows) != 1 else ''}"
         try:
             email_client.send_email(
                 to=user.email, subject=subject, html_body=html_body, text_body=text_body
@@ -125,13 +134,13 @@ def send_daily_digest(db: Session, email_client: EmailClient | None = None) -> D
         except EmailClientError as exc:
             errors.append(f"{user.email}: {exc}")
             continue
+        signal_ids = [signal.id for signal, _article, _target_company in user_rows]
         db.add(DigestLog(user_id=user.id, signal_ids=signal_ids))
         users_emailed += 1
 
-    if users_emailed > 0:
-        now = datetime.now(timezone.utc)
-        for signal, _article, _target_company in rows:
-            signal.emailed_at = now
+    now = datetime.now(timezone.utc)
+    for signal, _article, _target_company in rows:
+        signal.emailed_at = now
 
     db.commit()
 
