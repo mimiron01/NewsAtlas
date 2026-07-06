@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NewsAtlas — News Source Expansion Planning (Google News RSS &amp; NewsData.io)</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6270;
+    --accent: #2757c7;
+    --accent-bg: #eef2fc;
+    --border: #e2e5ea;
+    --code-bg: #f5f6f8;
+    --ok: #1a7f4e;
+    --warn: #a15c00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.1rem; margin-top: 28px; color: var(--fg); }
+  h4 { font-size: 1rem; margin-top: 20px; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  .meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 12px 0 32px;
+    padding: 12px 16px;
+    background: var(--accent-bg);
+    border-radius: 8px;
+  }
+  .meta strong { color: var(--fg); }
+  nav.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin: 24px 0 40px;
+  }
+  nav.toc h2 { margin-top: 0; border: none; font-size: 1.05rem; padding-bottom: 4px; }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.92rem; }
+  nav.toc a:hover { text-decoration: underline; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--code-bg); font-weight: 600; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+  .decision {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-bg);
+    padding: 10px 16px;
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .decision strong { color: var(--accent); }
+  .phase {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .phase h4 { margin-top: 0; display: flex; align-items: center; gap: 10px; }
+  .phase-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 20px;
+  }
+  .assumption {
+    border-left: 4px solid var(--warn);
+    background: #fdf4e3;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+  ul.checklist { list-style: none; padding-left: 4px; }
+  ul.checklist li::before { content: "☐ "; color: var(--muted); }
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+    font-size: 0.82rem;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.4;
+  }
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    margin-left: 6px;
+  }
+</style>
+</head>
+<body>
+
+<h1>NewsAtlas</h1>
+<p class="subtitle">News source expansion — adding Google News RSS and NewsData.io alongside NewsAPI.org</p>
+
+<div class="meta">
+  <div><strong>Status:</strong> Planning / pre-implementation</div>
+  <div><strong>Builds on:</strong> <a href="planning.html">planning.html</a> (base architecture), <a href="mistral-ai-roadmap.html">mistral-ai-roadmap.html</a> (AI layer), <a href="role-based-company-management-planning.html">role-based-company-management-planning.html</a> (roles/follows)</div>
+  <div><strong>Doc purpose:</strong> Source of truth for implementing multi-source news ingestion in a future session</div>
+</div>
+
+<p>
+  NewsAtlas today ingests news for target companies from exactly one provider, NewsAPI.org, then
+  runs every article through a Mistral-embedding-based dedupe pass, an optional cheap-model
+  relevance triage, and a full Mistral summarization call before storing the result as a
+  <code>Signal</code> shown in the dashboard and daily digest (see
+  <a href="planning.html#workflows">planning.html §6</a> and
+  <a href="mistral-ai-roadmap.html#current">mistral-ai-roadmap.html §2</a> for the current
+  implementation). This document plans adding two more sources on top of that pipeline:
+  <strong>Google News RSS</strong> (free, keyless, public feed) and <strong>NewsData.io</strong>
+  (paid API, assumed to be an admin-held commercial account). Both plug into the existing
+  fetch → dedupe → summarize → frontend pipeline rather than requiring a new one.
+</p>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#problem">1. Problem statement</a></li>
+    <li><a href="#goals">2. Goals &amp; non-goals</a></li>
+    <li><a href="#decisions">3. Key decisions</a></li>
+    <li><a href="#mapping">4. How each source maps onto the existing pipeline</a></li>
+    <li><a href="#architecture">5. Updated architecture</a></li>
+    <li><a href="#data-model">6. Data model changes</a></li>
+    <li><a href="#clients">7. New provider clients</a></li>
+    <li><a href="#ingestion">8. Ingestion orchestration changes</a></li>
+    <li><a href="#newsdata-workflow">9. NewsData.io-specific workflow</a></li>
+    <li><a href="#api">10. Backend API surface changes</a></li>
+    <li><a href="#frontend">11. Frontend changes</a></li>
+    <li><a href="#migration">12. Migration plan</a></li>
+    <li><a href="#roadmap">13. Implementation roadmap</a></li>
+    <li><a href="#assumptions">14. Open questions &amp; assumptions</a></li>
+    <li><a href="#future">15. Future enhancements (out of scope)</a></li>
+  </ol>
+</nav>
+
+<h2 id="problem">1. Problem statement</h2>
+<p>
+  NewsAPI.org's free/developer tier delays articles ~24h and its paid tier is priced per
+  request volume; relying on a single provider also means a single point of failure (rate
+  limits, an outage, or a pricing change stops all ingestion) and a single editorial slice of
+  coverage. Google News RSS adds a free, broad-coverage, real-time source with no API key and
+  no per-request cost, at the expense of thinner article snippets and coarser querying.
+  NewsData.io adds a second commercial provider whose paid tier offers things NewsAPI.org
+  doesn't — full article text (not just a snippet), native duplicate-content removal, native
+  sentiment/AI tagging, and a historical archive going back years — which materially improves
+  summarization quality and lets NewsAtlas backfill a target company's recent history the moment
+  it's added, instead of only seeing news from that point forward.
+</p>
+
+<h2 id="goals">2. Goals &amp; non-goals</h2>
+<h3>Goals</h3>
+<ul>
+  <li>Add <code>GoogleNewsRSSClient</code> and <code>NewsDataClient</code> as new provider
+      implementations feeding the exact same <code>Article</code> → dedupe → triage → summarize
+      → <code>Signal</code> pipeline that NewsAPI.org uses today — no parallel pipeline.</li>
+  <li>Let an admin independently enable/disable each of the three sources workspace-wide, and
+      configure NewsData.io's API key in-app (mirroring the existing Mistral key pattern).</li>
+  <li>Cross-source duplicate coverage of the same story collapses into one <code>Signal</code>,
+      not one per source.</li>
+  <li>Lean into NewsData.io's paid-tier features: full-content ingestion (better-grounded
+      summaries), native duplicate removal, native sentiment/tag capture as extra metadata, and a
+      one-time historical backfill when a target company is created.</li>
+  <li>Give the admin visibility into NewsData.io credit/request consumption, since it's a metered
+      paid account they're paying for directly (unlike the current invisible-cost NewsAPI.org
+      calls).</li>
+  <li>Per-provider failure isolation: one source erroring out (bad key, outage, quota exceeded)
+      must not block ingestion from the other two.</li>
+</ul>
+<h3>Non-goals (this pass)</h3>
+<ul>
+  <li>Per-target-company source selection — sources are enabled/disabled workspace-wide, matching
+      today's single-config pattern (confirmed during planning; see <a href="#decisions">§3</a>).</li>
+  <li>Adding ticker/domain/canonical-ID fields to <code>TargetCompany</code> — all three sources
+      are queried the same way NewsAPI.org is today, by name + free-text keywords.</li>
+  <li>Replacing NewsAPI.org — it stays as a third, equally-weighted source.</li>
+  <li>A pre-AI "raw articles" browsing UI — ingested articles remain visible to users only after
+      becoming a <code>Signal</code>, same as today.</li>
+  <li>Hard credit-budget cutoffs (auto-pausing NewsData.io mid-run on a spend threshold) — flagged
+      as a future enhancement, see <a href="#future">§15</a>.</li>
+</ul>
+
+<h2 id="decisions">3. Key decisions</h2>
+<p>Decisions below were confirmed during this planning pass.</p>
+
+<div class="decision"><strong>Source relationship:</strong> Google News RSS and NewsData.io are
+added <em>alongside</em> NewsAPI.org, not as replacements. All three can be active at once; a
+target company's articles are simply the union of whatever enabled sources return for it.
+<span class="tag">confirmed</span></div>
+
+<div class="decision"><strong>Source granularity:</strong> a single workspace-wide on/off toggle
+per source (three booleans in <code>workspace_settings</code>), not a per-target-company
+selection. Matches the existing single-tenant, single-config pattern and avoids adding UI/schema
+surface to every company row. <span class="tag">confirmed</span></div>
+
+<div class="decision"><strong>NewsData.io depth:</strong> the plan leans into the paid tier —
+full-content ingestion, native <code>removeduplicate</code> param, native sentiment/tag capture,
+and a one-time historical archive backfill on company creation — rather than treating it as a
+plain headline+snippet source. <span class="tag">confirmed</span></div>
+
+<div class="decision"><strong>Google News RSS query shape:</strong> mirrors the existing
+NewsAPI.org query-building pattern (name + keywords, OR-joined, quoted multi-word terms),
+translated into Google News RSS's <code>?q=</code> search syntax, with an admin-configurable
+default country/language (default <code>US</code>/<code>en</code>) rather than per-company
+locale. <span class="tag">confirmed</span></div>
+
+<div class="decision"><strong>Dedupe stays semantic, not source-aware:</strong> the existing
+<code>mistral-embed</code> + cosine-similarity dedupe in <code>ingestion.py</code> already
+compares every new article against recent articles <em>for the same target company</em>
+regardless of source — this is exactly the "let Mistral deduplicate" step the requester described
+for the Google News RSS workflow, and it needs no new logic to also cover NewsData.io and
+cross-source duplicates. <span class="tag">confirmed</span></div>
+
+<div class="decision"><strong>URL uniqueness stays global:</strong> <code>articles.url</code>
+keeps its existing unique constraint as a first, free dedupe pass across all three sources.
+NewsAPI.org and NewsData.io both tend to return the publisher's canonical URL, so the same story
+from both often collapses here for free. Google News RSS returns a
+<code>news.google.com/rss/articles/...</code> redirect URL instead of the direct publisher URL,
+so cross-source dedupe with a Google News RSS hit almost always falls through to the semantic
+(embedding) pass rather than the URL check — expected and fine, just worth knowing why.
+<span class="tag">confirmed</span></div>
+
+<div class="decision"><strong>NewsAPI.org gets a matching enable toggle</strong>
+(<code>newsapi_enabled</code>, default <code>true</code>) for symmetry with the two new sources,
+even though its behavior is unchanged — this gives the admin one consistent three-source panel
+instead of two toggles plus one implicit always-on source. <span class="tag">default</span></div>
+
+<h2 id="mapping">4. How each source maps onto the existing pipeline</h2>
+<p>
+  Both requested workflows collapse onto the pipeline NewsAtlas already runs for NewsAPI.org.
+  Nothing below is a new pipeline — it's a new <code>fetch_articles()</code> implementation
+  slotted into the loop already in <code>services/ingestion.py</code>.
+</p>
+<table>
+<tr><th>Requested step</th><th>Google News RSS</th><th>NewsData.io</th></tr>
+<tr><td>Platform fetches content</td><td>New <code>GoogleNewsRSSClient</code> parses the public RSS search feed — no API key.</td><td>New <code>NewsDataClient</code> calls the <code>/news</code> (recent) and, for backfill, <code>/archive</code> endpoints with the admin's paid API key.</td></tr>
+<tr><td>Mistral deduplicates</td><td>Already-existing embedding + cosine-similarity pass in <code>ingestion.py</code> — applies automatically, no new code.</td><td>Same existing pass, <em>plus</em> NewsData.io's own native <code>removeduplicate=1</code> param as a cheap first-line filter before an article even reaches embedding.</td></tr>
+<tr><td>Mistral summarizes</td><td>Already-existing <code>AIClient.summarize_article()</code> — unchanged prompt/contract, fed the RSS entry's title + description like any other source.</td><td>Same call, but fed <code>full_content</code> when available instead of just a snippet — a genuine quality upgrade the paid plan unlocks (see <a href="#clients">§7</a>).</td></tr>
+<tr><td>Loads to frontend</td><td>Already-existing <code>Signal</code> → <code>SignalsFeed.tsx</code>/<code>SignalDetail.tsx</code> rendering, plus a new small source badge (see <a href="#frontend">§11</a>).</td><td>Same, plus the signal detail view can surface NewsData.io's native sentiment/tags as extra read-only metadata alongside Mistral's own output.</td></tr>
+</table>
+
+<h2 id="architecture">5. Updated architecture</h2>
+<div class="diagram">
+┌─────────────────────┐        ┌──────────────────────────────────────────────┐
+│   React Frontend     │  REST  │              FastAPI Backend                  │
+│ (feed, settings incl.│◄──────►│   ...existing routers unchanged, plus:        │
+│  new "News sources"  │        │   extended /settings, new /news-usage         │
+│  panel + source      │        └──────────────────────┬─────────────────────────┘
+│  badges)             │                                │
+└─────────────────────┘                        ┌────────┴────────┐
+                                                │  run_ingestion   │
+                                                │  (per active     │
+                                                │  target_company) │
+                                                └────────┬────────┘
+                                for each ENABLED source: │
+                        ┌───────────────────┬────────────┼────────────────────┐
+                        │                   │                                 │
+               ┌────────┴────────┐ ┌────────┴─────────┐            ┌──────────┴─────────┐
+               │   NewsClient     │ │ GoogleNewsRSSClient│          │   NewsDataClient    │
+               │ (NewsAPI.org,    │ │ (public RSS feed,  │          │ (paid API: /news +  │
+               │  existing)       │ │  no key)            │          │  /archive backfill) │
+               └────────┬────────┘ └────────┬─────────┘            └──────────┬─────────┘
+                        │                   │                                 │
+                        └───────────────────┴───────────────┬─────────────────┘
+                                                              │ tagged with Article.source
+                                                    ┌─────────┴─────────┐
+                                                    │  articles (union)  │
+                                                    │  URL-unique first  │
+                                                    │  dedupe pass       │
+                                                    └─────────┬─────────┘
+                                                              │
+                                              ┌───────────────┴───────────────┐
+                                              │   existing Mistral pipeline    │
+                                              │ embed → semantic dedupe →      │
+                                              │ triage → summarize             │
+                                              │ (unchanged, source-agnostic)   │
+                                              └───────────────┬───────────────┘
+                                                              │
+                                                    ┌─────────┴─────────┐
+                                                    │      signals       │
+                                                    └────────────────────┘
+</div>
+
+<h2 id="data-model">6. Data model changes</h2>
+
+<h3>articles <span class="tag">modified</span></h3>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td>source</td><td>enum(<code>newsapi</code>, <code>google_news_rss</code>, <code>newsdata</code>)</td><td>new, not null; which ingestion provider surfaced this row — distinct from the existing <code>source_name</code>, which is the underlying publisher (e.g. "TechCrunch"). Existing rows backfilled to <code>newsapi</code>.</td></tr>
+<tr><td>full_content</td><td>text, nullable</td><td>new; populated only when NewsData.io's full-content feature returns a body (paid tier). Null for NewsAPI.org/Google News RSS, which only ever provide title+snippet.</td></tr>
+<tr><td>external_sentiment</td><td>text, nullable</td><td>new; NewsData.io's own sentiment label (<code>positive</code>/<code>neutral</code>/<code>negative</code>) when the account's sentiment add-on is enabled. Stored verbatim as extra metadata — separate from and not a substitute for Mistral's own <code>confidence</code>/<code>relevance_score</code> on the resulting signal.</td></tr>
+<tr><td>external_tags</td><td>text[], nullable</td><td>new; NewsData.io's native AI-tag/category output when available. Same rationale as above.</td></tr>
+</table>
+<div class="assumption"><strong>Why keep external metadata separate from Mistral's fields</strong>
+rather than merging them: <code>external_sentiment</code>/<code>external_tags</code> come from a
+different model/vendor than <code>signal_type</code>/<code>entities</code>/<code>confidence</code>,
+and conflating them would make it unclear which system is responsible for an eventually-wrong
+tag. They're additive read-only context, not inputs the pipeline currently reasons over — feeding
+them into the Mistral prompt is a plausible fast-follow, listed in <a href="#future">§15</a>.</div>
+
+<h3>workspace_settings <span class="tag">modified</span></h3>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td>newsapi_enabled</td><td>boolean, default true</td><td>new; symmetry toggle, see <a href="#decisions">§3</a>.</td></tr>
+<tr><td>google_news_rss_enabled</td><td>boolean, default false</td><td>new; opt-in since it changes ingestion behavior/volume even though it's free.</td></tr>
+<tr><td>google_news_rss_country</td><td>text, default "US"</td><td>new; ISO country code for the <code>gl</code>/<code>ceid</code> RSS params.</td></tr>
+<tr><td>google_news_rss_language</td><td>text, default "en"</td><td>new; ISO language code for the <code>hl</code>/<code>ceid</code> RSS params.</td></tr>
+<tr><td>newsdata_enabled</td><td>boolean, default false</td><td>new; off until an admin sets a key.</td></tr>
+<tr><td>newsdata_api_key</td><td>text, default ""</td><td>new; in-app override, same resolution pattern as <code>mistral_api_key</code> (empty → fall back to <code>NEWSDATA_API_KEY</code> env var; in-app value always wins once set).</td></tr>
+<tr><td>newsdata_full_content_enabled</td><td>boolean, default true</td><td>new; lets an admin turn off full-content requests if their specific plan tier doesn't include it (avoids the client having to guess from error codes).</td></tr>
+<tr><td>newsdata_use_native_dedupe</td><td>boolean, default true</td><td>new; maps to the <code>removeduplicate=1</code> request param.</td></tr>
+<tr><td>newsdata_backfill_days</td><td>integer, default 0</td><td>new; 0 disables historical backfill entirely; N &gt; 0 pulls the last N days of archive coverage when a target company is created (see <a href="#newsdata-workflow">§9</a>).</td></tr>
+</table>
+
+<h3>news_source_usage_logs <span class="tag">new table</span></h3>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td>id</td><td>UUID PK</td><td></td></tr>
+<tr><td>source</td><td>enum, same values as <code>articles.source</code></td><td></td></tr>
+<tr><td>call_type</td><td>text</td><td><code>"latest"</code> or <code>"archive"</code> — distinguishes routine polling from a one-time backfill run in the usage history.</td></tr>
+<tr><td>target_company_id</td><td>UUID FK → target_companies, <code>ondelete=SET NULL</code></td><td>mirrors <code>ai_usage_logs</code>' attribution granularity.</td></tr>
+<tr><td>requests_used</td><td>integer</td><td>credit/request cost of the call as reported by the provider (NewsData.io's response includes a per-call credit cost; NewsAPI.org/Google News RSS default to 1).</td></tr>
+<tr><td>articles_returned</td><td>integer</td><td></td></tr>
+<tr><td>created_at</td><td>timestamptz</td><td></td></tr>
+</table>
+<p>Mirrors <code>ai_usage_logs</code> (<a href="mistral-ai-roadmap.html#gaps">flagged there</a> as
+the pattern to reuse). Purpose: give the admin visibility into NewsData.io credit burn against
+their paid plan — the same blind spot the Mistral roadmap already called out for AI spend, now
+relevant on the news-fetch side too since NewsData.io meters by request/credit.</p>
+
+<h2 id="clients">7. New provider clients</h2>
+
+<h3>7.1 Shared query builder</h3>
+<p>
+  <code>NewsClient._build_query()</code> (name + keywords → an OR-joined, quoted search string)
+  is extracted into a small <code>services/news_query.py</code> helper (<code>build_or_query()</code>)
+  so <code>NewsClient</code>, <code>GoogleNewsRSSClient</code>, and <code>NewsDataClient</code>
+  share one implementation instead of three near-identical copies.
+</p>
+
+<h3>7.2 <code>GoogleNewsRSSClient</code> <span class="tag">new</span></h3>
+<p><code>services/google_news_rss_client.py</code>, same <code>fetch_articles(name, keywords, since) -&gt;
+list[NewsArticle]</code> contract as <code>NewsClient</code>.</p>
+<ul>
+  <li>Builds <code>https://news.google.com/rss/search?q={query}&amp;hl={lang}&amp;gl={country}&amp;ceid={country}:{lang}</code>
+      using the shared query builder and the workspace's configured country/language.</li>
+  <li>Fetches and parses with <code>feedparser</code> (new dependency — no RSS parser exists in
+      the codebase today; chosen over hand-rolled XML parsing for the same reason the codebase
+      already leans on well-tested libraries elsewhere).</li>
+  <li>Per entry: <code>title</code>, <code>link</code> (the Google redirect URL — stored as-is;
+      see <a href="#decisions">§3</a> on why this limits URL-level cross-source dedupe),
+      <code>description</code> (HTML snippet — stripped to plain text), <code>published</code>
+      parsed to a timezone-aware datetime, <code>source_name</code> parsed from the entry's
+      <code>&lt;source&gt;</code> tag (Google News RSS includes this, unlike a plain title-suffix
+      parse).</li>
+  <li>Google News RSS has no server-side date filter, so entries older than <code>since</code>
+      are dropped client-side after parsing.</li>
+  <li>No API key, so <code>NewsClientError</code> is only raised on a request/parse failure, not
+      a missing-credential check.</li>
+  <li>Reuses the existing http(s)-only URL guard from <code>NewsClient._parse_article</code>
+      (stored-XSS protection) — factor that check into a shared helper alongside the query
+      builder rather than duplicating it a third time.</li>
+</ul>
+
+<h3>7.3 <code>NewsDataClient</code> <span class="tag">new</span></h3>
+<p><code>services/newsdata_client.py</code>, extends the same contract with optional richer output.</p>
+<ul>
+  <li><code>fetch_articles(name, keywords, since, *, full_content, use_native_dedupe)</code> calls
+      <code>https://newsdata.io/api/1/news</code> (previously <code>/latest</code> in older API
+      versions) with <code>q</code> (shared query builder), <code>apikey</code>,
+      <code>language</code>, <code>from_date</code>/<code>to_date</code> (NewsData.io supports
+      real date filtering, unlike Google News RSS), <code>removeduplicate=1</code> when enabled,
+      and <code>full_content=1</code> when enabled.</li>
+  <li>Parses each result into an extended dataclass carrying the same base fields as
+      <code>NewsArticle</code> plus <code>full_content: str | None</code>,
+      <code>sentiment: str | None</code>, <code>tags: list[str] | None</code> — the latter three
+      read defensively (<code>.get()</code> with no error if absent), since they're only present
+      when the account's plan/add-ons include them.</li>
+  <li>Paginates via NewsData.io's <code>nextPage</code> cursor, capped at a small fixed number of
+      pages per target company per run (e.g. 2) to bound credit spend from a single busy company
+      — this cap is the main defense against runaway paid-API usage until the harder
+      budget-alerting idea in <a href="#future">§15</a> is built.</li>
+  <li><code>fetch_archive(name, keywords, since, until)</code> — a second method hitting
+      <code>https://newsdata.io/api/1/archive</code> (paid-only, historical coverage), used solely
+      by the one-time backfill workflow (<a href="#newsdata-workflow">§9</a>), not the routine
+      polling loop.</li>
+  <li>Every call returns the provider's reported credit cost (present in the response envelope)
+      so the caller can write a <code>NewsSourceUsageLog</code> row.</li>
+</ul>
+
+<h2 id="ingestion">8. Ingestion orchestration changes</h2>
+<p>Changes are confined to <code>services/ingestion.py</code>; the per-article dedupe/triage/
+summarize logic in <code>_process_new_articles()</code> is untouched, since it already operates
+on <code>Article</code> rows regardless of where they came from.</p>
+<ol>
+  <li><code>run_ingestion()</code> builds a list of <code>(source_enum, client)</code> pairs from
+      whichever of <code>newsapi_enabled</code> / <code>google_news_rss_enabled</code> /
+      <code>newsdata_enabled</code> are true, instead of constructing a single hardcoded
+      <code>NewsClient</code>.</li>
+  <li>For each active target company, the existing fetch step becomes a loop over enabled
+      providers. Each provider's <code>fetch_articles()</code> call is wrapped in its own
+      try/except so one provider's failure (revoked NewsData.io key, Google News RSS transiently
+      blocking, NewsAPI.org rate limit) appends to <code>errors</code> and is skipped, while the
+      others still run — matching the existing per-target-company error isolation, just one level
+      deeper.</li>
+  <li>Every fetched article is tagged with <code>Article.source</code> before insertion. The
+      existing URL-uniqueness check (<code>db.query(Article).filter(Article.url == ...)</code>)
+      is unchanged and now doubles as the first cross-source dedupe pass (see <a href="#decisions">§3</a>).</li>
+  <li>After insertion across <em>all</em> enabled providers for that company, the rest of the
+      function — embedding, semantic dedupe against recent articles for the company, triage,
+      summarization — runs exactly as it does today, unaware of and unaffected by how many
+      sources contributed the batch.</li>
+  <li><code>IngestionRunResult</code> gains a <code>by_source: dict[str, int]</code> breakdown
+      (articles fetched per source) so the manual "run now" UI and logs show which providers are
+      contributing, which matters once three sources can silently succeed/fail independently.</li>
+  <li>A <code>NewsSourceUsageLog</code> row is written per provider call (mainly useful for
+      NewsData.io's metered credits; recorded for all three for a consistent history).</li>
+</ol>
+
+<h2 id="newsdata-workflow">9. NewsData.io-specific workflow</h2>
+<p>
+  This is the "fitting workflow assuming a paid NewsData.io account" the requester asked for —
+  the parts that go beyond treating NewsData.io as a drop-in NewsAPI.org replacement.
+</p>
+
+<h3>9.1 Full-content-grounded summarization</h3>
+<p>
+  When <code>newsdata_full_content_enabled</code> is on and a given article has
+  <code>full_content</code>, <code>AIClient.summarize_article()</code> (and the triage call) are
+  given the full body instead of the short <code>description</code> snippet used for
+  NewsAPI.org/Google News RSS articles. This directly improves <code>business_relevance</code>
+  and <code>supporting_quote</code> grounding — a quote pulled from a full article is far more
+  likely to be a genuine, checkable excerpt than one inferred from a two-sentence snippet. No
+  schema change to <code>AISummaryResult</code> is needed — this is a change to what text is
+  placed in the prompt's "Article description" slot, source-conditional on <code>full_content</code>
+  being present.
+</p>
+
+<h3>9.2 Native duplicate removal as a pre-filter</h3>
+<p>
+  <code>removeduplicate=1</code> asks NewsData.io to collapse duplicate coverage on their side
+  before it's even returned. This doesn't replace the existing embedding-based semantic dedupe
+  (which still needs to catch duplicates <em>across</em> NewsData.io, NewsAPI.org, and Google News
+  RSS) — it reduces how many near-duplicate NewsData.io articles reach that stage in the first
+  place, which matters once three sources can each surface the same wire story.
+</p>
+
+<h3>9.3 Native sentiment/tags as auxiliary metadata</h3>
+<p>
+  <code>external_sentiment</code>/<code>external_tags</code> are stored on the <code>Article</code>
+  row and surfaced read-only on <code>SignalDetail.tsx</code> (e.g. a small "NewsData.io sentiment:
+  negative" line) alongside Mistral's own <code>confidence</code>/<code>relevance_score</code>/
+  <code>signal_type</code>. Kept separate rather than merged into the AI-generated fields (see the
+  data-model assumption in <a href="#data-model">§6</a>).
+</p>
+
+<h3>9.4 One-time historical backfill on company creation</h3>
+<ol>
+  <li>When a target company is created (self-serve or admin-assigned,
+      <code>get_or_create_company()</code> in <code>services/company_follows.py</code>) and
+      <code>newsdata_enabled</code> and <code>newsdata_backfill_days &gt; 0</code>, a
+      <code>FastAPI BackgroundTasks</code> job is scheduled — not run inline — since an archive
+      pull covering weeks of coverage plus embedding + summarizing every result can take
+      meaningfully longer than a normal request/response cycle.</li>
+  <li>The background task calls <code>NewsDataClient.fetch_archive()</code> for a window of
+      <code>[now - newsdata_backfill_days, now]</code>, tags results
+      <code>source = newsdata</code>, and feeds them through the exact same insertion +
+      dedupe/triage/summarize path as routine ingestion — a backfilled company shows up with a
+      populated history instead of a slow trickle starting from zero.</li>
+  <li>Only runs once per company (guarded by, e.g., a <code>backfilled_at</code> timestamp on
+      <code>TargetCompany</code> — new nullable column — so re-activating a paused company doesn't
+      re-trigger it and re-spend archive credits).</li>
+  <li>Existing companies created before this feature ships are <em>not</em> retroactively
+      backfilled automatically — an admin can trigger it manually per company (new
+      <code>POST /target-companies/{id}/backfill</code>, admin-only, same cooldown/rate-limit
+      posture as <code>/ingestion/run-now</code>) if they want the history for a company that
+      predates the feature.</li>
+</ol>
+
+<h2 id="api">10. Backend API surface changes</h2>
+<pre><code>GET    /settings                         # response gains newsapi_enabled, google_news_rss_*,
+                                          #   newsdata_* fields (admin-only, unchanged auth)
+PUT    /settings                         # same; newsdata_api_key follows the mistral_api_key
+                                          #   set/clear/leave-unchanged convention
+
+POST   /target-companies/{id}/backfill   # admin-only: manually trigger a one-time NewsData.io
+                                          #   archive backfill for a company created before this
+                                          #   feature shipped, or to re-run after raising
+                                          #   newsdata_backfill_days
+
+GET    /news-usage                       # admin-only: NewsSourceUsageLog summary (mirrors
+                                          #   /ai-usage), credits/requests used per source/period
+
+POST   /ingestion/run-now                # response (IngestionRunResult) gains by_source dict;
+                                          #   endpoint itself unchanged (still rate-limited,
+                                          #   cooldown-gated, all-sources-at-once)
+</code></pre>
+
+<h2 id="frontend">11. Frontend changes</h2>
+<ul>
+  <li><strong>SettingsProfile.tsx</strong> gains a new "News sources" panel (same card style as
+      the existing "AI configuration" panel): three toggle rows — NewsAPI.org (on by default),
+      Google News RSS (off by default, with country/language selects revealed when enabled),
+      NewsData.io (off by default, with an API key input reusing the exact password-field +
+      status-text + "clear in-app override" pattern already built for
+      <code>mistral_api_key</code>, plus toggles for full-content, native dedupe, and a
+      backfill-days number input).</li>
+  <li><strong>SignalsFeed.tsx</strong> / <strong>SignalDetail.tsx</strong> gain a small source
+      badge per signal (NewsAPI.org / Google News / NewsData.io) sourced from the underlying
+      <code>Article.source</code> — same visual treatment as the existing status/signal-type
+      badges, not a new design pattern.</li>
+  <li><strong>SignalDetail.tsx</strong> additionally renders NewsData.io's
+      <code>external_sentiment</code>/<code>external_tags</code> as a small read-only metadata
+      line when present.</li>
+  <li>New admin-only page (or a second tab on the existing <code>AIUsage.tsx</code>, renamed to a
+      shared "Usage" page) showing <code>/news-usage</code> data — request/credit consumption per
+      source over time, mirroring the existing AI usage page's table/summary layout.</li>
+  <li><strong>SettingsTargets.tsx</strong>: a company created while NewsData.io backfill is
+      configured shows a brief "backfilling historical coverage..." indicator (polls or just
+      informs the user it's running in the background) instead of appearing to have silently
+      ingested nothing at first.</li>
+</ul>
+
+<h2 id="migration">12. Migration plan</h2>
+<ol>
+  <li>Alembic migration: add <code>articles.source</code> (enum, not null, default
+      <code>'newsapi'</code> — backfills existing rows correctly since NewsAPI.org is the only
+      source that has ever run), <code>articles.full_content</code>,
+      <code>articles.external_sentiment</code>, <code>articles.external_tags</code>.</li>
+  <li>Alembic migration: add all new <code>workspace_settings</code> columns from
+      <a href="#data-model">§6</a>, plus <code>target_companies.backfilled_at</code> (nullable
+      timestamptz).</li>
+  <li>Alembic migration: create <code>news_source_usage_logs</code>.</li>
+  <li>No backfill-of-behavior step is needed (unlike the role-based-access migration) — every new
+      column has a safe default that preserves today's single-source behavior until an admin
+      opts into the new sources.</li>
+</ol>
+
+<h2 id="roadmap">13. Implementation roadmap</h2>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 1</span> Foundations</h4>
+  <ul class="checklist">
+    <li>Migrations: <code>articles.source/full_content/external_sentiment/external_tags</code>,
+        new <code>workspace_settings</code> columns, <code>news_source_usage_logs</code> table,
+        <code>target_companies.backfilled_at</code></li>
+    <li>Extract shared <code>services/news_query.py</code> (query builder + URL-safety guard) out
+        of <code>NewsClient</code></li>
+    <li>Add <code>newsapi_enabled</code> toggle end-to-end (settings API + UI) with no behavior
+        change, proving the multi-source settings plumbing before the new clients exist</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 2</span> Google News RSS</h4>
+  <ul class="checklist">
+    <li>Add <code>feedparser</code> dependency</li>
+    <li><code>GoogleNewsRSSClient</code> + unit tests (<code>test_google_news_rss_client.py</code>,
+        mirroring <code>test_news_client.py</code>'s static-method/no-network test shape)</li>
+    <li>Wire into <code>run_ingestion()</code>'s provider loop, tag <code>Article.source</code></li>
+    <li>Settings UI: Google News RSS toggle + country/language fields</li>
+    <li>Source badge in <code>SignalsFeed.tsx</code>/<code>SignalDetail.tsx</code></li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 3</span> NewsData.io — basic parity</h4>
+  <ul class="checklist">
+    <li><code>NewsDataClient.fetch_articles()</code> against <code>/news</code>, snippet-level
+        (no full content yet) + unit tests</li>
+    <li><code>newsdata_api_key</code> admin-editable setting, mirroring
+        <code>resolve_mistral_api_key</code>/<code>get_mistral_api_key_status</code></li>
+    <li>Wire into ingestion provider loop; <code>IngestionRunResult.by_source</code></li>
+    <li>Settings UI: NewsData.io toggle + API key field</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 4</span> NewsData.io — paid-feature depth</h4>
+  <ul class="checklist">
+    <li>Full-content request/parsing + conditional full-content grounding in
+        <code>summarize_article()</code>/<code>triage_article()</code></li>
+    <li><code>removeduplicate=1</code> native-dedupe toggle</li>
+    <li>Capture <code>external_sentiment</code>/<code>external_tags</code>; render read-only in
+        <code>SignalDetail.tsx</code></li>
+    <li><code>news_source_usage_logs</code> writes + <code>/news-usage</code> endpoint + usage page</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 5</span> NewsData.io — historical backfill</h4>
+  <ul class="checklist">
+    <li><code>NewsDataClient.fetch_archive()</code></li>
+    <li><code>newsdata_backfill_days</code> setting + background-task trigger on company creation</li>
+    <li><code>POST /target-companies/{id}/backfill</code> manual trigger for pre-existing companies</li>
+    <li>Frontend "backfilling..." indicator on newly-created companies</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 6</span> Hardening</h4>
+  <ul class="checklist">
+    <li>Per-provider error isolation tests (one source failing doesn't block the others)</li>
+    <li>Page/credit cap tests for <code>NewsDataClient</code> pagination</li>
+    <li>Cross-source dedupe test: same story via two sources collapses to one <code>Signal</code></li>
+    <li>Update <code>README.md</code>/<code>.env.example</code> with <code>NEWSDATA_API_KEY</code>
+        and update <code>docs/planning.html</code> §14/§15 to reflect the now-multi-source
+        ingestion layer</li>
+  </ul>
+</div>
+
+<h2 id="assumptions">14. Open questions &amp; assumptions for follow-up sessions</h2>
+<div class="assumption"><strong>Google News RSS terms of use</strong> — this is a widely-used but
+unofficial feed; Google doesn't publish a supported API or formal quota for it. Confirm this is
+an acceptable risk for the deployment before enabling it by default for any workspace, and keep
+polling conservative (bounded by the existing ingestion interval, no extra hidden polling).</div>
+<div class="assumption"><strong>NewsData.io plan tier</strong> — full-content, sentiment/AI-tag,
+and archive access are gated to different paid tiers (Basic/Professional/Corporate). The plan
+assumes the admin's account includes all three; each is independently toggle-able
+(<code>newsdata_full_content_enabled</code>, sentiment capture is always attempted but tolerates
+absence, <code>newsdata_backfill_days</code>) so a lower tier degrades gracefully instead of
+erroring.</div>
+<div class="assumption"><strong>Credit budget alerting</strong> — Phase 3-5 add a hard per-run
+page cap on <code>NewsDataClient</code> pagination, but there's no workspace-wide "stop calling
+NewsData.io once N credits are used this month" cutoff. <code>news_source_usage_logs</code>
+(Phase 4) is a prerequisite for building that later with real data instead of guessing at limits.</div>
+<div class="assumption"><strong>Embedding dedupe threshold with full content</strong> —
+<code>mistral_dedupe_similarity_threshold</code> (default 0.90) was tuned against short
+title+description embeddings. Once NewsData.io's <code>full_content</code> (much longer text) is
+embedded, cosine similarity behavior may shift; re-validate the default threshold once Phase 4
+ships, rather than assuming it transfers unchanged.</div>
+<div class="assumption"><strong>Google News RSS redirect URL stability</strong> — the
+<code>news.google.com/rss/articles/...</code> link stored as <code>articles.url</code> is a
+redirect, not the canonical publisher URL; assumed stable enough to remain clickable from a
+digest email sent hours or days later. Worth spot-checking in practice once this ships, since a
+broken link in an email a rep is about to use for outreach is a worse failure mode than a broken
+link in the dashboard.</div>
+
+<h2 id="future">15. Future enhancements (explicitly out of scope here)</h2>
+<ul>
+  <li>Per-target-company source selection, once/if a real need for it shows up (e.g. one company
+      needs NewsData.io's superior coverage in a non-English market while others don't).</li>
+  <li>Hard credit-budget cutoffs / alerting for NewsData.io spend, once
+      <code>news_source_usage_logs</code> has enough real data to set sane thresholds.</li>
+  <li>Feeding <code>external_sentiment</code>/<code>external_tags</code> into the Mistral
+      summarization prompt itself (as extra grounding context) rather than only displaying them
+      alongside the AI output.</li>
+  <li>Ticker/domain fields on <code>TargetCompany</code> for more precise querying against
+      NewsData.io's domain/ticker-style filters, if free-text name+keyword queries prove too
+      noisy at scale.</li>
+  <li>Additional NewsData.io paid endpoints not covered here (e.g. its crypto-news or
+      podcast-transcript verticals), if a future use case calls for them.</li>
+</ul>
+
+<footer>
+  NewsAtlas — news source expansion planning document, drafted 2026-07-06. Extends
+  <a href="planning.html">planning.html</a> and assumes the current state of
+  <code>services/ingestion.py</code>, <code>services/ai_client.py</code>, and
+  <code>services/news_client.py</code> as of this date; re-verify against those files before
+  acting on this plan if significant time has passed.
+</footer>
+
+</body>
+</html>
