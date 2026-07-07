@@ -310,6 +310,11 @@
   shared workspace state) and consistent with existing per-user company-follow scoping — no
   admin-only gating needed since this is about individual workflow, not workspace configuration.</li>
 </ul>
+<p><strong>Confirmed with stakeholder (2026-07-07):</strong> all four open questions raised before
+implementation were resolved in favor of the plan's recommended defaults — pure relevance sort with no
+recency window, <code>relevance_score</code> alone (no new sentiment scoring) for "highly positive,"
+the <code>/</code> → <code>/signals</code> route change ships without a redirect shim, and dashboard
+panel sizes stay 8 top signals / 5 recent favorites / 5 open todos. §11 updated accordingly.</p>
 <h3>Non-goals (this pass)</h3>
 <ul>
   <li>Shared/team todos or @-mentions — todos are private to the user who created them.</li>
@@ -728,22 +733,18 @@ pattern).</p>
 
 <h2 id="assumptions">11. Open questions &amp; assumptions</h2>
 
-<div class="assumption"><strong>"Highly positive signal" interpretation:</strong> the request's
-phrase is read as "high <code>relevance_score</code>," not article sentiment. The only sentiment field
-in the schema is <code>article_external_sentiment</code>, which is NewsData.io-specific and absent for
-articles from NewsAPI.org or Google News RSS — using it for dashboard ranking would make the "top
-signals" section behave inconsistently depending on which source happened to surface a given article.
-If genuine sentiment-based ranking (as opposed to business-relevance ranking) turns out to be what's
-wanted, that requires either extending the Mistral summarization prompt to emit a normalized sentiment
-score for every signal regardless of source, or accepting the source-coverage gap — flag this before
-building if relevance_score alone doesn't match expectations.</div>
+<div class="decision"><strong>"Highly positive signal" interpretation — confirmed:</strong> ranks by
+the existing <code>relevance_score</code> alone, not article sentiment. <span class="tag">confirmed</span>
+No changes to the AI pipeline. The only sentiment field in the schema
+(<code>article_external_sentiment</code>) is NewsData.io-specific and absent for NewsAPI.org/Google
+News RSS articles, so it stays out of ranking entirely (§12 revisits this only if sentiment coverage
+becomes uniform across sources later).</div>
 
-<div class="assumption"><strong>"Newest and most important" combined ranking:</strong> assumed to mean
-sort by relevance first, recency as tiebreaker (§4), not a time-decayed blended score. If a signal from
-6 months ago with score 5 should rank below a same-day score-3 signal, the dashboard query needs a
-recency cutoff (e.g. only consider signals from the last N days) rather than a pure relevance sort —
-easy to add as a <code>WHERE created_at > now() - interval 'N days'</code> clause if wanted, left out
-for now to keep the first pass simple.</div>
+<div class="decision"><strong>"Newest and most important" combined ranking — confirmed:</strong> pure
+<code>relevance_score DESC, created_at DESC</code> sort, no recency window/cutoff.
+<span class="tag">confirmed</span> A stale high-score signal can persist at the top of the dashboard
+until its status changes (reviewed/archived/dismissed) — acceptable since that status transition is
+already the expected way users clear a signal off their plate.</div>
 
 <div class="assumption"><strong>Todo scope — one list per signal, not per (signal, company-follow):
 </strong> assumed each user's todos on a signal are independent of which company-follow relationship
