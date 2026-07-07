@@ -3,8 +3,10 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api, ApiError } from "../api/client";
 import { ARTICLE_SOURCE_LABELS } from "../api/types";
-import type { Signal, SignalStatus } from "../api/types";
+import type { Signal, SignalStatus, SignalTodo } from "../api/types";
+import FavoriteButton from "../components/FavoriteButton";
 import Skeleton from "../components/Skeleton";
+import TodoList from "../components/TodoList";
 import { STATUS_TRANSITIONS } from "../constants/signalStatus";
 import { useToast } from "../context/ToastContext";
 import { usePageTitle } from "../hooks/usePageTitle";
@@ -32,6 +34,7 @@ export default function SignalDetail() {
   const navigate = useNavigate();
   const { showToast } = useToast();
   const [signal, setSignal] = useState<Signal | null>(null);
+  const [todos, setTodos] = useState<SignalTodo[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeChannel, setActiveChannel] = useState<"email" | "linkedin" | "call">("email");
   const [copied, setCopied] = useState(false);
@@ -45,11 +48,15 @@ export default function SignalDetail() {
       .then(setSignal)
       .catch((err) => {
         if (err instanceof ApiError && err.status === 404) {
-          navigate("/", { replace: true });
+          navigate("/signals", { replace: true });
           return;
         }
         setLoadError(err instanceof ApiError ? err.message : "Failed to load signal");
       });
+    api
+      .get<SignalTodo[]>(`/signals/${signalId}/todos`)
+      .then(setTodos)
+      .catch(() => undefined);
   }, [signalId, navigate]);
 
   async function updateStatus(status: SignalStatus) {
@@ -59,6 +66,66 @@ export default function SignalDetail() {
       setSignal(updated);
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : "Failed to update status", "error");
+    }
+  }
+
+  async function toggleFavorite() {
+    if (!signal) return;
+    const nextFavorited = !signal.is_favorited;
+    setSignal({ ...signal, is_favorited: nextFavorited });
+    try {
+      const updated = nextFavorited
+        ? await api.post<Signal>(`/signals/${signal.id}/favorite`)
+        : await api.delete<Signal>(`/signals/${signal.id}/favorite`);
+      setSignal(updated);
+    } catch (err) {
+      setSignal((prev) => (prev ? { ...prev, is_favorited: !nextFavorited } : prev));
+      showToast(err instanceof ApiError ? err.message : "Failed to update favorite", "error");
+    }
+  }
+
+  async function addTodo(text: string) {
+    if (!signal) return;
+    try {
+      const created = await api.post<SignalTodo>(`/signals/${signal.id}/todos`, { text });
+      setTodos((prev) => [...prev, created]);
+      setSignal((prev) => (prev ? { ...prev, open_todo_count: prev.open_todo_count + 1 } : prev));
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : "Failed to add todo", "error");
+    }
+  }
+
+  async function toggleTodo(todo: SignalTodo) {
+    const nextDone = !todo.is_done;
+    setTodos((prev) => prev.map((t) => (t.id === todo.id ? { ...t, is_done: nextDone } : t)));
+    setSignal((prev) =>
+      prev ? { ...prev, open_todo_count: prev.open_todo_count + (nextDone ? -1 : 1) } : prev
+    );
+    try {
+      const updated = await api.patch<SignalTodo>(`/todos/${todo.id}`, { is_done: nextDone });
+      setTodos((prev) => prev.map((t) => (t.id === todo.id ? updated : t)));
+    } catch (err) {
+      setTodos((prev) => prev.map((t) => (t.id === todo.id ? todo : t)));
+      setSignal((prev) =>
+        prev ? { ...prev, open_todo_count: prev.open_todo_count + (nextDone ? 1 : -1) } : prev
+      );
+      showToast(err instanceof ApiError ? err.message : "Failed to update todo", "error");
+    }
+  }
+
+  async function deleteTodo(todo: SignalTodo) {
+    setTodos((prev) => prev.filter((t) => t.id !== todo.id));
+    if (!todo.is_done) {
+      setSignal((prev) => (prev ? { ...prev, open_todo_count: prev.open_todo_count - 1 } : prev));
+    }
+    try {
+      await api.delete(`/todos/${todo.id}`);
+    } catch (err) {
+      setTodos((prev) => [...prev, todo]);
+      if (!todo.is_done) {
+        setSignal((prev) => (prev ? { ...prev, open_todo_count: prev.open_todo_count + 1 } : prev));
+      }
+      showToast(err instanceof ApiError ? err.message : "Failed to delete todo", "error");
     }
   }
 
@@ -92,12 +159,13 @@ export default function SignalDetail() {
 
   return (
     <div>
-      <Link to="/" className="link-button">
+      <Link to="/signals" className="link-button">
         ← Back to signals
       </Link>
 
       <div className="panel-card">
         <div className="signal-detail-badges">
+          <FavoriteButton isFavorited={signal.is_favorited} onToggle={toggleFavorite} className="detail" />
           <span className={`status-badge status-${signal.status}`}>{signal.status}</span>
           {signal.relevance_score !== null && (
             <span className={`score-badge score-${signal.relevance_score}`}>
@@ -202,6 +270,11 @@ export default function SignalDetail() {
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="panel-card">
+        <h3>Notes &amp; todos</h3>
+        <TodoList todos={todos} onAdd={addTodo} onToggle={toggleTodo} onDelete={deleteTodo} />
       </div>
     </div>
   );

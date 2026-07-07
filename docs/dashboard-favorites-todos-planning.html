@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NewsAtlas — Dashboard, Favorites &amp; Signal Todos Planning</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6270;
+    --accent: #2757c7;
+    --accent-bg: #eef2fc;
+    --border: #e2e5ea;
+    --code-bg: #f5f6f8;
+    --ok: #1a7f4e;
+    --warn: #a15c00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.1rem; margin-top: 28px; color: var(--fg); }
+  h4 { font-size: 1rem; margin-top: 20px; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  .meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 12px 0 32px;
+    padding: 12px 16px;
+    background: var(--accent-bg);
+    border-radius: 8px;
+  }
+  .meta strong { color: var(--fg); }
+  nav.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin: 24px 0 40px;
+  }
+  nav.toc h2 { margin-top: 0; border: none; font-size: 1.05rem; padding-bottom: 4px; }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.92rem; }
+  nav.toc a:hover { text-decoration: underline; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--code-bg); font-weight: 600; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+  .decision {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-bg);
+    padding: 10px 16px;
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .decision strong { color: var(--accent); }
+  .gap {
+    border-left: 4px solid #b23b3b;
+    background: #fdecec;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .gap strong { color: #b23b3b; }
+  .ok-box {
+    border-left: 4px solid var(--ok);
+    background: #eaf7f0;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .ok-box strong { color: var(--ok); }
+  .phase {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .phase h4 { margin-top: 0; display: flex; align-items: center; gap: 10px; }
+  .phase-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 20px;
+  }
+  .assumption {
+    border-left: 4px solid var(--warn);
+    background: #fdf4e3;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+  ul.checklist { list-style: none; padding-left: 4px; }
+  ul.checklist li::before { content: "☐ "; color: var(--muted); }
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+    font-size: 0.82rem;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.4;
+  }
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    margin-left: 6px;
+  }
+  .status-table td:first-child { white-space: nowrap; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>Dashboard, Favorites &amp; Signal Todos</h1>
+<p class="subtitle">Planning document — gap analysis and implementation spec for the non-admin user home workflow</p>
+
+<div class="meta">
+  <div><strong>Status:</strong> Implemented (2026-07-07) — all 5 phases shipped on
+  <code>claude/signal-dashboard-workflow-1dll3r</code>: data layer, favorites, todos, dashboard,
+  and polish/tests. Verified end-to-end in a live browser session (desktop + mobile) in addition
+  to 197 passing backend tests. One pre-existing, unrelated bug was found and fixed along the way
+  (mobile sidebar not fully hiding — see <code>styles.css</code> <code>.sidebar</code>); a second
+  pre-existing mobile layout issue in <code>.signal-row-actions</code> (action buttons overlapping
+  the title on narrow screens) was found but left as-is — it predates this feature and needs its
+  own redesign decision, not a one-line fix.</div>
+  <div><strong>Builds on:</strong> <a href="planning.html">planning.html</a> (base platform),
+  <a href="role-based-company-management-planning.html">role-based-company-management-planning.html</a>
+  (per-user company scoping)</div>
+  <div><strong>Doc purpose:</strong> Audit of the requested login → dashboard → signals → favorite →
+  todo workflow against the current app, with a concrete technical plan a future Claude Code session
+  can implement directly from this document</div>
+</div>
+
+<p>
+  This document evaluates one specific user journey for a non-admin (regular <code>user</code>-role)
+  account: log in → land on a homepage/dashboard surfacing the newest and most important signals →
+  favorite a signal for later → browse a broader "Signals" page that also surfaces favorites → attach
+  a todo/note to any signal → mark it complete to track open vs. finished work. Every step is checked
+  against the current codebase (as of this audit) and, where it doesn't exist yet, a technical solution
+  is specified in enough detail to implement without further discovery.
+</p>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#verdict">1. Verdict</a></li>
+    <li><a href="#walkthrough">2. Step-by-step workflow audit</a></li>
+    <li><a href="#goals">3. Goals &amp; non-goals</a></li>
+    <li><a href="#decisions">4. Key decisions</a></li>
+    <li><a href="#data-model">5. Data model changes</a></li>
+    <li><a href="#api">6. API surface changes</a></li>
+    <li><a href="#frontend">7. Frontend changes</a></li>
+    <li><a href="#ux">8. UI/UX details</a></li>
+    <li><a href="#migration">9. Migration &amp; rollout plan</a></li>
+    <li><a href="#roadmap">10. Implementation roadmap</a></li>
+    <li><a href="#assumptions">11. Open questions &amp; assumptions</a></li>
+    <li><a href="#future">12. Future enhancements (out of scope)</a></li>
+  </ol>
+</nav>
+
+<h2 id="verdict">1. Verdict</h2>
+<p>
+  <strong>The workflow as described does not exist today and is not achievable without new work.</strong>
+  The app currently has exactly one authenticated screen for signals
+  (<code>frontend/src/pages/SignalsFeed.tsx</code>, mounted at <code>/</code>) plus a detail page
+  (<code>SignalDetail.tsx</code>). There is no dashboard/homepage distinct from the full signals list,
+  no favoriting concept anywhere in the schema or UI, and no notes/todos concept anywhere in the schema
+  or UI (verified: no matches for <code>favorit</code>, <code>bookmark</code>, <code>todo</code>, or
+  <code>note</code> across the backend or frontend). Everything the user described is buildable on top
+  of the existing architecture (FastAPI + SQLAlchemy + Alembic, React + react-router, per-user company
+  scoping already in place) without redesigning anything — it is three additive features:
+  a dashboard route, a favorites join table + toggle, and a todos table + checklist UI. Sections 5–10
+  give the concrete plan.
+</p>
+
+<h2 id="walkthrough">2. Step-by-step workflow audit</h2>
+
+<table class="status-table">
+  <tr><th>Requested step</th><th>Current state</th><th>Gap</th></tr>
+  <tr>
+    <td>User logs in and sees a Homepage/Dashboard</td>
+    <td><code>Login.tsx</code> navigates to <code>/</code>, which renders <code>SignalsFeed</code> — the
+    full filterable signals list, not a curated dashboard.</td>
+    <td class="gap"><strong>Gap.</strong> No dashboard exists; the list page doubles as the landing page.</td>
+  </tr>
+  <tr>
+    <td>Dashboard's primary section shows newest + most important signals (high relevance, direct
+    fit to company description)</td>
+    <td><code>Signal.relevance_score</code> (1–5) already encodes exactly this — the Mistral prompt in
+    <code>backend/app/services/ai_client.py</code> defines 5 as "a clear, immediate buying trigger" scored
+    against the workspace's <code>offering_description</code>. The digest email already ranks by this
+    score. But no screen surfaces a short, ranked "top signals" view — <code>SignalsFeed</code> only
+    offers a manual "Most relevant first" sort the user has to choose.</td>
+    <td class="gap"><strong>Gap (surfacing only).</strong> The ranking signal exists server-side; nothing
+    curates and presents it by default.</td>
+  </tr>
+  <tr>
+    <td>User can favorite a signal for later / easier finding</td>
+    <td>No <code>favorite</code>/<code>bookmark</code> field or table anywhere.</td>
+    <td class="gap"><strong>Gap.</strong> New table + endpoints + UI control needed (§5–7).</td>
+  </tr>
+  <tr>
+    <td>User can navigate to a separate "Signals" page with a broader overview of all signals</td>
+    <td><code>SignalsFeed</code> already does this well: company/status filters, text search, sort,
+    bulk status actions. It's just mounted at <code>/</code> instead of a dedicated path, so there's
+    nothing to navigate <em>to</em> — it <em>is</em> the landing page.</td>
+    <td class="ok-box"><strong>Mostly solved.</strong> Move it to <code>/signals</code> and it satisfies
+    this step as-is; add a favorites filter (§7) so it also shows favorited signals per the next
+    requirement.</td>
+  </tr>
+  <tr>
+    <td>Signals page also shows all the user's favorited signals</td>
+    <td>No favorites concept, so no filter for it.</td>
+    <td class="gap"><strong>Gap.</strong> Add a "Favorites only" toggle once favoriting exists.</td>
+  </tr>
+  <tr>
+    <td>User can add a todo/note to every signal</td>
+    <td>No notes/todos concept. <code>Signal.status</code> (new/reviewed/archived/dismissed) is a
+    workspace-visible triage stage set via <code>PATCH /signals/{id}</code>, not a personal freeform
+    note.</td>
+    <td class="gap"><strong>Gap.</strong> New table + endpoints + UI needed (§5–7).</td>
+  </tr>
+  <tr>
+    <td>User can mark a todo complete to keep an overview of open vs. finished signals</td>
+    <td>Not applicable — no todos exist to complete. <code>Signal.status</code> is a related but distinct
+    concept (triage stage, not personal task completion) — see decision in §4.</td>
+    <td class="gap"><strong>Gap.</strong> Add <code>is_done</code> on todos plus an "open items" view
+    (§5–7).</td>
+  </tr>
+</table>
+
+<p>
+  One structural point worth calling out: every gap above is <strong>per-user</strong> data
+  (favorites, todos) layered on top of data that's already scoped per-user via
+  <code>company_follows</code> (see <code>role-based-company-management-planning.html</code>). That
+  scoping model — a user only ever sees signals for companies they follow — already does the right
+  thing for a non-admin user and needs no changes; favorites/todos just need their own user-scoped
+  tables following the same pattern.
+</p>
+
+<h2 id="goals">3. Goals &amp; non-goals</h2>
+<h3>Goals</h3>
+<ul>
+  <li>Add a dashboard/homepage at <code>/</code> that surfaces the newest and highest-relevance
+  signals for the logged-in user's followed companies, plus at-a-glance counts (new signals,
+  favorites, open todos).</li>
+  <li>Add per-user signal favoriting with a toggle control on both the feed and detail views.</li>
+  <li>Move the existing full-featured signals list from <code>/</code> to <code>/signals</code>, and
+  add a "favorites only" filter to it.</li>
+  <li>Add per-user, per-signal todo/note items with free text and a done/not-done flag, manageable
+  from the signal detail view, with an aggregate "open todos" view reachable from the dashboard.</li>
+  <li>Keep every new feature scoped to the current user (favorites and todos are private, not
+  shared workspace state) and consistent with existing per-user company-follow scoping — no
+  admin-only gating needed since this is about individual workflow, not workspace configuration.</li>
+</ul>
+<p><strong>Confirmed with stakeholder (2026-07-07):</strong> all four open questions raised before
+implementation were resolved in favor of the plan's recommended defaults — pure relevance sort with no
+recency window, <code>relevance_score</code> alone (no new sentiment scoring) for "highly positive,"
+the <code>/</code> → <code>/signals</code> route change ships without a redirect shim, and dashboard
+panel sizes stay 8 top signals / 5 recent favorites / 5 open todos. §11 updated accordingly.</p>
+<h3>Non-goals (this pass)</h3>
+<ul>
+  <li>Shared/team todos or @-mentions — todos are private to the user who created them.</li>
+  <li>Due dates, reminders, or notifications for todos — just text + done flag.</li>
+  <li>Changing <code>Signal.status</code> semantics or the existing triage workflow — todos are
+  additive, not a replacement.</li>
+  <li>A "seen/unseen" read-tracking system for the dashboard (e.g. "3 new since your last visit") —
+  noted as a future enhancement (§12), not required to satisfy the requested workflow.</li>
+  <li>Folding <code>article_external_sentiment</code> (NewsData.io-only, inconsistent coverage) into
+  dashboard ranking — see assumption in §11.</li>
+</ul>
+
+<h2 id="decisions">4. Key decisions</h2>
+
+<div class="decision"><strong>"Most important" ranking:</strong> reuse the existing
+<code>relevance_score</code> (1–5, already computed against the workspace's offering description) as
+the sole importance signal for the dashboard's primary section, ordered by
+<code>relevance_score DESC, created_at DESC</code>, restricted to <code>status IN (new, reviewed)</code>
+so archived/dismissed signals don't clutter the top view. <span class="tag">confirmed</span> No new
+scoring logic needed — the AI pipeline already produces exactly the "highly positive / directly
+relevant" signal the workflow calls for; the gap is presentation, not computation.</div>
+
+<div class="decision"><strong>Dashboard vs. Signals split:</strong> new route <code>/</code> → new
+<code>Dashboard.tsx</code> (curated, small, read-mostly); existing <code>SignalsFeed.tsx</code> moves to
+<code>/signals</code> unchanged in its filtering/search/bulk-action capability, plus a favorites filter.
+<span class="tag">confirmed</span> Matches the requested UX directly and avoids rewriting the
+already-solid full-list page.</div>
+
+<div class="decision"><strong>Favorites storage:</strong> a dedicated <code>signal_favorites</code>
+join table (<code>user_id</code>, <code>signal_id</code>), not a boolean column on
+<code>signals</code>. <span class="tag">confirmed</span> Favoriting is inherently per-user (two users
+who both follow the same company must be able to favorite independently), so it needs the same
+join-table shape as <code>company_follows</code>.</div>
+
+<div class="decision"><strong>Todos are a list, not a single note field:</strong> a
+<code>signal_todos</code> table where a signal can have zero or more todo items per user (each with its
+own text + <code>is_done</code>), rather than one note+done pair per signal. <span class="tag">confirmed</span>
+"Add a todo/note … mark complete" reads as an ongoing checklist (e.g. "call back Monday", "send
+follow-up deck") more naturally than a single field, and it costs nothing extra structurally — the UI
+can still default to feeling like "one note" when a signal only ever gets one todo.</div>
+
+<div class="decision"><strong>Todo completion vs. signal status:</strong> keep
+<code>Signal.status</code> (new/reviewed/archived/dismissed) and todo <code>is_done</code> as two
+separate concepts. Status is the shared triage stage of the underlying signal; todo completion is the
+user's personal task tracking against it. A signal's "open/finished" state for the requested overview
+is derived purely from its todos (<code>open_todo_count &gt; 0</code>), not from
+<code>Signal.status</code>. <span class="tag">confirmed</span> Conflating them would mean marking a
+todo done silently changes shared workspace state other users see, which the user didn't ask for and
+which would surprise teammates on a shared company.</div>
+
+<div class="decision"><strong>No admin gating:</strong> favorites, todos, and the dashboard are
+available to every authenticated user (admin or not) over whatever signals they can already see via
+existing company-follow scoping. <span class="tag">confirmed</span> This is personal productivity
+tooling, not workspace configuration — it doesn't belong behind <code>RequireAdmin</code>.</div>
+
+<h2 id="data-model">5. Data model changes</h2>
+
+<p>Two new tables, both following the existing <code>UUIDPrimaryKeyMixin</code> +
+<code>TimestampMixin</code> pattern used by <code>CompanyFollow</code>:</p>
+
+<pre><code># backend/app/models/signal_favorite.py
+import uuid
+
+from sqlalchemy import ForeignKey, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.base import Base
+from app.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
+
+
+class SignalFavorite(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "signal_favorites"
+    __table_args__ = (
+        UniqueConstraint("user_id", "signal_id", name="uq_signal_favorites_user_signal"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    signal_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("signals.id", ondelete="CASCADE"), nullable=False
+    )
+</code></pre>
+
+<pre><code># backend/app/models/signal_todo.py
+import uuid
+from datetime import datetime
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, Text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.db.base import Base
+from app.models.mixins import TimestampMixin, UUIDPrimaryKeyMixin
+
+
+class SignalTodo(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "signal_todos"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    signal_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("signals.id", ondelete="CASCADE"), nullable=False
+    )
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    is_done: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+</code></pre>
+
+<p>Indexes: add a composite index on <code>signal_todos(user_id, signal_id)</code> and
+<code>signal_todos(user_id, is_done)</code> (the latter drives the "open todos" dashboard query across
+all of a user's signals); <code>signal_favorites</code> only needs its unique constraint plus an index
+on <code>user_id</code> for the "list my favorites" query — both come for free from the FK + unique
+constraint in Postgres but the extra <code>(user_id, is_done)</code> index on todos is worth adding
+explicitly in the migration since it's not implied by any constraint.</p>
+
+<p>No changes needed to <code>Signal</code>, <code>Article</code>, <code>TargetCompany</code>, or
+<code>CompanyFollow</code> — favorites/todos attach alongside them via FK only.</p>
+
+<h2 id="api">6. API surface changes</h2>
+
+<h3>Favorites — new endpoints in <code>backend/app/api/signals.py</code></h3>
+<table>
+  <tr><th>Endpoint</th><th>Behavior</th></tr>
+  <tr>
+    <td><code>POST /signals/{signal_id}/favorite</code></td>
+    <td>Creates a <code>SignalFavorite</code> row for the current user if one doesn't already exist
+    (idempotent — no error on double-favorite). 404 if the signal isn't accessible to the user (reuse
+    <code>_accessible_row</code> scoping). Returns the updated <code>SignalResponse</code>.</td>
+  </tr>
+  <tr>
+    <td><code>DELETE /signals/{signal_id}/favorite</code></td>
+    <td>Deletes the current user's favorite row if present (idempotent). Returns the updated
+    <code>SignalResponse</code>.</td>
+  </tr>
+</table>
+
+<h3>Todos — new router <code>backend/app/api/signal_todos.py</code></h3>
+<table>
+  <tr><th>Endpoint</th><th>Behavior</th></tr>
+  <tr>
+    <td><code>GET /signals/{signal_id}/todos</code></td>
+    <td>Lists the current user's todos for that signal, oldest first. 404 if signal not accessible.</td>
+  </tr>
+  <tr>
+    <td><code>POST /signals/{signal_id}/todos</code></td>
+    <td>Body <code>{ "text": str }</code> (1–1000 chars, trimmed, rejects empty). Creates a todo owned
+    by the current user.</td>
+  </tr>
+  <tr>
+    <td><code>PATCH /todos/{todo_id}</code></td>
+    <td>Body <code>{ "text"?: str, "is_done"?: bool }</code>. Only the owning user may update (404, not
+    403, if it belongs to someone else — avoid leaking existence). Setting
+    <code>is_done=true</code> stamps <code>completed_at=now()</code>; setting it back to
+    <code>false</code> clears <code>completed_at</code>.</td>
+  </tr>
+  <tr>
+    <td><code>DELETE /todos/{todo_id}</code></td>
+    <td>Deletes if owned by current user, else 404.</td>
+  </tr>
+  <tr>
+    <td><code>GET /todos?open=true</code></td>
+    <td>Cross-signal listing of the current user's todos (default: open only via
+    <code>open=true</code>; <code>open=false</code> or omitted-filter variants can be added later if
+    needed). Each row embeds enough signal/article context to render a clickable list without a second
+    round trip: <code>signal_id</code>, <code>article_title</code>, <code>target_company_name</code>.
+    Powers the dashboard's open-todos widget and could back a future dedicated "My tasks" page.</td>
+  </tr>
+</table>
+
+<h3>Dashboard — new router <code>backend/app/api/dashboard.py</code></h3>
+<table>
+  <tr><th>Endpoint</th><th>Behavior</th></tr>
+  <tr>
+    <td><code>GET /dashboard</code></td>
+    <td>Single aggregate call for the landing page. Scoped to the current user's followed,
+    non-muted companies (same scoping as <code>_scope_to_follows(..., include_muted=False)</code> in
+    <code>signals.py</code> — extract that helper to a shared module so both routers use it, see §7
+    refactor note). Returns:
+    <ul>
+      <li><code>top_signals</code>: up to 8 signals, <code>status IN (new, reviewed)</code>, ordered
+      by <code>relevance_score DESC NULLS LAST, created_at DESC</code>.</li>
+      <li><code>new_signal_count</code>: count of <code>status = 'new'</code> signals in scope.</li>
+      <li><code>favorite_count</code>: total favorited signals for the user.</li>
+      <li><code>recent_favorites</code>: up to 5 favorited signals, most recently favorited first.</li>
+      <li><code>open_todo_count</code>: total open todos for the user.</li>
+      <li><code>open_todos</code>: up to 5 open todos (same shape as <code>GET /todos?open=true</code>),
+      most recently created first.</li>
+    </ul>
+    </td>
+  </tr>
+</table>
+
+<h3>Existing endpoint changes</h3>
+<table>
+  <tr><th>Change</th><th>Detail</th></tr>
+  <tr>
+    <td><code>SignalResponse</code> gains fields</td>
+    <td><code>is_favorited: bool</code> and <code>open_todo_count: int</code>, computed per-user with
+    a left-outer subquery/aggregate in <code>_base_query</code> (mirrors how
+    <code>CompanyFollow</code> is already joined for scoping) so <code>list_signals</code> stays a
+    single query rather than N+1.</td>
+  </tr>
+  <tr>
+    <td><code>GET /signals</code> gains <code>favorited: bool | None</code> query param</td>
+    <td>When <code>true</code>, filters to only the current user's favorited signals — powers the
+    Signals page's "Favorites only" toggle. Composes with existing <code>company_id</code>/<code>status</code>
+    filters.</td>
+  </tr>
+</table>
+
+<h3>New Pydantic schemas</h3>
+<pre><code># backend/app/schemas/signal_todo.py
+class SignalTodoCreate(BaseModel):
+    text: str  # 1..1000 chars, trimmed
+
+class SignalTodoUpdate(BaseModel):
+    text: str | None = None
+    is_done: bool | None = None
+
+class SignalTodoResponse(BaseModel):
+    id: uuid.UUID
+    signal_id: uuid.UUID
+    text: str
+    is_done: bool
+    completed_at: datetime | None
+    created_at: datetime
+
+class SignalTodoWithContext(SignalTodoResponse):
+    article_title: str
+    target_company_name: str
+
+# backend/app/schemas/dashboard.py
+class DashboardSummary(BaseModel):
+    top_signals: list[SignalResponse]
+    new_signal_count: int
+    favorite_count: int
+    recent_favorites: list[SignalResponse]
+    open_todo_count: int
+    open_todos: list[SignalTodoWithContext]
+</code></pre>
+
+<h2 id="frontend">7. Frontend changes</h2>
+
+<table>
+  <tr><th>File</th><th>Change</th></tr>
+  <tr>
+    <td><code>frontend/src/App.tsx</code></td>
+    <td>Root <code>/</code> now renders new <code>Dashboard</code>; add
+    <code>/signals</code> → <code>SignalsFeed</code> (unchanged component, new path).</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/components/ProtectedLayout.tsx</code></td>
+    <td>Add a "Dashboard" nav link (new <code>HomeIcon</code> in <code>icons/NavIcons.tsx</code>) as
+    the first sidebar item, pointing at <code>/</code>; existing "Signals" link's <code>to</code>
+    changes from <code>/</code> to <code>/signals</code> (drop its <code>end</code> prop, no longer
+    needed once it's not the index route).</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/pages/SignalDetail.tsx</code></td>
+    <td>"Back to signals" link and the 404-redirect <code>navigate("/", ...)</code> both change to
+    <code>/signals</code> (returning from a signal detail should land back on the list, not the
+    dashboard). Add a favorite toggle button next to the existing status badges. Add a new "Notes &amp;
+    todos" section below the outreach snippet: add-todo text input + list of existing todos, each with
+    a checkbox (toggles <code>is_done</code>) and a delete affordance; completed items render
+    strikethrough and sort to the bottom.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/pages/SignalsFeed.tsx</code></td>
+    <td>Add a "Favorites only" checkbox/toggle next to the existing company/status filters, wired to
+    the new <code>favorited</code> query param. Add a small star button in <code>.signal-row-main</code>
+    (before/after the status badge) that calls the favorite toggle without navigating — needs
+    <code>event.preventDefault()</code>/<code>stopPropagation()</code> since the row is wrapped in a
+    <code>Link</code>. Show <code>open_todo_count</code> as a small badge on rows that have open
+    todos (e.g. "2 open" pill) so users can spot signals with pending follow-ups without opening each
+    one.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/pages/Dashboard.tsx</code> (new)</td>
+    <td>Fetches <code>GET /dashboard</code> once on mount. Layout: header with counts (new signals,
+    favorites, open todos, each as a small stat with a link — new→<code>/signals?status=new</code>,
+    favorites→<code>/signals?favorited=true</code>, todos→scrolls to the open-todos section on this
+    page); primary "Top signals" list reusing the same row markup/classes as
+    <code>SignalsFeed</code>'s <code>.signal-list</code> (extract the row into a shared
+    <code>SignalRow</code> component, see refactor note below, so favorite/status behavior isn't
+    duplicated); "Recent favorites" panel (empty state: "You haven't favorited any signals yet");
+    "Open todos" panel listing text + linked signal title, with inline checkbox to mark done directly
+    from the dashboard; a "View all signals" link to <code>/signals</code>. Reuses
+    <code>SetupChecklist</code> for the zero-signals-yet state exactly as <code>SignalsFeed</code> does
+    today.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/components/SignalRow.tsx</code> (new, refactor)</td>
+    <td>Extract the row markup currently inlined in <code>SignalsFeed.tsx</code>'s
+    <code>.signal-list</code> map into a reusable component accepting a <code>Signal</code>, an
+    <code>onFavoriteToggle</code> callback, and optional selection/status-transition props (so
+    Dashboard's "Top signals" list — which needs neither bulk-select nor status transitions — can
+    render the same visual row via optional props). Avoids duplicating the star button, score badge,
+    and open-todo pill logic between the two pages.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/components/icons/NavIcons.tsx</code></td>
+    <td>Add <code>HomeIcon</code> (sidebar), <code>StarIcon</code>/<code>StarFilledIcon</code>
+    (favorite toggle), <code>CheckIcon</code> (todo checkbox) — matching the existing inline-SVG icon
+    style already used for <code>SignalsIcon</code>/<code>TargetsIcon</code>/etc.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/api/types.ts</code></td>
+    <td>Add <code>is_favorited: boolean</code> and <code>open_todo_count: number</code> to
+    <code>Signal</code>; add <code>SignalTodo</code>, <code>SignalTodoWithContext</code>, and
+    <code>DashboardSummary</code> interfaces mirroring the new Pydantic schemas.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/hooks/usePageTitle.ts</code> usage</td>
+    <td><code>Dashboard.tsx</code> calls <code>usePageTitle("Dashboard")</code>;
+    <code>SignalsFeed.tsx</code>'s existing <code>usePageTitle("Signals")</code> is unchanged.</td>
+  </tr>
+</table>
+
+<h3>Backend refactor note</h3>
+<p>
+  <code>_scope_to_follows</code> and <code>_base_query</code> in <code>backend/app/api/signals.py</code>
+  are needed by both the new dashboard router and the existing signals router. Move them to a shared
+  module (e.g. <code>backend/app/services/signal_queries.py</code>) rather than importing private
+  (underscore-prefixed) helpers across router modules.
+</p>
+
+<h2 id="ux">8. UI/UX details</h2>
+<ul>
+  <li><strong>Optimistic updates:</strong> favorite toggling and todo checkbox toggling should update
+  local state immediately and roll back with a toast on API failure — consistent with how
+  <code>transitionSignal</code> already works in <code>SignalsFeed.tsx</code>.</li>
+  <li><strong>Accessibility:</strong> star button needs <code>aria-label="Favorite"</code> /
+  <code>"Unfavorite"</code> (toggling text, not just icon swap) and must be reachable/operable by
+  keyboard since it sits inside a clickable row; todo checkboxes use native
+  <code>&lt;input type="checkbox"&gt;</code> with an associated <code>&lt;label&gt;</code>, same pattern
+  as the existing "Select all" checkbox.</li>
+  <li><strong>Empty states:</strong> Dashboard with zero signals reuses <code>SetupChecklist</code>
+  (same condition as today: no offering description, no target company, or no signals). "Recent
+  favorites" and "Open todos" panels each need their own one-line empty state rather than being hidden
+  entirely, so first-time users discover the features exist ("Star a signal to pin it here.").</li>
+  <li><strong>Todo input UX:</strong> single-line text input with Enter-to-submit and a small "Add"
+  button, matching the existing <code>TagInput.tsx</code> interaction pattern already used for
+  keywords in <code>SettingsTargets.tsx</code>; cap visible length and rely on the 1000-char backend
+  limit as a hard stop, not a UI-enforced one, to avoid surprising truncation.</li>
+  <li><strong>Loading states:</strong> Dashboard uses the existing <code>&lt;Skeleton /&gt;</code>
+  component while <code>GET /dashboard</code> is in flight, matching <code>SignalsFeed</code> and
+  <code>SignalDetail</code>.</li>
+  <li><strong>Mobile:</strong> Dashboard's stat/panel layout should stack under the existing
+  <code>@media (max-width: 720px)</code> breakpoint in <code>styles.css</code>, same as the current
+  sidebar-collapse behavior — no new breakpoints needed, just apply <code>flex-direction: column</code>
+  to the new dashboard grid container under that query.</li>
+  <li><strong>Navigation highlighting:</strong> since <code>/</code> is no longer the index route for
+  "Signals," the sidebar's active-link styling (<code>NavLink</code>'s built-in <code>.active</code>
+  class) naturally distinguishes "Dashboard" (exact match on <code>/</code>) from "Signals" (prefix
+  match on <code>/signals</code>) with no extra logic.</li>
+</ul>
+
+<h2 id="migration">9. Migration &amp; rollout plan</h2>
+<p>
+  New Alembic revision, <code>down_revision = "d4e8a2f6b913"</code> (current head, from
+  <code>news_source_expansion.py</code>), adding <code>signal_favorites</code> and
+  <code>signal_todos</code> tables plus the composite index on
+  <code>signal_todos(user_id, is_done)</code> noted in §5. Both tables are purely additive — no
+  backfill needed (existing users simply start with zero favorites/todos), no changes to existing
+  tables/columns, and fully reversible via a straightforward
+  <code>op.drop_table</code> downgrade. Safe to deploy without a maintenance window.
+</p>
+<p>
+  Frontend route change (<code>/</code> → Dashboard, list moves to <code>/signals</code>) is a breaking
+  change for any bookmarked/shared links to the old root-as-list URL; since this is an internal tool
+  with no public deep links documented elsewhere in the repo, no redirect shim is planned — call this
+  out if the user population relies on bookmarks to <code>/</code> expecting the list specifically.
+</p>
+
+<h2 id="roadmap">10. Implementation roadmap</h2>
+
+<div class="phase">
+<h4><span class="phase-badge">Phase 1</span> Data layer</h4>
+<p>Add <code>SignalFavorite</code> and <code>SignalTodo</code> models, Alembic migration, Pydantic
+schemas. No API or UI yet — establishes the foundation the rest builds on.</p>
+</div>
+
+<div class="phase">
+<h4><span class="phase-badge">Phase 2</span> Favorites API + UI</h4>
+<p>Favorite/unfavorite endpoints, <code>is_favorited</code> on <code>SignalResponse</code>,
+<code>favorited</code> query param on <code>GET /signals</code>, star button on
+<code>SignalDetail</code> and <code>SignalsFeed</code> rows, "Favorites only" filter on the Signals
+page. Independently shippable and testable end to end.</p>
+</div>
+
+<div class="phase">
+<h4><span class="phase-badge">Phase 3</span> Todos API + UI</h4>
+<p>Todo CRUD endpoints, <code>open_todo_count</code> on <code>SignalResponse</code>, "Notes &amp;
+todos" section on <code>SignalDetail</code>, open-todo pill on feed rows. Independently shippable.</p>
+</div>
+
+<div class="phase">
+<h4><span class="phase-badge">Phase 4</span> Dashboard</h4>
+<p>Shared query-scoping refactor, <code>GET /dashboard</code> endpoint, new <code>Dashboard.tsx</code>
+page, route/nav changes moving the list to <code>/signals</code>, extract shared
+<code>SignalRow</code> component. Depends on Phases 2 and 3 being in place since the dashboard surfaces
+both favorites and todos.</p>
+</div>
+
+<div class="phase">
+<h4><span class="phase-badge">Phase 5</span> Polish</h4>
+<p>Empty-state copy for new panels, accessibility pass (aria-labels, keyboard nav through the row-level
+star button), mobile layout check on the new dashboard grid, backend tests
+(<code>test_signal_favorites_api.py</code>, <code>test_signal_todos_api.py</code>,
+<code>test_dashboard_api.py</code> following the existing <code>backend/tests/test_signals_api.py</code>
+pattern).</p>
+</div>
+
+<h2 id="assumptions">11. Open questions &amp; assumptions</h2>
+
+<div class="decision"><strong>"Highly positive signal" interpretation — confirmed:</strong> ranks by
+the existing <code>relevance_score</code> alone, not article sentiment. <span class="tag">confirmed</span>
+No changes to the AI pipeline. The only sentiment field in the schema
+(<code>article_external_sentiment</code>) is NewsData.io-specific and absent for NewsAPI.org/Google
+News RSS articles, so it stays out of ranking entirely (§12 revisits this only if sentiment coverage
+becomes uniform across sources later).</div>
+
+<div class="decision"><strong>"Newest and most important" combined ranking — confirmed:</strong> pure
+<code>relevance_score DESC, created_at DESC</code> sort, no recency window/cutoff.
+<span class="tag">confirmed</span> A stale high-score signal can persist at the top of the dashboard
+until its status changes (reviewed/archived/dismissed) — acceptable since that status transition is
+already the expected way users clear a signal off their plate.</div>
+
+<div class="assumption"><strong>Todo scope — one list per signal, not per (signal, company-follow):
+</strong> assumed each user's todos on a signal are independent of which company-follow relationship
+gave them visibility (irrelevant in practice since a signal belongs to exactly one company, but noted
+since <code>company_follows</code> is itself a join table — no ambiguity here, just documenting the
+reasoning).</div>
+
+<div class="assumption"><strong>Favoriting a signal you can no longer see:</strong> if an admin removes
+a user's follow on a company after the user favorited one of its signals, the favorite row stays
+(FK cascade only fires on signal/user deletion, not on unfollow) but becomes unreachable through
+normal scoped queries. This is consistent with how the rest of the app already behaves when access is
+revoked and needs no special handling — the row is orphaned data, not a bug, and disappears if the
+signal itself is ever deleted.</div>
+
+<h2 id="future">12. Future enhancements (out of scope)</h2>
+<ul>
+  <li>"Unseen since last visit" tracking on the dashboard (would need a
+  <code>users.last_dashboard_visit_at</code> timestamp or a full per-signal read-receipt table).</li>
+  <li>Todo due dates / reminder notifications (would need a scheduler job similar to
+  <code>services/scheduler.py</code>'s existing digest job).</li>
+  <li>A dedicated "My tasks" page listing every open/closed todo across all signals with its own
+  filters (the <code>GET /todos</code> endpoint in §6 is designed to support this later without
+  rework).</li>
+  <li>Sharing a todo with teammates who also follow the same company (currently strictly private per
+  user).</li>
+  <li>Folding <code>article_external_sentiment</code> into ranking once/if sentiment is available
+  uniformly across all news sources (see assumption above).</li>
+</ul>
+
+<footer>
+  NewsAtlas — planning document. Generated as a gap analysis of the requested dashboard/favorites/todos
+  workflow against the codebase state at the time of writing.
+</footer>
+
+</body>
+</html>

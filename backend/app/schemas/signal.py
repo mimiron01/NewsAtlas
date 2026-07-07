@@ -36,6 +36,8 @@ class SignalResponse(BaseModel):
     article_external_tags: list[str] | None
     target_company_id: uuid.UUID
     target_company_name: str
+    is_favorited: bool
+    open_todo_count: int
 
 
 class SignalStatusUpdate(BaseModel):

@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 
 import { api, ApiError } from "../api/client";
 import { ARTICLE_SOURCE_LABELS } from "../api/types";
 import type { IngestionRunResult, Signal, SignalStatus, TargetCompany, WorkspaceSettings } from "../api/types";
 import Skeleton from "../components/Skeleton";
 import SetupChecklist from "../components/SetupChecklist";
+import SignalRow from "../components/SignalRow";
 import EmptyStateIllustration from "../components/icons/EmptyStateIllustration";
 import { STATUS_TRANSITIONS } from "../constants/signalStatus";
 import { useToast } from "../context/ToastContext";
+import { useIsAdmin } from "../hooks/useIsAdmin";
 import { usePageTitle } from "../hooks/usePageTitle";
 
 const STATUS_OPTIONS: { value: SignalStatus | ""; label: string }[] = [
@@ -24,11 +26,16 @@ type SortOrder = "newest" | "oldest" | "relevance";
 export default function SignalsFeed() {
   usePageTitle("Signals");
   const { showToast } = useToast();
+  const isAdmin = useIsAdmin();
+  const [searchParams] = useSearchParams();
   const [signals, setSignals] = useState<Signal[]>([]);
   const [companies, setCompanies] = useState<TargetCompany[]>([]);
   const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
   const [companyFilter, setCompanyFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState<SignalStatus | "">("");
+  const [statusFilter, setStatusFilter] = useState<SignalStatus | "">(
+    (searchParams.get("status") as SignalStatus | null) ?? ""
+  );
+  const [favoritedOnly, setFavoritedOnly] = useState(searchParams.get("favorited") === "true");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<SortOrder>("newest");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -42,6 +49,7 @@ export default function SignalsFeed() {
     const params = new URLSearchParams();
     if (companyFilter) params.set("company_id", companyFilter);
     if (statusFilter) params.set("status", statusFilter);
+    if (favoritedOnly) params.set("favorited", "true");
     const query = params.toString();
     api
       .get<Signal[]>(`/signals${query ? `?${query}` : ""}`)
@@ -55,14 +63,34 @@ export default function SignalsFeed() {
 
   useEffect(() => {
     api.get<TargetCompany[]>("/target-companies").then(setCompanies).catch(() => undefined);
-    api.get<WorkspaceSettings>("/settings").then(setSettings).catch(() => undefined);
-  }, []);
+    // /settings is admin-only; regular users can't view or fix the company profile anyway,
+    // so skip the call rather than eat a 403 on every page load.
+    if (isAdmin) {
+      api.get<WorkspaceSettings>("/settings").then(setSettings).catch(() => undefined);
+    }
+  }, [isAdmin]);
 
-  useEffect(loadSignals, [companyFilter, statusFilter]);
+  useEffect(loadSignals, [companyFilter, statusFilter, favoritedOnly]);
 
   useEffect(() => {
     setSelectedIds(new Set());
   }, [signals]);
+
+  async function handleFavoriteToggle(signal: Signal) {
+    const nextFavorited = !signal.is_favorited;
+    setSignals((prev) => prev.map((s) => (s.id === signal.id ? { ...s, is_favorited: nextFavorited } : s)));
+    try {
+      const updated = nextFavorited
+        ? await api.post<Signal>(`/signals/${signal.id}/favorite`)
+        : await api.delete<Signal>(`/signals/${signal.id}/favorite`);
+      setSignals((prev) => prev.map((s) => (s.id === signal.id ? updated : s)));
+    } catch (err) {
+      setSignals((prev) =>
+        prev.map((s) => (s.id === signal.id ? { ...s, is_favorited: signal.is_favorited } : s))
+      );
+      showToast(err instanceof ApiError ? err.message : "Failed to update favorite", "error");
+    }
+  }
 
   async function handleRunIngestion() {
     setIngestionResult(null);
@@ -141,9 +169,12 @@ export default function SignalsFeed() {
     return sorted;
   }, [signals, searchQuery, sortOrder]);
 
-  const hasCompanyProfile = Boolean(settings?.offering_description.trim());
+  // Non-admins can't view or fix the company profile (admin-only), so treat it as
+  // satisfied for them rather than gating the checklist on data they'll never fetch.
+  const hasCompanyProfile = isAdmin ? Boolean(settings?.offering_description.trim()) : true;
   const hasTargetCompany = companies.length > 0;
-  const showChecklist = settings !== null && (!hasCompanyProfile || !hasTargetCompany || signals.length === 0);
+  const settingsReady = !isAdmin || settings !== null;
+  const showChecklist = settingsReady && (!hasCompanyProfile || !hasTargetCompany || signals.length === 0);
 
   return (
     <div>
@@ -241,6 +272,14 @@ export default function SignalsFeed() {
               ))}
             </select>
           </label>
+          <label className="checkbox-label favorites-filter">
+            <input
+              type="checkbox"
+              checked={favoritedOnly}
+              onChange={(e) => setFavoritedOnly(e.target.checked)}
+            />
+            Favorites only
+          </label>
         </div>
         <div className="field-row">
           <label>
@@ -263,7 +302,15 @@ export default function SignalsFeed() {
 
         {loadError && <p className="error-text">{loadError}</p>}
         {isLoading && <Skeleton rows={4} />}
-        {!isLoading && !loadError && visibleSignals.length === 0 && signals.length === 0 && (
+        {!isLoading && !loadError && visibleSignals.length === 0 && signals.length === 0 && favoritedOnly && (
+          <div className="empty-state">
+            <EmptyStateIllustration />
+            <p className="subtitle">
+              You haven't favorited any signals yet. Star a signal to pin it here.
+            </p>
+          </div>
+        )}
+        {!isLoading && !loadError && visibleSignals.length === 0 && signals.length === 0 && !favoritedOnly && (
           <div className="empty-state">
             <EmptyStateIllustration />
             <p className="subtitle">
@@ -305,45 +352,16 @@ export default function SignalsFeed() {
 
             <ul className="signal-list">
               {visibleSignals.map((signal) => (
-                <li key={signal.id}>
-                  <div className="signal-row">
-                    <input
-                      type="checkbox"
-                      className="signal-checkbox"
-                      checked={selectedIds.has(signal.id)}
-                      onChange={() => toggleSelected(signal.id)}
-                      aria-label={`Select ${signal.article_title}`}
-                    />
-                    <Link to={`/signals/${signal.id}`} className="signal-row-link">
-                      <div className="signal-row-main">
-                        <span className={`status-badge status-${signal.status}`}>{signal.status}</span>
-                        {signal.relevance_score !== null && (
-                          <span className={`score-badge score-${signal.relevance_score}`}>
-                            {signal.relevance_score}/5
-                          </span>
-                        )}
-                        <span className="source-badge">{ARTICLE_SOURCE_LABELS[signal.article_source]}</span>
-                        <div>
-                          <strong>{signal.target_company_name}</strong>
-                          <div className="signal-title">{signal.article_title}</div>
-                          <div className="subtitle">{signal.summary}</div>
-                        </div>
-                      </div>
-                    </Link>
-                    <div className="signal-row-actions">
-                      {STATUS_TRANSITIONS.filter((t) => t.value !== signal.status).map((transition) => (
-                        <button
-                          type="button"
-                          key={transition.value}
-                          className="secondary"
-                          onClick={() => transitionSignal(signal.id, transition.value)}
-                        >
-                          {transition.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </li>
+                <SignalRow
+                  key={signal.id}
+                  signal={signal}
+                  onFavoriteToggle={handleFavoriteToggle}
+                  selection={{
+                    checked: selectedIds.has(signal.id),
+                    onToggle: () => toggleSelected(signal.id),
+                  }}
+                  onTransition={transitionSignal}
+                />
               ))}
             </ul>
           </>

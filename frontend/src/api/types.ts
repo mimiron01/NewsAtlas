@@ -184,6 +184,31 @@ export interface Signal {
   article_external_tags: string[] | null;
   target_company_id: string;
   target_company_name: string;
+  is_favorited: boolean;
+  open_todo_count: number;
+}
+
+export interface SignalTodo {
+  id: string;
+  signal_id: string;
+  text: string;
+  is_done: boolean;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface SignalTodoWithContext extends SignalTodo {
+  article_title: string;
+  target_company_name: string;
+}
+
+export interface DashboardSummary {
+  top_signals: Signal[];
+  new_signal_count: number;
+  favorite_count: number;
+  recent_favorites: Signal[];
+  open_todo_count: number;
+  open_todos: SignalTodoWithContext[];
 }
 
 export interface IngestionRunResult {
