@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import AITab from "./pages/settings/AITab";
 import CompanyTab from "./pages/settings/CompanyTab";
+import LogsTab from "./pages/settings/LogsTab";
 import SettingsLayout from "./pages/settings/SettingsLayout";
 import SourcesTab from "./pages/settings/SourcesTab";
 import UsageTab from "./pages/settings/UsageTab";
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="ai" element={<AITab />} />
             <Route path="usage" element={<UsageTab />} />
             <Route path="users" element={<UsersTab />} />
+            <Route path="logs" element={<LogsTab />} />
           </Route>
           {/* Old paths, kept working for existing bookmarks/history */}
           <Route path="/settings/profile" element={<Navigate to="/settings/company" replace />} />

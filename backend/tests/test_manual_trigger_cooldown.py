@@ -1,7 +1,6 @@
 from unittest.mock import patch
 
 from app.schemas.digest import DigestRunResult
-from app.schemas.ingestion import IngestionRunResult
 
 
 def _auth_headers(client):
@@ -18,19 +17,18 @@ def _auth_headers(client):
     return {"Authorization": f"Bearer {token}"}
 
 
-def test_ingestion_run_now_enforces_cooldown(client):
+def test_ingestion_run_now_enforces_cooldown(client, monkeypatch):
     headers = _auth_headers(client)
-    fake_result = IngestionRunResult(
-        target_companies_processed=0, articles_fetched=0, articles_new=0,
-        signals_created=0, errors=[],
-    )
-    with patch("app.api.ingestion.run_ingestion", return_value=fake_result):
-        first = client.post("/ingestion/run-now", headers=headers)
-        assert first.status_code == 200
+    # The endpoint itself only needs to get past the cooldown check and hand off to the
+    # background task — patch that hand-off so this test doesn't touch the real pipeline.
+    monkeypatch.setattr("app.api.ingestion.execute_ingestion_run", lambda run_id: None)
 
-        second = client.post("/ingestion/run-now", headers=headers)
-        assert second.status_code == 429
-        assert "Retry-After" in second.headers
+    first = client.post("/ingestion/run-now", headers=headers)
+    assert first.status_code == 202
+
+    second = client.post("/ingestion/run-now", headers=headers)
+    assert second.status_code == 429
+    assert "Retry-After" in second.headers
 
 
 def test_digest_send_now_enforces_cooldown(client):
@@ -44,15 +42,11 @@ def test_digest_send_now_enforces_cooldown(client):
         assert second.status_code == 429
 
 
-def test_ingestion_and_digest_cooldowns_are_independent(client):
+def test_ingestion_and_digest_cooldowns_are_independent(client, monkeypatch):
     headers = _auth_headers(client)
-    fake_ingestion = IngestionRunResult(
-        target_companies_processed=0, articles_fetched=0, articles_new=0,
-        signals_created=0, errors=[],
-    )
-    fake_digest = DigestRunResult(users_emailed=0, signals_included=0, errors=[])
-    with patch("app.api.ingestion.run_ingestion", return_value=fake_ingestion):
-        assert client.post("/ingestion/run-now", headers=headers).status_code == 200
+    monkeypatch.setattr("app.api.ingestion.execute_ingestion_run", lambda run_id: None)
+    assert client.post("/ingestion/run-now", headers=headers).status_code == 202
 
+    fake_digest = DigestRunResult(users_emailed=0, signals_included=0, errors=[])
     with patch("app.api.digest.send_daily_digest", return_value=fake_digest):
         assert client.post("/digest/send-now", headers=headers).status_code == 200

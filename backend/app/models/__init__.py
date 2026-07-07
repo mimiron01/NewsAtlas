@@ -2,6 +2,7 @@ from app.models.ai_usage_log import AIUsageLog
 from app.models.article import Article, ArticleSource
 from app.models.company_follow import CompanyFollow
 from app.models.digest_log import DigestLog
+from app.models.ingestion_run import IngestionRun
 from app.models.news_source_usage_log import NewsSourceUsageLog
 from app.models.signal import Signal, SignalStatus
 from app.models.signal_favorite import SignalFavorite
@@ -16,6 +17,7 @@ __all__ = [
     "ArticleSource",
     "CompanyFollow",
     "DigestLog",
+    "IngestionRun",
     "NewsSourceUsageLog",
     "Signal",
     "SignalFavorite",

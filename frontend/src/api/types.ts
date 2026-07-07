@@ -211,8 +211,25 @@ export interface DashboardSummary {
   open_todos: SignalTodoWithContext[];
 }
 
-export interface IngestionRunResult {
-  target_companies_processed: number;
+export type IngestionRunStatusValue = "running" | "completed" | "failed";
+export type IngestionTrigger = "manual" | "scheduled";
+export type IngestionStep = "fetching" | "summarizing";
+
+export interface IngestionRunStatus {
+  id: string;
+  status: IngestionRunStatusValue;
+  trigger: IngestionTrigger;
+  started_at: string;
+  finished_at: string | null;
+  progress_percent: number;
+
+  current_step: IngestionStep | null;
+  current_company_name: string | null;
+  companies_total: number;
+  companies_processed: number;
+  articles_total_this_company: number;
+  articles_processed_this_company: number;
+
   articles_fetched: number;
   articles_new: number;
   signals_created: number;
@@ -221,6 +238,7 @@ export interface IngestionRunResult {
   by_source: Record<string, number>;
   rate_limited: Record<string, number>;
   errors: string[];
+  fatal_error: string | null;
 }
 
 export interface AIUsageByCallType {

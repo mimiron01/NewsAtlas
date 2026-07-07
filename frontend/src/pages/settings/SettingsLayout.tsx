@@ -23,6 +23,7 @@ const TABS = [
   { to: "/settings/ai", label: "AI configuration" },
   { to: "/settings/usage", label: "AI usage" },
   { to: "/settings/users", label: "Users" },
+  { to: "/settings/logs", label: "Logs" },
 ];
 
 export default function SettingsLayout() {
