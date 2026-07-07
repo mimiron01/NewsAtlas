@@ -1,14 +1,12 @@
 import { FormEvent, useEffect, useState } from "react";
 
-import { api, ApiError } from "../api/client";
-import type { AdminUser, TargetCompany } from "../api/types";
-import TagInput from "../components/TagInput";
-import { useAuth } from "../context/AuthContext";
-import { useToast } from "../context/ToastContext";
-import { usePageTitle } from "../hooks/usePageTitle";
+import { api, ApiError } from "../../api/client";
+import type { AdminUser, TargetCompany } from "../../api/types";
+import TagInput from "../../components/TagInput";
+import { useAuth } from "../../context/AuthContext";
+import { useToast } from "../../context/ToastContext";
 
-export default function AdminUsers() {
-  usePageTitle("Users");
+export default function UsersTab() {
   const { showToast } = useToast();
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<AdminUser[]>([]);

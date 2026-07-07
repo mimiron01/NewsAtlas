@@ -3,11 +3,14 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import ProtectedLayout from "./components/ProtectedLayout";
 import RequireAdmin from "./components/RequireAdmin";
 import { useAuth } from "./context/AuthContext";
-import AdminUsers from "./pages/AdminUsers";
-import AIUsage from "./pages/AIUsage";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
-import SettingsProfile from "./pages/SettingsProfile";
+import AITab from "./pages/settings/AITab";
+import CompanyTab from "./pages/settings/CompanyTab";
+import SettingsLayout from "./pages/settings/SettingsLayout";
+import SourcesTab from "./pages/settings/SourcesTab";
+import UsageTab from "./pages/settings/UsageTab";
+import UsersTab from "./pages/settings/UsersTab";
 import SettingsTargets from "./pages/SettingsTargets";
 import SignalDetail from "./pages/SignalDetail";
 import SignalsFeed from "./pages/SignalsFeed";
@@ -27,9 +30,18 @@ export default function App() {
         <Route path="/signals/:signalId" element={<SignalDetail />} />
         <Route path="/settings/targets" element={<SettingsTargets />} />
         <Route element={<RequireAdmin />}>
-          <Route path="/settings/profile" element={<SettingsProfile />} />
-          <Route path="/settings/ai-usage" element={<AIUsage />} />
-          <Route path="/admin/users" element={<AdminUsers />} />
+          <Route path="/settings" element={<SettingsLayout />}>
+            <Route index element={<Navigate to="company" replace />} />
+            <Route path="company" element={<CompanyTab />} />
+            <Route path="sources" element={<SourcesTab />} />
+            <Route path="ai" element={<AITab />} />
+            <Route path="usage" element={<UsageTab />} />
+            <Route path="users" element={<UsersTab />} />
+          </Route>
+          {/* Old paths, kept working for existing bookmarks/history */}
+          <Route path="/settings/profile" element={<Navigate to="/settings/company" replace />} />
+          <Route path="/settings/ai-usage" element={<Navigate to="/settings/usage" replace />} />
+          <Route path="/admin/users" element={<Navigate to="/settings/users" replace />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

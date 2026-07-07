@@ -4,7 +4,8 @@ import { NavLink, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { useTheme } from "../hooks/useTheme";
-import { HomeIcon, MenuIcon, MoonIcon, ProfileIcon, SignalsIcon, SunIcon, TargetsIcon, UsageIcon, UsersIcon } from "./icons/NavIcons";
+import { HomeIcon, MenuIcon, MoonIcon, SignalsIcon, SunIcon, TargetsIcon } from "./icons/NavIcons";
+import ProfileMenu from "./ProfileMenu";
 
 const THEME_LABEL: Record<string, string> = {
   light: "Light",
@@ -56,29 +57,13 @@ export default function ProtectedLayout() {
           <NavLink to="/settings/targets">
             <TargetsIcon /> My companies
           </NavLink>
-          {isAdmin && (
-            <>
-              <NavLink to="/settings/profile">
-                <ProfileIcon /> Company profile
-              </NavLink>
-              <NavLink to="/settings/ai-usage">
-                <UsageIcon /> AI usage
-              </NavLink>
-              <NavLink to="/admin/users">
-                <UsersIcon /> Users
-              </NavLink>
-            </>
-          )}
         </nav>
         <div className="sidebar-footer">
           <button type="button" className="theme-toggle" onClick={cycleTheme}>
             {theme === "dark" ? <MoonIcon /> : <SunIcon />}
             {THEME_LABEL[theme]} theme
           </button>
-          <span>{user.name}</span>
-          <button type="button" className="link-button" onClick={logout}>
-            Log out
-          </button>
+          <ProfileMenu user={user} isAdmin={isAdmin} onLogout={logout} />
         </div>
       </aside>
       <main className="content">
