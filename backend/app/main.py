@@ -10,10 +10,12 @@ from app.api import (
     admin,
     ai_usage,
     auth,
+    dashboard,
     digest,
     ingestion,
     news_usage,
     settings,
+    signal_todos,
     signals,
     target_companies,
 )
@@ -76,6 +78,8 @@ app.include_router(settings.router)
 app.include_router(target_companies.router)
 app.include_router(ingestion.router)
 app.include_router(signals.router)
+app.include_router(signal_todos.router)
+app.include_router(dashboard.router)
 app.include_router(digest.router)
 app.include_router(ai_usage.router)
 app.include_router(news_usage.router)

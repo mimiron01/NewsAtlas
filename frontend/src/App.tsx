@@ -5,6 +5,7 @@ import RequireAdmin from "./components/RequireAdmin";
 import { useAuth } from "./context/AuthContext";
 import AdminUsers from "./pages/AdminUsers";
 import AIUsage from "./pages/AIUsage";
+import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import SettingsProfile from "./pages/SettingsProfile";
 import SettingsTargets from "./pages/SettingsTargets";
@@ -21,7 +22,8 @@ export default function App() {
         element={!isLoading && user ? <Navigate to="/" replace /> : <Login />}
       />
       <Route element={<ProtectedLayout />}>
-        <Route path="/" element={<SignalsFeed />} />
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/signals" element={<SignalsFeed />} />
         <Route path="/signals/:signalId" element={<SignalDetail />} />
         <Route path="/settings/targets" element={<SettingsTargets />} />
         <Route element={<RequireAdmin />}>

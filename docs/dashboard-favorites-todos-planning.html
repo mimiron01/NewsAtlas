@@ -179,7 +179,14 @@
 <p class="subtitle">Planning document — gap analysis and implementation spec for the non-admin user home workflow</p>
 
 <div class="meta">
-  <div><strong>Status:</strong> Planning / pre-implementation</div>
+  <div><strong>Status:</strong> Implemented (2026-07-07) — all 5 phases shipped on
+  <code>claude/signal-dashboard-workflow-1dll3r</code>: data layer, favorites, todos, dashboard,
+  and polish/tests. Verified end-to-end in a live browser session (desktop + mobile) in addition
+  to 197 passing backend tests. One pre-existing, unrelated bug was found and fixed along the way
+  (mobile sidebar not fully hiding — see <code>styles.css</code> <code>.sidebar</code>); a second
+  pre-existing mobile layout issue in <code>.signal-row-actions</code> (action buttons overlapping
+  the title on narrow screens) was found but left as-is — it predates this feature and needs its
+  own redesign decision, not a one-line fix.</div>
   <div><strong>Builds on:</strong> <a href="planning.html">planning.html</a> (base platform),
   <a href="role-based-company-management-planning.html">role-based-company-management-planning.html</a>
   (per-user company scoping)</div>
