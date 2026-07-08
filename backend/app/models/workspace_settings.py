@@ -33,6 +33,12 @@ class WorkspaceSettings(Base, UUIDPrimaryKeyMixin):
     # summarization prompts to bias away from categories users keep dismissing.
     ai_feedback_note: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
+    # The workspace-wide standard UI/AI language ("en" / "de"). Individual users may
+    # override it via users.preferred_language; Mistral is instructed to always write
+    # Signal content in this language regardless of the source article's language (see
+    # services/ai_client.py).
+    main_language: Mapped[str] = mapped_column(String(8), nullable=False, default="en")
+
     # --- Admin-configurable Mistral integration settings (see api/settings.py) ---
     # Empty string means "no in-app override" — the effective key falls back to the
     # MISTRAL_API_KEY env var (app/core/config.py) so existing .env-based deployments

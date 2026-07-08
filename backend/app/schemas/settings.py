@@ -10,6 +10,9 @@ class WorkspaceSettingsResponse(BaseModel):
     offering_description: str
     digest_send_time: str
     ingestion_interval_hours: int
+    # The workspace standard UI/AI language; individual users may override it (see
+    # UserResponse.preferred_language / UserResponse.workspace_main_language).
+    main_language: Literal["en", "de"]
 
     mistral_model: str
     mistral_triage_model: str
@@ -49,6 +52,7 @@ class WorkspaceSettingsUpdate(BaseModel):
     offering_description: str = Field(default="", max_length=8000)
     digest_send_time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     ingestion_interval_hours: int = Field(ge=1, le=48)
+    main_language: Literal["en", "de"] = "en"
 
     mistral_model: str = Field(min_length=1, max_length=100)
     mistral_triage_model: str = Field(min_length=1, max_length=100)

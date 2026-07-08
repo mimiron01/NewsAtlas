@@ -55,6 +55,20 @@ _SYSTEM_PROMPT = (
     "Respond with ONLY the JSON object and no other text."
 )
 
+_LANGUAGE_NAMES = {"en": "English", "de": "German"}
+
+
+def _language_directive(output_language: str) -> str:
+    language_name = _LANGUAGE_NAMES.get(output_language, "English")
+    return (
+        f"\n\nWrite every text field above (summary, business_relevance, supporting_quote, "
+        f"outreach_snippet_email, outreach_snippet_linkedin, outreach_call_opener) in "
+        f"{language_name}, regardless of what language the article title/description or "
+        "any other context below is written in. Keep the JSON keys and structure exactly "
+        "as specified."
+    )
+
+
 _RETRY_PROMPT = (
     "Your previous response was not valid JSON matching the required schema. Reply again "
     "with ONLY a JSON object containing exactly the required keys."
@@ -207,6 +221,7 @@ class AIClient:
         industry: str | None = None,
         recent_signals: list[str] | None = None,
         feedback_note: str | None = None,
+        output_language: str = "en",
     ) -> tuple[AISummaryResult, MistralUsage]:
         if not self.api_key:
             raise AIClientError("MISTRAL_API_KEY is not configured")
@@ -232,7 +247,7 @@ class AIClient:
             context_lines.append(f"Steering note from user feedback: {feedback_note}")
 
         messages = [
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": _SYSTEM_PROMPT + _language_directive(output_language)},
             {"role": "user", "content": "\n".join(context_lines)},
         ]
 

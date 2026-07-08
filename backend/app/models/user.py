@@ -29,3 +29,6 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
         nullable=False,
         default=UserRole.USER,
     )
+    # NULL means "follow the workspace's main_language"; "en"/"de" overrides it for this
+    # user only, on any device (see api/auth.py's PATCH /auth/me/language).
+    preferred_language: Mapped[str | None] = mapped_column(String(8), nullable=True)

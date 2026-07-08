@@ -430,6 +430,7 @@ def _process_new_articles(
                 # whatever the list looks like by the time it's inspected later.
                 recent_signals=list(recent_signal_summaries),
                 feedback_note=workspace_settings.ai_feedback_note,
+                output_language=workspace_settings.main_language,
             )
             _log_usage(db, "summarize", ai_client.model, usage, target_company.id, commit=False)
         except AIClientError as exc:
