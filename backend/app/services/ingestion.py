@@ -1,4 +1,6 @@
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from typing import Protocol
 
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -33,6 +35,45 @@ SUMMARY_CONTEXT_TRUNCATE = 160
 FULL_TEXT_TRUNCATE = 6000
 
 
+class IngestionProgress(Protocol):
+    """Sink for live progress updates while a run is in flight — see
+    services/ingestion_runs.py for the DB-backed implementation that powers the
+    frontend's progress bar and the Settings > Logs admin view. Callers that don't care
+    about progress (most direct tests) simply omit it and get _NullProgress."""
+
+    def update(self, **fields: object) -> None: ...
+
+    def append_error(self, message: str) -> None: ...
+
+
+class _NullProgress:
+    def update(self, **fields: object) -> None:
+        pass
+
+    def append_error(self, message: str) -> None:
+        pass
+
+
+_NULL_PROGRESS = _NullProgress()
+
+
+@dataclass
+class _CompanyIngestOutcome:
+    articles_fetched: int = 0
+    articles_new: int = 0
+    signals_created: int = 0
+    duplicates_skipped: int = 0
+    triaged_out: int = 0
+    by_source: dict[str, int] = field(default_factory=dict)
+    rate_limited: dict[str, int] = field(default_factory=dict)
+    errors: list[str] = field(default_factory=list)
+
+
+def _record_error(errors: list[str], progress: IngestionProgress, message: str) -> None:
+    errors.append(message)
+    progress.append_error(message)
+
+
 def run_ingestion(
     db: Session,
     news_client: NewsClient | None = None,
@@ -40,7 +81,9 @@ def run_ingestion(
     *,
     google_news_client: GoogleNewsRSSClient | None = None,
     newsdata_client: NewsDataClient | None = None,
+    progress: IngestionProgress | None = None,
 ) -> IngestionRunResult:
+    progress = progress or _NULL_PROGRESS
     app_settings = get_settings()
     workspace_settings = get_or_create_workspace_settings(db)
     refresh_feedback_note(db, workspace_settings)
@@ -83,6 +126,7 @@ def run_ingestion(
     since = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
 
     target_companies = db.query(TargetCompany).filter(TargetCompany.is_active.is_(True)).all()
+    progress.update(companies_total=len(target_companies))
 
     articles_fetched = 0
     articles_new = 0
@@ -93,90 +137,30 @@ def run_ingestion(
     rate_limited: dict[str, int] = {}
     errors: list[str] = []
 
-    for target_company in target_companies:
-        fetched_items: list[tuple[ArticleSource, object]] = []
-
-        for source, client in providers:
-            per_minute_limit, per_day_limit = _rate_limit_config(workspace_settings, source)
-            if not has_headroom(db, source, per_minute_limit=per_minute_limit, per_day_limit=per_day_limit):
-                rate_limited[source.value] = rate_limited.get(source.value, 0) + 1
-                log_rate_limited(db, source=source, target_company_id=target_company.id)
-                continue
-
-            try:
-                fetched, requests_used = _fetch_from_source(
-                    source, client, workspace_settings, target_company, since
-                )
-            except NewsClientError as exc:
-                errors.append(f"[{target_company.name}] {source.value} fetch failed: {exc}")
-                continue
-
-            by_source[source.value] = by_source.get(source.value, 0) + len(fetched)
-            articles_fetched += len(fetched)
-            log_news_usage(
-                db,
-                source=source,
-                call_type="latest",
-                target_company_id=target_company.id,
-                requests_used=requests_used,
-                articles_returned=len(fetched),
-            )
-            fetched_items.extend((source, article) for article in fetched)
-
-        if not fetched_items:
-            continue
-
-        new_articles: list[Article] = []
-        seen_urls: set[str] = set()
-        for source, fetched in fetched_items:
-            # Guards against the same URL appearing twice across this company's combined
-            # fetch results (whether from one provider or two), not just against
-            # previously-ingested articles: the batched commit below means the DB query
-            # alone (autoflush is off) wouldn't see a duplicate added earlier in this same
-            # loop, and Article.url has a unique constraint. This also doubles as the
-            # first, free cross-source dedupe pass — NewsAPI.org and NewsData.io both tend
-            # to return the same canonical publisher URL for the same story.
-            if fetched.url in seen_urls:
-                continue
-            existing = db.query(Article).filter(Article.url == fetched.url).first()
-            if existing is not None:
-                continue
-            seen_urls.add(fetched.url)
-            article = Article(
-                target_company_id=target_company.id,
-                source=source,
-                source_name=fetched.source_name,
-                title=fetched.title,
-                url=fetched.url,
-                description=fetched.description,
-                published_at=fetched.published_at,
-                full_content=getattr(fetched, "full_content", None),
-                external_sentiment=getattr(fetched, "sentiment", None),
-                external_tags=getattr(fetched, "tags", None),
-            )
-            db.add(article)
-            new_articles.append(article)
-
-        if not new_articles:
-            continue
-
-        # A single commit (session default expire_on_commit=True) is enough — any later
-        # attribute access lazily re-fetches from the DB as needed, so an eager
-        # db.refresh() per article here would just be N redundant round trips.
-        db.commit()
-        articles_new += len(new_articles)
-
-        signals_created_here, duplicates_here, triaged_out_here, batch_errors = _process_new_articles(
+    for idx, target_company in enumerate(target_companies, start=1):
+        outcome = _ingest_target_company(
             db,
             ai_client=ai_client,
             workspace_settings=workspace_settings,
+            providers=providers,
             target_company=target_company,
-            new_articles=new_articles,
+            since=since,
+            progress=progress,
         )
-        signals_created += signals_created_here
-        duplicates_skipped += duplicates_here
-        triaged_out += triaged_out_here
-        errors.extend(batch_errors)
+        articles_fetched += outcome.articles_fetched
+        articles_new += outcome.articles_new
+        signals_created += outcome.signals_created
+        duplicates_skipped += outcome.duplicates_skipped
+        triaged_out += outcome.triaged_out
+        errors.extend(outcome.errors)
+        for source_name, count in outcome.by_source.items():
+            by_source[source_name] = by_source.get(source_name, 0) + count
+        for source_name, count in outcome.rate_limited.items():
+            rate_limited[source_name] = rate_limited.get(source_name, 0) + count
+        # Updated unconditionally after every company, regardless of which early-exit
+        # path _ingest_target_company took internally (no fetch results, no new
+        # articles, etc.) — the progress bar's company count must never stall.
+        progress.update(companies_processed=idx)
 
     return IngestionRunResult(
         target_companies_processed=len(target_companies),
@@ -189,6 +173,114 @@ def run_ingestion(
         rate_limited=rate_limited,
         errors=errors,
     )
+
+
+def _ingest_target_company(
+    db: Session,
+    *,
+    ai_client: AIClient,
+    workspace_settings,
+    providers: list[tuple[ArticleSource, object]],
+    target_company: TargetCompany,
+    since: datetime,
+    progress: IngestionProgress,
+) -> _CompanyIngestOutcome:
+    outcome = _CompanyIngestOutcome()
+    progress.update(
+        current_company_name=target_company.name,
+        current_step="fetching",
+        articles_total_this_company=0,
+        articles_processed_this_company=0,
+    )
+
+    fetched_items: list[tuple[ArticleSource, object]] = []
+
+    for source, client in providers:
+        per_minute_limit, per_day_limit = _rate_limit_config(workspace_settings, source)
+        if not has_headroom(db, source, per_minute_limit=per_minute_limit, per_day_limit=per_day_limit):
+            outcome.rate_limited[source.value] = outcome.rate_limited.get(source.value, 0) + 1
+            log_rate_limited(db, source=source, target_company_id=target_company.id)
+            continue
+
+        try:
+            fetched, requests_used = _fetch_from_source(
+                source, client, workspace_settings, target_company, since
+            )
+        except NewsClientError as exc:
+            _record_error(
+                outcome.errors, progress, f"[{target_company.name}] {source.value} fetch failed: {exc}"
+            )
+            continue
+
+        outcome.by_source[source.value] = outcome.by_source.get(source.value, 0) + len(fetched)
+        outcome.articles_fetched += len(fetched)
+        log_news_usage(
+            db,
+            source=source,
+            call_type="latest",
+            target_company_id=target_company.id,
+            requests_used=requests_used,
+            articles_returned=len(fetched),
+        )
+        fetched_items.extend((source, article) for article in fetched)
+
+    if not fetched_items:
+        return outcome
+
+    new_articles: list[Article] = []
+    seen_urls: set[str] = set()
+    for source, fetched in fetched_items:
+        # Guards against the same URL appearing twice across this company's combined
+        # fetch results (whether from one provider or two), not just against
+        # previously-ingested articles: the batched commit below means the DB query
+        # alone (autoflush is off) wouldn't see a duplicate added earlier in this same
+        # loop, and Article.url has a unique constraint. This also doubles as the
+        # first, free cross-source dedupe pass — NewsAPI.org and NewsData.io both tend
+        # to return the same canonical publisher URL for the same story.
+        if fetched.url in seen_urls:
+            continue
+        existing = db.query(Article).filter(Article.url == fetched.url).first()
+        if existing is not None:
+            continue
+        seen_urls.add(fetched.url)
+        article = Article(
+            target_company_id=target_company.id,
+            source=source,
+            source_name=fetched.source_name,
+            title=fetched.title,
+            url=fetched.url,
+            description=fetched.description,
+            published_at=fetched.published_at,
+            full_content=getattr(fetched, "full_content", None),
+            external_sentiment=getattr(fetched, "sentiment", None),
+            external_tags=getattr(fetched, "tags", None),
+        )
+        db.add(article)
+        new_articles.append(article)
+
+    if not new_articles:
+        return outcome
+
+    # A single commit (session default expire_on_commit=True) is enough — any later
+    # attribute access lazily re-fetches from the DB as needed, so an eager
+    # db.refresh() per article here would just be N redundant round trips.
+    db.commit()
+    outcome.articles_new = len(new_articles)
+    progress.update(current_step="summarizing", articles_total_this_company=len(new_articles))
+
+    signals_created_here, duplicates_here, triaged_out_here, batch_errors = _process_new_articles(
+        db,
+        ai_client=ai_client,
+        workspace_settings=workspace_settings,
+        target_company=target_company,
+        new_articles=new_articles,
+        progress=progress,
+    )
+    outcome.signals_created = signals_created_here
+    outcome.duplicates_skipped = duplicates_here
+    outcome.triaged_out = triaged_out_here
+    outcome.errors.extend(batch_errors)
+    return outcome
 
 
 def _rate_limit_config(workspace_settings, source: ArticleSource) -> tuple[int | None, int | None]:
@@ -236,7 +328,9 @@ def _process_new_articles(
     workspace_settings,
     target_company: TargetCompany,
     new_articles: list[Article],
+    progress: IngestionProgress | None = None,
 ) -> tuple[int, int, int, list[str]]:
+    progress = progress or _NULL_PROGRESS
     errors: list[str] = []
     signals_created = 0
     duplicates_skipped = 0
@@ -253,7 +347,7 @@ def _process_new_articles(
             article.embedding = vector
         db.commit()
     except AIClientError as exc:
-        errors.append(f"[{target_company.name}] embedding failed: {exc}")
+        _record_error(errors, progress, f"[{target_company.name}] embedding failed: {exc}")
 
     new_article_ids = {a.id for a in new_articles}
     candidates = (
@@ -278,7 +372,7 @@ def _process_new_articles(
     # context still reflects the full run without a DB round trip per article.
     recent_signal_summaries = _recent_signal_context(db, target_company.id)
 
-    for article in new_articles:
+    for position, article in enumerate(new_articles):
         if article.embedding is not None:
             duplicate = _find_duplicate(
                 article, candidates, workspace_settings.mistral_dedupe_similarity_threshold
@@ -291,6 +385,7 @@ def _process_new_articles(
                 # be a closer paraphrase of THIS duplicate than of the original, so
                 # dropping it from the pool would miss transitive duplicate chains.
                 candidates.insert(0, article)
+                progress.update(articles_processed_this_company=position + 1)
                 continue
             candidates.insert(0, article)
 
@@ -307,14 +402,17 @@ def _process_new_articles(
                     db, "triage", ai_client.triage_model, triage_usage, target_company.id, commit=False
                 )
             except AIClientError as exc:
-                errors.append(
+                _record_error(
+                    errors,
+                    progress,
                     f"[{target_company.name}] triage failed for {article.url}: {exc} "
-                    "(proceeding to full summarization without the cost-saving triage filter)"
+                    "(proceeding to full summarization without the cost-saving triage filter)",
                 )
                 triage = None
             if triage is not None and not triage.relevant:
                 _skip_article(db, article, "triaged_out")
                 triaged_out += 1
+                progress.update(articles_processed_this_company=position + 1)
                 continue
 
         try:
@@ -334,7 +432,10 @@ def _process_new_articles(
             _log_usage(db, "summarize", ai_client.model, usage, target_company.id, commit=False)
         except AIClientError as exc:
             _skip_article(db, article, "ai_error")
-            errors.append(f"[{target_company.name}] summarization failed for {article.url}: {exc}")
+            _record_error(
+                errors, progress, f"[{target_company.name}] summarization failed for {article.url}: {exc}"
+            )
+            progress.update(articles_processed_this_company=position + 1)
             continue
 
         signal = Signal(
@@ -358,6 +459,7 @@ def _process_new_articles(
         signals_created += 1
         recent_signal_summaries.insert(0, _truncate_summary(result.summary))
         del recent_signal_summaries[RECENT_SIGNALS_FOR_CONTEXT:]
+        progress.update(articles_processed_this_company=position + 1)
 
     return signals_created, duplicates_skipped, triaged_out, errors
 

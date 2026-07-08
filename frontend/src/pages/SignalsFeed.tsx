@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { api, ApiError } from "../api/client";
 import { ARTICLE_SOURCE_LABELS } from "../api/types";
-import type { IngestionRunResult, Signal, SignalStatus, TargetCompany, WorkspaceSettings } from "../api/types";
+import type { IngestionRunStatus, Signal, SignalStatus, TargetCompany, WorkspaceSettings } from "../api/types";
 import Skeleton from "../components/Skeleton";
 import SetupChecklist from "../components/SetupChecklist";
 import SignalRow from "../components/SignalRow";
@@ -23,6 +23,31 @@ const STATUS_OPTIONS: { value: SignalStatus | ""; label: string }[] = [
 
 type SortOrder = "newest" | "oldest" | "relevance";
 
+const POLL_INTERVAL_MS = 1500;
+
+function ingestionStatusText(status: IngestionRunStatus): string {
+  if (status.status === "failed") {
+    return status.fatal_error ? `Ingestion run failed: ${status.fatal_error}` : "Ingestion run failed.";
+  }
+  if (status.status === "completed") {
+    return "Finishing up...";
+  }
+  const companyPosition = Math.min(status.companies_processed + 1, Math.max(status.companies_total, 1));
+  const companyProgress =
+    status.companies_total > 0 ? ` (company ${companyPosition} of ${status.companies_total})` : "";
+  if (status.current_step === "summarizing" && status.articles_total_this_company > 0) {
+    const articlePosition = Math.min(
+      status.articles_processed_this_company + 1,
+      status.articles_total_this_company
+    );
+    return `Summarizing articles for ${status.current_company_name ?? "target company"} — article ${articlePosition} of ${status.articles_total_this_company}${companyProgress}`;
+  }
+  if (status.current_company_name) {
+    return `Fetching articles for ${status.current_company_name}${companyProgress}`;
+  }
+  return "Starting...";
+}
+
 export default function SignalsFeed() {
   usePageTitle("Signals");
   const { showToast } = useToast();
@@ -41,8 +66,12 @@ export default function SignalsFeed() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRunningIngestion, setIsRunningIngestion] = useState(false);
-  const [ingestionResult, setIngestionResult] = useState<IngestionRunResult | null>(null);
+  const [ingestionStatus, setIngestionStatus] = useState<IngestionRunStatus | null>(null);
+  // Tracks whether *this page load* actually watched a run go through "running" — so a
+  // long-finished run from before the page was opened doesn't make it look like a fetch
+  // just happened the moment you land here.
+  const sawRunningRef = useRef(false);
+  const isRunningIngestion = ingestionStatus?.status === "running";
 
   function loadSignals() {
     setIsLoading(true);
@@ -72,6 +101,36 @@ export default function SignalsFeed() {
 
   useEffect(loadSignals, [companyFilter, statusFilter, favoritedOnly]);
 
+  async function pollIngestionStatus() {
+    try {
+      const result = await api.get<IngestionRunStatus | null>("/ingestion/status");
+      if (result?.status === "running") {
+        sawRunningRef.current = true;
+      }
+      setIngestionStatus(result);
+      if (sawRunningRef.current && result && result.status !== "running") {
+        loadSignals();
+      }
+    } catch {
+      // Transient poll failure — the next tick (or the next page load) will pick it back up.
+    }
+  }
+
+  // Resumes tracking a run already in flight (e.g. the page was reloaded mid-fetch, or a
+  // scheduled run happens to be running) instead of only ever reacting to this browser's
+  // own button click.
+  useEffect(() => {
+    pollIngestionStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!isRunningIngestion) return;
+    const interval = window.setInterval(pollIngestionStatus, POLL_INTERVAL_MS);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRunningIngestion]);
+
   useEffect(() => {
     setSelectedIds(new Set());
   }, [signals]);
@@ -93,16 +152,12 @@ export default function SignalsFeed() {
   }
 
   async function handleRunIngestion() {
-    setIngestionResult(null);
-    setIsRunningIngestion(true);
     try {
-      const result = await api.post<IngestionRunResult>("/ingestion/run-now");
-      setIngestionResult(result);
-      loadSignals();
+      const result = await api.post<IngestionRunStatus>("/ingestion/run-now");
+      sawRunningRef.current = true;
+      setIngestionStatus(result);
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Ingestion run failed", "error");
-    } finally {
-      setIsRunningIngestion(false);
+      showToast(err instanceof ApiError ? err.message : "Failed to start ingestion run", "error");
     }
   }
 
@@ -189,8 +244,9 @@ export default function SignalsFeed() {
           disabled={isRunningIngestion || !hasTargetCompany}
           title={hasTargetCompany ? undefined : "Add a target company first"}
         >
-          {isRunningIngestion && <span className="spinner" aria-hidden="true" />}
-          {isRunningIngestion ? "Fetching..." : "Fetch new signals"}
+          {isRunningIngestion
+            ? `Fetching... ${ingestionStatus?.progress_percent ?? 0}%`
+            : "Fetch new signals"}
         </button>
       </div>
 
@@ -202,41 +258,56 @@ export default function SignalsFeed() {
         />
       )}
 
-      {ingestionResult && (
+      {isRunningIngestion && ingestionStatus && (
+        <div className="panel-card">
+          <div className="progress-bar">
+            <div className="progress-bar-fill" style={{ width: `${ingestionStatus.progress_percent}%` }} />
+          </div>
+          <p className="field-hint">{ingestionStatusText(ingestionStatus)}</p>
+        </div>
+      )}
+
+      {sawRunningRef.current && ingestionStatus && ingestionStatus.status === "failed" && (
+        <div className="panel-card">
+          <p className="error-text">{ingestionStatusText(ingestionStatus)}</p>
+        </div>
+      )}
+
+      {sawRunningRef.current && ingestionStatus && ingestionStatus.status === "completed" && (
         <div className="panel-card">
           <p className="subtitle">
-            Checked {ingestionResult.target_companies_processed} target compan
-            {ingestionResult.target_companies_processed === 1 ? "y" : "ies"}, found{" "}
-            {ingestionResult.articles_new} new article(s), created {ingestionResult.signals_created}{" "}
+            Checked {ingestionStatus.companies_total} target compan
+            {ingestionStatus.companies_total === 1 ? "y" : "ies"}, found{" "}
+            {ingestionStatus.articles_new} new article(s), created {ingestionStatus.signals_created}{" "}
             signal(s)
-            {(ingestionResult.duplicates_skipped > 0 || ingestionResult.triaged_out > 0) && (
+            {(ingestionStatus.duplicates_skipped > 0 || ingestionStatus.triaged_out > 0) && (
               <>
-                {" "}({ingestionResult.duplicates_skipped} duplicate(s) and{" "}
-                {ingestionResult.triaged_out} low-relevance article(s) skipped without a full
+                {" "}({ingestionStatus.duplicates_skipped} duplicate(s) and{" "}
+                {ingestionStatus.triaged_out} low-relevance article(s) skipped without a full
                 AI call)
               </>
             )}
             .
           </p>
-          {Object.keys(ingestionResult.by_source).length > 0 && (
+          {Object.keys(ingestionStatus.by_source).length > 0 && (
             <p className="field-hint">
               By source:{" "}
-              {Object.entries(ingestionResult.by_source)
+              {Object.entries(ingestionStatus.by_source)
                 .map(([source, count]) => `${ARTICLE_SOURCE_LABELS[source as keyof typeof ARTICLE_SOURCE_LABELS] ?? source}: ${count}`)
                 .join(", ")}
             </p>
           )}
-          {Object.keys(ingestionResult.rate_limited).length > 0 && (
+          {Object.keys(ingestionStatus.rate_limited).length > 0 && (
             <p className="field-hint error-text">
               Rate limited (skipped, no request made):{" "}
-              {Object.entries(ingestionResult.rate_limited)
+              {Object.entries(ingestionStatus.rate_limited)
                 .map(([source, count]) => `${ARTICLE_SOURCE_LABELS[source as keyof typeof ARTICLE_SOURCE_LABELS] ?? source}: ${count} compan${count === 1 ? "y" : "ies"}`)
                 .join(", ")}
             </p>
           )}
-          {ingestionResult.errors.length > 0 && (
+          {ingestionStatus.errors.length > 0 && (
             <ul className="error-list">
-              {ingestionResult.errors.map((message) => (
+              {ingestionStatus.errors.map((message) => (
                 <li key={message} className="error-text">
                   {message}
                 </li>

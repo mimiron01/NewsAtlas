@@ -3,8 +3,9 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from app.db.session import SessionLocal
+from app.models.ingestion_run import TRIGGER_SCHEDULED
 from app.services.digest import send_daily_digest
-from app.services.ingestion import run_ingestion
+from app.services.ingestion_runs import create_run, execute_ingestion_run, get_running_run
 
 INGESTION_JOB_ID = "news_ingestion"
 DIGEST_JOB_ID = "daily_digest"
@@ -15,9 +16,15 @@ _scheduler: BackgroundScheduler | None = None
 def _run_ingestion_job() -> None:
     db = SessionLocal()
     try:
-        run_ingestion(db)
+        # Skips this tick rather than overlapping with a manual run still in progress
+        # (e.g. a long run from "Fetch new signals" still summarizing when the interval
+        # ticks over) — the next scheduled tick picks up whatever it missed.
+        if get_running_run(db) is not None:
+            return
+        run_id = create_run(db, trigger=TRIGGER_SCHEDULED).id
     finally:
         db.close()
+    execute_ingestion_run(run_id)
 
 
 def _run_digest_job() -> None:

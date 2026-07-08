@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
 
-import { api, ApiError } from "../api/client";
-import type { AIUsageSummary } from "../api/types";
-import Skeleton from "../components/Skeleton";
-import { usePageTitle } from "../hooks/usePageTitle";
+import { api, ApiError } from "../../api/client";
+import type { AIUsageSummary } from "../../api/types";
+import Skeleton from "../../components/Skeleton";
 
 const CALL_TYPE_LABELS: Record<string, string> = {
   embedding: "Duplicate detection (embeddings)",
@@ -11,8 +10,7 @@ const CALL_TYPE_LABELS: Record<string, string> = {
   summarize: "Full summarization (large model)",
 };
 
-export default function AIUsage() {
-  usePageTitle("AI usage");
+export default function UsageTab() {
   const [summary, setSummary] = useState<AIUsageSummary | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
