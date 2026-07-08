@@ -215,8 +215,14 @@
   <li>Introduce a standard React i18n library and migrate all hardcoded UI strings (nav, buttons,
       labels, empty states, error/validation messages, settings tabs) into translation resource files.</li>
   <li>Ship a complete, reviewed German translation for every extracted string.</li>
-  <li>Detect the user's language from the browser (<code>Accept-Language</code> / <code>navigator.language</code>)
-      on first load and default to it when supported, falling back to English otherwise.</li>
+  <li>Add an admin-configurable workspace <strong>Main Language</strong> (default English) that sets
+      the standard UI language for every user, with a per-user personal preference that overrides it;
+      pre-login, detect the browser's language (<code>Accept-Language</code> /
+      <code>navigator.language</code>) to localize the <code>Login</code> screen only — see
+      <a href="#decisions">§3</a>/<a href="#detection">§5</a>.</li>
+  <li>Make Mistral generate Signal content (summaries, business relevance, outreach snippets) only in
+      the workspace Main Language, regardless of the source article's language — see
+      <a href="#source-language">§10</a>.</li>
   <li>Localize dates, numbers, and pluralized strings using the active locale instead of ad hoc
       <code>toLocaleDateString()</code> calls with no explicit locale argument.</li>
   <li>Make adding a third language later a matter of dropping in a new resource-file set — no
@@ -224,9 +230,10 @@
 </ul>
 <h3>Non-goals (this pass)</h3>
 <ul>
-  <li><strong>Translating article/news content or AI-generated Signal text</strong> — confirmed
-      out of scope; see <a href="#content-scope">§9</a>. "Bilingual support" here means the
-      interface, not the news itself.</li>
+  <li><strong>Translating ingested article content</strong> (the raw text fetched from news sources,
+      as opposed to Mistral's Signal summary of it) — confirmed out of scope; see
+      <a href="#content-scope">§9</a>. Signal content <em>is</em> now in scope via Main Language
+      (above); the raw source article is not.</li>
   <li>Locale-prefixed URL routing (e.g. <code>/de/signals</code>) — not needed since this is an
       authenticated internal app, not SEO-driven public content.</li>
   <li>Region-specific variants (<code>de-AT</code>, <code>de-CH</code>, <code>en-GB</code>) — two
@@ -248,24 +255,45 @@ The app is small and has no CDN/edge-translation infrastructure; bundling keeps 
 an extra network waterfall on load. Revisit only if translation volume grows enough to matter for
 bundle size.</div>
 
-<div class="decision"><strong>Detection strategy:</strong> <code>i18next-browser-languagedetector</code>
-with order <code>["localStorage", "navigator"]</code> — checks a stored preference first, falls back to
-<code>navigator.language</code>, defaults to <code>en</code> if neither matches a supported locale.
-<span class="tag">confirmed</span> Matches the browser-detection approach selected for this project.</div>
+<div class="decision"><strong>Workspace "Main Language" setting:</strong> a new admin-configurable
+<code>workspace_settings.main_language</code> field (<code>en</code> / <code>de</code>, default
+<code>en</code>) is the standard language for every user in the workspace unless they personally
+override it. <span class="tag">confirmed</span> Editable in Settings (admin-only, alongside the other
+workspace-wide toggles), analogous to the existing <code>google_news_rss_language</code> field but
+governing the UI/AI language rather than an ingestion source. This is the org-level default that
+individual preference (below) layers on top of — see the full data-model/API details in
+<a href="#source-language">§10</a>, since it also drives Mistral's output language.</div>
 
-<div class="decision"><strong>Manual override control:</strong> add a compact language switcher in
-the sidebar footer, immediately next to the existing theme toggle in <code>ProtectedLayout.tsx</code>,
-mirroring the <code>useTheme</code>/<code>cycleTheme</code> pattern already in the codebase.
-<span class="tag">recommended — confirm</span> Auto-detection with no escape hatch means a German
-browser locale with an English-preferring user (or vice versa) has no way to switch; this was not
-explicitly requested but is standard practice and is a small addition given the theme-toggle precedent
-already exists to copy. Flagged in <a href="#assumptions">§13</a> for explicit sign-off.</div>
+<div class="decision"><strong>Personal preference override:</strong> a nullable
+<code>users.preferred_language</code> column. <code>NULL</code> (the default for every user) means
+"follow the workspace Main Language"; setting it to <code>en</code> or <code>de</code> overrides that
+default for that user only, on any device. <span class="tag">confirmed</span> This supersedes the
+earlier plan to keep locale client-side/<code>localStorage</code>-only — a real per-user account
+setting was explicitly requested, not just a per-browser one.</div>
 
-<div class="decision"><strong>Persistence:</strong> client-side only, <code>localStorage</code> key
-<code>newsatlas_locale</code>, exactly mirroring <code>useTheme.ts</code>'s <code>newsatlas_theme</code>
-key. <span class="tag">default</span> No <code>users</code> table migration needed for MVP. Per-user
-server-persisted locale (so preference follows the user across devices) is a plausible fast-follow —
-see <a href="#assumptions">§13</a>.</div>
+<div class="decision"><strong>Effective-language precedence:</strong> for a logged-in user:
+<code>user.preferred_language</code> if set → else <code>workspace_settings.main_language</code>.
+For the pre-login <code>Login</code> page, where neither a user nor a workspace context exists yet,
+fall back to <code>i18next-browser-languagedetector</code> reading <code>navigator.language</code>
+(defaulting to <code>en</code>). <span class="tag">confirmed</span> Browser auto-detection — the
+original ask — still does real work, just scoped to the one screen where there's nothing else to go
+on; once authenticated, the account/workspace settings are authoritative and stop deferring to the
+browser, so an admin's Main Language choice can't be silently overridden by whatever a shared/kiosk
+browser happens to report.</div>
+
+<div class="decision"><strong>Switcher UX:</strong> the sidebar language switcher (still placed next to
+the theme toggle in <code>ProtectedLayout.tsx</code>) cycles <strong>Workspace default → English →
+German → Workspace default…</strong>, directly mirroring the existing theme toggle's
+<strong>system → light → dark → system</strong> cycle in <code>useTheme.ts</code> — "Workspace default"
+is the personal-preference-<code>NULL</code> state, exactly like <code>system</code> means "no
+override, follow the OS." <span class="tag">confirmed</span> Reuses a UX pattern already in the
+codebase instead of inventing a new one.</div>
+
+<div class="decision"><strong>Client-side cache:</strong> <code>localStorage</code> key
+<code>newsatlas_locale</code> still exists, but only as an optimistic cache of the last-known effective
+language (avoids a flash of the wrong language before <code>/auth/me</code> resolves on load) — the
+database (<code>users.preferred_language</code> + <code>workspace_settings.main_language</code>) is the
+source of truth. <span class="tag">default</span></div>
 
 <div class="decision"><strong><code>&lt;html lang&gt;</code> sync:</strong> reflect the active
 i18next language onto <code>document.documentElement.lang</code> whenever it changes.
@@ -307,24 +335,29 @@ layout.</div>
 
 <h2 id="detection">5. Locale detection, persistence &amp; switcher</h2>
 <p>
-  Mirrors the existing theme system almost exactly, so the mental model and code shape are already
-  familiar to anyone who's touched <code>useTheme.ts</code>:
+  The switcher's cycle mirrors the existing theme system, so the mental model and code shape are
+  already familiar to anyone who's touched <code>useTheme.ts</code> — but where it stores state now
+  crosses into the backend, since "personal preference" needs to follow the account, not the browser:
 </p>
 <table>
   <tr><th></th><th>Theme (existing)</th><th>Locale (new)</th></tr>
-  <tr><td>Storage key</td><td><code>newsatlas_theme</code></td><td><code>newsatlas_locale</code></td></tr>
-  <tr><td>Values</td><td><code>light</code> / <code>dark</code> / <code>system</code></td><td><code>en</code> / <code>de</code></td></tr>
+  <tr><td>Values</td><td><code>light</code> / <code>dark</code> / <code>system</code></td><td><code>en</code> / <code>de</code> / <code>null</code> ("workspace default")</td></tr>
+  <tr><td>Source of truth</td><td><code>localStorage</code> (<code>newsatlas_theme</code>)</td><td><code>users.preferred_language</code> (DB), cached in <code>localStorage</code> (<code>newsatlas_locale</code>)</td></tr>
   <tr><td>Root attribute</td><td><code>document.documentElement.dataset.theme</code></td><td><code>document.documentElement.lang</code></td></tr>
-  <tr><td>Fallback when unset</td><td>OS preference (<code>prefers-color-scheme</code>)</td><td>Browser language (<code>navigator.language</code>)</td></tr>
+  <tr><td>Fallback when unset</td><td>OS preference (<code>prefers-color-scheme</code>)</td><td><code>workspace_settings.main_language</code> (admin-set, default <code>en</code>)</td></tr>
+  <tr><td>Pre-login fallback</td><td>n/a (theme has no logged-out screen needing it)</td><td>Browser language (<code>navigator.language</code>) — <code>Login</code> page only</td></tr>
   <tr><td>UI control</td><td>Icon button, sidebar footer</td><td>New icon/dropdown, sidebar footer, next to theme toggle</td></tr>
 </table>
 <p>
-  Flow on first visit: <code>i18next-browser-languagedetector</code> checks <code>localStorage</code>
-  (nothing yet) → reads <code>navigator.language</code> → if it starts with <code>de</code>, activates
-  German; otherwise (or for any other value) defaults to English. Once a user explicitly picks a
-  language via the switcher, that choice is written to <code>localStorage</code> and takes precedence
-  on every subsequent visit, overriding browser detection — this is what makes the auto-detect
-  approach safe to ship without a routing change: it's a sensible default, not a trap.
+  Resolution order once authenticated: <code>user.preferred_language</code> (if not <code>null</code>)
+  → <code>workspace_settings.main_language</code>. Both come back on <code>GET /auth/me</code> (see
+  <a href="#source-language">§10</a> for the schema/API changes), so the frontend never needs a
+  separate admin-gated call just to know the effective language. Before login, with neither value
+  available yet, <code>i18next-browser-languagedetector</code> reads <code>navigator.language</code> to
+  localize the <code>Login</code> screen only — a sensible default for an anonymous visitor, not a
+  setting that persists or leaks into the authenticated app. Picking a language via the switcher issues
+  a request to persist <code>preferred_language</code> (or clear it back to <code>null</code> for
+  "workspace default") against the user's account.
 </p>
 
 <h2 id="extraction">6. String extraction scope</h2>
@@ -377,27 +410,35 @@ layout.</div>
 
 <h2 id="content-scope">9. Content scope: articles &amp; AI-generated text</h2>
 <p>
-  Confirmed scope for this initiative is <strong>UI strings only</strong>. Two categories of
-  user-facing text are explicitly <em>not</em> translated by this work:
+  Confirmed scope for this initiative is <strong>UI strings only</strong> for the interface itself.
+  This section originally treated both ingested articles and AI-generated Signals as permanently
+  English; the Main Language decision in <a href="#decisions">§3</a>/<a href="#source-language">§10</a>
+  changes that for one of the two, so the distinction now matters:
 </p>
 <ul>
   <li><strong>Ingested article content</strong> (<code>Article.title</code>, <code>.description</code>,
-      <code>.full_content</code>) — sourced in English by default. NewsAPI.org and NewsData.io hardcode
-      <code>"language": "en"</code> with no admin control; Google News RSS is the one exception — see
-      <a href="#source-language">§10</a>.</li>
+      <code>.full_content</code>) — <em>not</em> translated by this work, ever. Sourced in whatever
+      language the enabled news APIs return: English by default, since NewsAPI.org and NewsData.io
+      hardcode <code>"language": "en"</code> with no admin control; Google News RSS is the one
+      exception — see <a href="#source-language">§10</a>. Raw article text is displayed as-fetched
+      regardless of UI or Main Language settings.</li>
   <li><strong>AI-generated Signal content</strong> (<code>Signal.summary</code>,
       <code>.business_relevance</code>, <code>.outreach_snippet_email</code>,
       <code>.outreach_snippet_linkedin</code>, <code>.outreach_call_opener</code>,
-      <code>.supporting_quote</code>) — generated by the Mistral prompt in English today.</li>
+      <code>.supporting_quote</code>) — <strong>is now in scope</strong>, via the Main Language
+      setting rather than the UI-language setting: Mistral is instructed to always write these fields
+      in the workspace's <code>main_language</code> (§10), translating from the source article when
+      needed. This is a deliberate, admin-controlled behavior, not a byproduct of UI localization —
+      a workspace can run its interface in English while Main Language (and therefore every Signal) is
+      German, or vice versa; the two settings are independent.</li>
 </ul>
 <p>
-  Both remain English regardless of the UI's active language after this work ships. This is worth
-  surfacing explicitly (see <a href="#assumptions">§13</a>) because "bilingual support" as a product
-  claim could be read either way, and a German-speaking user browsing an all-German interface full of
-  English news summaries is a noticeably different experience than a fully localized one. Translating
-  or regenerating that content (machine translation of articles, or prompting Mistral in German) is
-  a materially larger effort — different cost profile, different quality bar, different failure modes —
-  and is called out as a distinct future initiative in <a href="#future">§14</a>, not bundled here.
+  Net effect: a German-speaking user no longer necessarily sees English AI summaries — that now
+  depends entirely on the admin's Main Language choice, not on this pass being "UI-only." Only the raw
+  ingested article text (title/description/full_content, as opposed to Mistral's summary of it) remains
+  permanently in its source language, since translating or regenerating that raw text is a materially
+  larger effort (a translation-API integration, or re-ingesting from German-native sources) and stays
+  out of scope here — see <a href="#future">§14</a>.
 </p>
 
 <h2 id="source-language">10. Admin-configurable source language &amp; AI output language</h2>
@@ -424,19 +465,61 @@ An admin who wants ingestion to be German-only should enable Google News RSS wit
 <code>newsapi_enabled</code>/<code>newsdata_enabled</code> toggles (already shipped, Settings →
 Sources) — a configuration-only change, not a code change. Leaving any English source enabled
 alongside a German-configured Google News RSS will keep producing English articles from that source.</div>
-<div class="assumption"><strong>Mistral has no explicit output-language directive.</strong> The
-system prompt in <code>ai_client.py</code> (<code>_SYSTEM_PROMPT</code>, lines 27-56) is written in
-English and specifies the required JSON <em>schema</em>, but never instructs the model what language
-to write the <em>content</em> in. In practice, LLMs typically mirror the language of the input they're
-given when not told otherwise — so feeding it German article titles/descriptions (via a German-only
-Google News RSS configuration) will likely produce German <code>summary</code>/
-<code>business_relevance</code>/outreach-snippet text, but this is emergent behavior, not a controlled
-setting. Per this review's decision, no explicit language instruction is being added to the prompt in
-this pass — the recommended path is entirely on the ingestion side (§10 above: configure/disable
-sources so only German content reaches Mistral), not a prompt change. If any English-fetching source
-stays enabled at the same time, expect a mix of German- and English-language Signals with no
-<code>language</code> field on <code>Article</code>/<code>Signal</code> to distinguish them
-downstream — flagged as a real limitation to watch for, not something this pass resolves.</div>
+<p>
+  This was revisited after a follow-up decision: rather than leaving Mistral's output language as
+  emergent behavior tied to whatever an admin configures Google News RSS to fetch, the workspace's
+  new <strong>Main Language</strong> setting (introduced in <a href="#decisions">§3</a>) becomes the
+  single, explicit source of truth for Signal content language — regardless of source-article
+  language, and independent of the ingestion-side source-language question above.
+</p>
+<div class="decision"><strong>Mistral always generates in the workspace Main Language.</strong>
+<code>_SYSTEM_PROMPT</code> in <code>ai_client.py</code> gains an explicit instruction — e.g. "Write
+every text field (<code>summary</code>, <code>business_relevance</code>, <code>supporting_quote</code>,
+the three outreach snippets) in {main_language_name}, regardless of the language of the source
+article. JSON keys and structure stay as specified." — with the language name interpolated from
+<code>workspace_settings.main_language</code> and passed into
+<code>summarize_article(..., output_language=...)</code> as a new parameter.
+<span class="tag">confirmed</span> This supersedes the earlier assumption above (no code change had
+been planned for the prompt): Mistral now translates into Main Language whenever the source article
+is in a different language, and leaves it unchanged when source and Main Language already match. This
+also resolves the "mixed English/German Signals with nothing to distinguish them" limitation flagged
+earlier — output is normalized to one language per workspace, so the missing <code>language</code>
+column on <code>Signal</code> stops being a correctness gap for current signals (though see the
+Main-Language-change edge case in <a href="#assumptions">§13</a>).</div>
+<div class="decision"><strong>Triage prompt unaffected.</strong> <code>_TRIAGE_SYSTEM_PROMPT</code>
+(relevance filtering, <code>ai_client.py:63-71</code>) only ever returns
+<code>{"relevant": bool, "reason": "<max 10 words>"}</code> — <code>reason</code> is a short internal
+string, never shown to end users (checked: not rendered anywhere in the frontend), so it's left in
+English regardless of Main Language to avoid an unnecessary prompt/token-budget change to the cheap
+triage call. <span class="tag">default</span></div>
+
+<h3>Data model changes</h3>
+<table>
+  <tr><th>Table</th><th>Column</th><th>Type / default</th><th>Purpose</th></tr>
+  <tr><td><code>workspace_settings</code></td><td><code>main_language</code></td><td><code>String(8)</code>, <code>NOT NULL</code>, default <code>"en"</code></td><td>Admin-set workspace standard language; also the language Mistral is instructed to write Signals in</td></tr>
+  <tr><td><code>users</code></td><td><code>preferred_language</code></td><td><code>String(8)</code>, nullable, default <code>NULL</code></td><td>Per-user override; <code>NULL</code> means "follow <code>main_language</code>"</td></tr>
+</table>
+<p>Two new Alembic migrations, following the same pattern as the existing <code>users.role</code>
+addition (see <a href="role-based-company-management-planning.html">role-based-company-management-planning.html</a>
+§4) — small nullable/defaulted columns, no backfill logic needed since both have safe defaults.</p>
+
+<h3>API surface changes</h3>
+<ul>
+  <li><code>WorkspaceSettingsResponse</code> / <code>WorkspaceSettingsUpdate</code>
+      (<code>schemas/settings.py</code>) gain <code>main_language</code>; <code>PUT /settings</code>
+      (admin-only) writes it same as every other workspace field.</li>
+  <li><code>UserResponse</code> (<code>schemas/auth.py</code>) gains <code>preferred_language:
+      str | None</code> <strong>and</strong> <code>workspace_main_language: str</code> — the latter is
+      the workspace's current <code>main_language</code>, embedded directly into the existing
+      <code>GET /auth/me</code> response. <span class="tag">confirmed</span> <code>/auth/me</code> is
+      already called by every authenticated user regardless of role, so this avoids standing up a
+      separate non-admin-gated endpoint just so regular users (who can't call the
+      <code>require_admin</code>-gated <code>GET /settings</code>) can learn the workspace default.</li>
+  <li>New <code>PATCH /auth/me/language</code> endpoint, body <code>{"preferred_language": "en" |
+      "de" | null}</code>, any authenticated user (not admin-gated) — writes their own
+      <code>preferred_language</code>. <code>null</code> clears the override back to "follow
+      workspace default."</li>
+</ul>
 
 <h2 id="testing">11. Testing &amp; quality gates</h2>
 <ul>
@@ -462,8 +545,10 @@ downstream — flagged as a real limitation to watch for, not something this pas
 <div class="phase">
   <h4><span class="phase-badge">Phase 0</span> Foundation</h4>
   <ul class="checklist">
+    <li>Alembic migrations: <code>workspace_settings.main_language</code> (default <code>en</code>), <code>users.preferred_language</code> (nullable)</li>
+    <li>Backend: add both fields to <code>WorkspaceSettingsResponse</code>/<code>Update</code> and <code>UserResponse</code> (incl. <code>workspace_main_language</code> on <code>/auth/me</code>); new <code>PATCH /auth/me/language</code> endpoint</li>
     <li>Install <code>react-i18next</code>, <code>i18next</code>, <code>i18next-browser-languagedetector</code></li>
-    <li>Create <code>i18n/index.ts</code> config: init, detector order, fallback locale <code>en</code>, namespace registration</li>
+    <li>Create <code>i18n/index.ts</code> config: init, Login-page-only detector, namespace registration</li>
     <li>Wrap app entrypoint with <code>&lt;Suspense&gt;</code> for async namespace loading</li>
     <li><code>useLocaleFormat</code> hook (dates/numbers) alongside the existing <code>useTheme</code> hook</li>
     <li>Sync <code>document.documentElement.lang</code> on language change</li>
@@ -474,7 +559,8 @@ downstream — flagged as a real limitation to watch for, not something this pas
   <h4><span class="phase-badge">Phase 1</span> Core chrome</h4>
   <ul class="checklist">
     <li>Extract <code>ProtectedLayout.tsx</code>, <code>ProfileMenu.tsx</code>, <code>Login.tsx</code> into <code>nav</code>/<code>auth</code>/<code>common</code> namespaces</li>
-    <li>Add language switcher control next to the existing theme toggle</li>
+    <li>Add language switcher (workspace default → English → German cycle) next to the existing theme toggle, wired to <code>PATCH /auth/me/language</code></li>
+    <li>Add Main Language control to admin Settings (Company tab or a new Localization section)</li>
     <li>German translation of extracted core-chrome strings</li>
   </ul>
 </div>
@@ -489,11 +575,12 @@ downstream — flagged as a real limitation to watch for, not something this pas
 </div>
 
 <div class="phase">
-  <h4><span class="phase-badge">Phase 3</span> Formatting &amp; backend errors</h4>
+  <h4><span class="phase-badge">Phase 3</span> Formatting, backend errors &amp; Mistral output language</h4>
   <ul class="checklist">
     <li>Replace ad hoc <code>toLocaleDateString()</code> calls with <code>useLocaleFormat</code></li>
     <li>Convert hand-built template sentences to i18next interpolation/pluralization</li>
     <li>Add <code>error_code</code> field to key API error responses; map codes in <code>errors.json</code></li>
+    <li>Add explicit language directive to <code>_SYSTEM_PROMPT</code> in <code>ai_client.py</code>; thread <code>main_language</code> into <code>summarize_article()</code> as <code>output_language</code></li>
   </ul>
 </div>
 
@@ -508,19 +595,20 @@ downstream — flagged as a real limitation to watch for, not something this pas
 </div>
 
 <h2 id="assumptions">13. Open questions &amp; assumptions for follow-up sessions</h2>
-<div class="assumption"><strong>Manual language switcher</strong> — only browser-based auto-detection
-was explicitly requested; this plan adds a manual override control anyway as standard practice (see
-<a href="#decisions">§3</a>). Confirm this is wanted, or that pure auto-detect (no escape hatch) is
-acceptable for the initial ship.</div>
-<div class="assumption"><strong>Locale persistence scope</strong> — assumed client-side
-<code>localStorage</code> only (matches theme precedent), not a <code>users.locale</code> DB column.
-Confirm whether cross-device persistence of a user's language preference matters enough to warrant the
-schema change now vs. later.</div>
-<div class="assumption"><strong>"Bilingual" scope</strong> — confirmed as UI-only for this pass (see
-<a href="#content-scope">§9</a>); article/Signal content stays English. Flagging because the product
-framing ("bilingual platform") could be read by stakeholders as including translated news content —
-worth an explicit sentence in any external communication about this feature so expectations match
-what ships.</div>
+<div class="assumption"><strong>Main Language change vs. historical Signals</strong> — Mistral is
+instructed to write in the <em>current</em> <code>main_language</code> at generation time; if an admin
+later changes the workspace's Main Language (e.g. <code>en</code> → <code>de</code>), previously
+generated <code>Signal</code> rows stay in whatever language they were written in — there's no
+retroactive re-translation, and no <code>language</code> column recording which one applies to a given
+row. Acceptable for an initial ship (Main Language is expected to be a rare, deliberate admin choice,
+not something toggled often) but worth a per-Signal <code>language</code> column as a fast-follow if
+this causes real confusion in a mixed-history feed.</div>
+<div class="assumption"><strong>"Bilingual" scope</strong> — UI strings follow the account/workspace
+language exactly as specced; Signal content now also follows Main Language (§9/§10), but the raw
+ingested article text does not and stays in its source language regardless of any setting here.
+Flagging because the product framing ("bilingual platform") could still be read by stakeholders as
+covering the underlying news articles too, not just the AI's summary of them — worth an explicit
+sentence in any external communication about this feature so expectations match what ships.</div>
 <div class="assumption"><strong>Backend error-code coverage</strong> — assumed only a handful of
 <code>HTTPException</code> call sites actually surface in the UI in ways users see today; the Phase 3
 error-code work should start with an audit of which backend error strings the frontend currently
@@ -531,19 +619,16 @@ part of this initiative, but noting it's the natural next home for these checks 
 
 <h2 id="future">14. Future enhancements (explicitly out of scope here)</h2>
 <ul>
-  <li>Machine-translating or re-generating ingested article content and AI Signal fields into German
-      (would require either a translation-API integration or a German-language Mistral prompt variant,
-      plus a cost/latency tradeoff analysis — materially different scope from UI-string i18n).</li>
-  <li>Explicit output-language control in the Mistral prompt (<code>ai_client.py</code>
-      <code>_SYSTEM_PROMPT</code>) and a <code>language</code> column on <code>Article</code>/
-      <code>Signal</code> to track and guarantee content language, instead of relying on Mistral
-      implicitly mirroring whatever language the source article happens to be in — see
-      <a href="#source-language">§10</a>.</li>
+  <li>Machine-translating or re-generating the <em>raw ingested article</em> text itself into German
+      (would require a translation-API integration, or re-ingesting from German-native sources) —
+      distinct from Signal summaries, which Main Language already covers (§9/§10).</li>
+  <li>A <code>language</code> column on <code>Signal</code>/<code>Article</code> recording which
+      language each row was actually generated/fetched in, for accurate display if Main Language is
+      changed later — see the historical-drift question in <a href="#assumptions">§13</a>.</li>
   <li>Making NewsAPI.org's and NewsData.io's hardcoded <code>"language": "en"</code> query params
       admin-configurable, matching what Google News RSS already has — see <a href="#source-language">§10</a>.</li>
   <li>Locale-prefixed routing (<code>/de/...</code>) for SEO — not relevant to an authenticated internal
       tool today, but worth revisiting if any public-facing pages are ever added.</li>
-  <li>Per-user server-persisted locale preference syncing across devices.</li>
   <li>Additional locales beyond English/German (the namespace-per-feature structure in §4 is designed
       so this is additive — new resource files, no component changes).</li>
   <li>Region variants (<code>de-AT</code>, <code>de-CH</code>, <code>en-GB</code>) if the user base
