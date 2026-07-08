@@ -1,0 +1,22 @@
+{
+  "loading": "Wird geladen...",
+  "add": "Hinzufügen",
+  "delete": "Löschen",
+  "setupChecklist": {
+    "title": "Erste Schritte",
+    "companyProfile": {
+      "label": "Beschreiben Sie Ihr Unternehmen",
+      "body": "Teilen Sie der KI mit, was Sie verkaufen, damit sie erklären kann, warum jedes Signal wichtig ist.",
+      "linkLabel": "Unternehmensprofil einrichten"
+    },
+    "targetCompany": {
+      "label": "Ein Zielunternehmen hinzufügen",
+      "body": "Wählen Sie die Unternehmen aus, für die Sie News-Signale erhalten möchten.",
+      "linkLabel": "Zielunternehmen hinzufügen"
+    },
+    "firstSignals": {
+      "label": "Ihre ersten Signale abrufen",
+      "body": "Klicken Sie unten auf „Neue Signale abrufen“, sobald Sie ein Zielunternehmen hinzugefügt haben."
+    }
+  }
+}

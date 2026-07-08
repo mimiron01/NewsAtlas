@@ -1,0 +1,20 @@
+{
+  "title": "Übersicht",
+  "subtitle": "Ihre neuesten und relevantesten Signale auf einen Blick.",
+  "stats": {
+    "newSignals": "Neue Signale",
+    "favorites": "Favoriten",
+    "openTodos": "Offene Aufgaben"
+  },
+  "topSignals": "Top-Signale",
+  "viewAllSignals": "Alle Signale anzeigen →",
+  "noSignalsYet": "Noch keine offenen Signale. Sobald Signale eingehen, erscheinen hier Ihre neuesten und relevantesten.",
+  "recentFavorites": "Zuletzt favorisiert",
+  "noFavoritesYet": "Sie haben noch keine Signale favorisiert. Markieren Sie ein Signal mit einem Stern, um es hier anzuheften.",
+  "openTodosHeading": "Offene Aufgaben",
+  "noOpenTodos": "Keine offenen Aufgaben. Fügen Sie über ein Signal eine hinzu, um eine Folgeaktion nachzuverfolgen.",
+  "markTodoComplete": "„{{text}}“ als erledigt markieren",
+  "loadFailed": "Übersicht konnte nicht geladen werden",
+  "favoriteUpdateFailed": "Favorit konnte nicht aktualisiert werden",
+  "todoUpdateFailed": "Aufgabe konnte nicht aktualisiert werden"
+}

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
 import { ARTICLE_SOURCE_LABELS } from "../api/types";
@@ -8,48 +9,19 @@ import Skeleton from "../components/Skeleton";
 import SetupChecklist from "../components/SetupChecklist";
 import SignalRow from "../components/SignalRow";
 import EmptyStateIllustration from "../components/icons/EmptyStateIllustration";
-import { STATUS_TRANSITIONS } from "../constants/signalStatus";
+import { STATUS_TRANSITION_VALUES } from "../constants/signalStatus";
 import { useToast } from "../context/ToastContext";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { usePageTitle } from "../hooks/usePageTitle";
 
-const STATUS_OPTIONS: { value: SignalStatus | ""; label: string }[] = [
-  { value: "", label: "All statuses" },
-  { value: "new", label: "New" },
-  { value: "reviewed", label: "Reviewed" },
-  { value: "archived", label: "Archived" },
-  { value: "dismissed", label: "Dismissed" },
-];
-
 type SortOrder = "newest" | "oldest" | "relevance";
 
 const POLL_INTERVAL_MS = 1500;
-
-function ingestionStatusText(status: IngestionRunStatus): string {
-  if (status.status === "failed") {
-    return status.fatal_error ? `Ingestion run failed: ${status.fatal_error}` : "Ingestion run failed.";
-  }
-  if (status.status === "completed") {
-    return "Finishing up...";
-  }
-  const companyPosition = Math.min(status.companies_processed + 1, Math.max(status.companies_total, 1));
-  const companyProgress =
-    status.companies_total > 0 ? ` (company ${companyPosition} of ${status.companies_total})` : "";
-  if (status.current_step === "summarizing" && status.articles_total_this_company > 0) {
-    const articlePosition = Math.min(
-      status.articles_processed_this_company + 1,
-      status.articles_total_this_company
-    );
-    return `Summarizing articles for ${status.current_company_name ?? "target company"} — article ${articlePosition} of ${status.articles_total_this_company}${companyProgress}`;
-  }
-  if (status.current_company_name) {
-    return `Fetching articles for ${status.current_company_name}${companyProgress}`;
-  }
-  return "Starting...";
-}
+const SIGNAL_STATUSES: SignalStatus[] = ["new", "reviewed", "archived", "dismissed"];
 
 export default function SignalsFeed() {
-  usePageTitle("Signals");
+  const { t } = useTranslation("signals");
+  usePageTitle(t("feed.title"));
   const { showToast } = useToast();
   const isAdmin = useIsAdmin();
   const [searchParams] = useSearchParams();
@@ -73,6 +45,38 @@ export default function SignalsFeed() {
   const sawRunningRef = useRef(false);
   const isRunningIngestion = ingestionStatus?.status === "running";
 
+  function ingestionStatusText(status: IngestionRunStatus): string {
+    if (status.status === "failed") {
+      return status.fatal_error
+        ? t("feed.ingestion.failedWithReason", { reason: status.fatal_error })
+        : t("feed.ingestion.failed");
+    }
+    if (status.status === "completed") {
+      return t("feed.ingestion.finishingUp");
+    }
+    const companyPosition = Math.min(status.companies_processed + 1, Math.max(status.companies_total, 1));
+    const companyProgress =
+      status.companies_total > 0
+        ? t("feed.ingestion.companyProgress", { position: companyPosition, total: status.companies_total })
+        : "";
+    if (status.current_step === "summarizing" && status.articles_total_this_company > 0) {
+      const articlePosition = Math.min(
+        status.articles_processed_this_company + 1,
+        status.articles_total_this_company
+      );
+      return t("feed.ingestion.summarizing", {
+        company: status.current_company_name ?? t("feed.ingestion.defaultCompanyName"),
+        article: articlePosition,
+        total: status.articles_total_this_company,
+        companyProgress,
+      });
+    }
+    if (status.current_company_name) {
+      return t("feed.ingestion.fetching", { company: status.current_company_name, companyProgress });
+    }
+    return t("feed.ingestion.starting");
+  }
+
   function loadSignals() {
     setIsLoading(true);
     const params = new URLSearchParams();
@@ -86,7 +90,7 @@ export default function SignalsFeed() {
         setSignals(result);
         setLoadError(null);
       })
-      .catch((err) => setLoadError(err instanceof ApiError ? err.message : "Failed to load signals"))
+      .catch((err) => setLoadError(err instanceof ApiError ? err.message : t("feed.loadFailed")))
       .finally(() => setIsLoading(false));
   }
 
@@ -147,7 +151,7 @@ export default function SignalsFeed() {
       setSignals((prev) =>
         prev.map((s) => (s.id === signal.id ? { ...s, is_favorited: signal.is_favorited } : s))
       );
-      showToast(err instanceof ApiError ? err.message : "Failed to update favorite", "error");
+      showToast(err instanceof ApiError ? err.message : t("feed.favoriteUpdateFailed"), "error");
     }
   }
 
@@ -157,7 +161,7 @@ export default function SignalsFeed() {
       sawRunningRef.current = true;
       setIngestionStatus(result);
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Failed to start ingestion run", "error");
+      showToast(err instanceof ApiError ? err.message : t("feed.ingestionStartFailed"), "error");
     }
   }
 
@@ -166,7 +170,7 @@ export default function SignalsFeed() {
       const updated = await api.patch<Signal>(`/signals/${id}`, { status });
       setSignals((prev) => prev.map((s) => (s.id === id ? updated : s)));
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Failed to update signal", "error");
+      showToast(err instanceof ApiError ? err.message : t("feed.signalUpdateFailed"), "error");
     }
   }
 
@@ -180,9 +184,9 @@ export default function SignalsFeed() {
         prev.map((s) => updates.find((updated) => updated.id === s.id) ?? s)
       );
       setSelectedIds(new Set());
-      showToast(`Updated ${ids.length} signal${ids.length === 1 ? "" : "s"}.`, "success");
+      showToast(t("feed.bulkUpdated", { count: ids.length }), "success");
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Bulk update failed", "error");
+      showToast(err instanceof ApiError ? err.message : t("feed.bulkUpdateFailed"), "error");
     }
   }
 
@@ -235,18 +239,18 @@ export default function SignalsFeed() {
     <div>
       <div className="panel-card feed-toolbar">
         <div>
-          <h2>Signals feed</h2>
-          <p className="subtitle">News signals for your target companies, summarized by AI.</p>
+          <h2>{t("feed.title")}</h2>
+          <p className="subtitle">{t("feed.subtitle")}</p>
         </div>
         <button
           type="button"
           onClick={handleRunIngestion}
           disabled={isRunningIngestion || !hasTargetCompany}
-          title={hasTargetCompany ? undefined : "Add a target company first"}
+          title={hasTargetCompany ? undefined : t("feed.addTargetCompanyFirst")}
         >
           {isRunningIngestion
-            ? `Fetching... ${ingestionStatus?.progress_percent ?? 0}%`
-            : "Fetch new signals"}
+            ? t("feed.fetching", { percent: ingestionStatus?.progress_percent ?? 0 })
+            : t("feed.fetchNewSignals")}
         </button>
       </div>
 
@@ -276,22 +280,27 @@ export default function SignalsFeed() {
       {sawRunningRef.current && ingestionStatus && ingestionStatus.status === "completed" && (
         <div className="panel-card">
           <p className="subtitle">
-            Checked {ingestionStatus.companies_total} target compan
-            {ingestionStatus.companies_total === 1 ? "y" : "ies"}, found{" "}
-            {ingestionStatus.articles_new} new article(s), created {ingestionStatus.signals_created}{" "}
-            signal(s)
+            {t("feed.ingestion.companiesChecked", { count: ingestionStatus.companies_total })}
+            {t("feed.ingestion.articlesFound", { count: ingestionStatus.articles_new })}
+            {t("feed.ingestion.signalsCreatedText", { count: ingestionStatus.signals_created })}
             {(ingestionStatus.duplicates_skipped > 0 || ingestionStatus.triaged_out > 0) && (
               <>
-                {" "}({ingestionStatus.duplicates_skipped} duplicate(s) and{" "}
-                {ingestionStatus.triaged_out} low-relevance article(s) skipped without a full
-                AI call)
+                {" "}
+                {t("feed.ingestion.skippedSuffix", {
+                  duplicates: t("feed.ingestion.duplicatesSkipped", {
+                    count: ingestionStatus.duplicates_skipped,
+                  }),
+                  lowRelevance: t("feed.ingestion.lowRelevanceSkipped", {
+                    count: ingestionStatus.triaged_out,
+                  }),
+                })}
               </>
             )}
             .
           </p>
           {Object.keys(ingestionStatus.by_source).length > 0 && (
             <p className="field-hint">
-              By source:{" "}
+              {t("feed.bySource")}{" "}
               {Object.entries(ingestionStatus.by_source)
                 .map(([source, count]) => `${ARTICLE_SOURCE_LABELS[source as keyof typeof ARTICLE_SOURCE_LABELS] ?? source}: ${count}`)
                 .join(", ")}
@@ -299,9 +308,15 @@ export default function SignalsFeed() {
           )}
           {Object.keys(ingestionStatus.rate_limited).length > 0 && (
             <p className="field-hint error-text">
-              Rate limited (skipped, no request made):{" "}
+              {t("feed.rateLimited")}{" "}
               {Object.entries(ingestionStatus.rate_limited)
-                .map(([source, count]) => `${ARTICLE_SOURCE_LABELS[source as keyof typeof ARTICLE_SOURCE_LABELS] ?? source}: ${count} compan${count === 1 ? "y" : "ies"}`)
+                .map(
+                  ([source, count]) =>
+                    `${ARTICLE_SOURCE_LABELS[source as keyof typeof ARTICLE_SOURCE_LABELS] ?? source}: ${t(
+                      "feed.ingestion.companiesRateLimited",
+                      { count }
+                    )}`
+                )
                 .join(", ")}
             </p>
           )}
@@ -320,9 +335,9 @@ export default function SignalsFeed() {
       <div className="panel-card">
         <div className="field-row">
           <label>
-            Target company
+            {t("feed.targetCompany")}
             <select value={companyFilter} onChange={(e) => setCompanyFilter(e.target.value)}>
-              <option value="">All companies</option>
+              <option value="">{t("feed.allCompanies")}</option>
               {companies.map((company) => (
                 <option key={company.id} value={company.id}>
                   {company.name}
@@ -331,14 +346,15 @@ export default function SignalsFeed() {
             </select>
           </label>
           <label>
-            Status
+            {t("feed.statusLabel")}
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as SignalStatus | "")}
             >
-              {STATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              <option value="">{t("status.all")}</option>
+              {SIGNAL_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {t(`status.${status}`)}
                 </option>
               ))}
             </select>
@@ -349,24 +365,24 @@ export default function SignalsFeed() {
               checked={favoritedOnly}
               onChange={(e) => setFavoritedOnly(e.target.checked)}
             />
-            Favorites only
+            {t("feed.favoritesOnly")}
           </label>
         </div>
         <div className="field-row">
           <label>
-            Search
+            {t("feed.search")}
             <input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search title, summary, or company..."
+              placeholder={t("feed.searchPlaceholder")}
             />
           </label>
           <label>
-            Sort
+            {t("feed.sort")}
             <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value as SortOrder)}>
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-              <option value="relevance">Most relevant first</option>
+              <option value="newest">{t("feed.sortNewest")}</option>
+              <option value="oldest">{t("feed.sortOldest")}</option>
+              <option value="relevance">{t("feed.sortRelevance")}</option>
             </select>
           </label>
         </div>
@@ -376,21 +392,17 @@ export default function SignalsFeed() {
         {!isLoading && !loadError && visibleSignals.length === 0 && signals.length === 0 && favoritedOnly && (
           <div className="empty-state">
             <EmptyStateIllustration />
-            <p className="subtitle">
-              You haven't favorited any signals yet. Star a signal to pin it here.
-            </p>
+            <p className="subtitle">{t("feed.noFavoritesYet")}</p>
           </div>
         )}
         {!isLoading && !loadError && visibleSignals.length === 0 && signals.length === 0 && !favoritedOnly && (
           <div className="empty-state">
             <EmptyStateIllustration />
-            <p className="subtitle">
-              No signals yet. Add target companies and click "Fetch new signals" to get started.
-            </p>
+            <p className="subtitle">{t("feed.noSignalsYet")}</p>
           </div>
         )}
         {!isLoading && !loadError && visibleSignals.length === 0 && signals.length > 0 && (
-          <p className="subtitle">No signals match your search.</p>
+          <p className="subtitle">{t("feed.noSearchMatches")}</p>
         )}
 
         {!isLoading && visibleSignals.length > 0 && (
@@ -402,19 +414,19 @@ export default function SignalsFeed() {
                   checked={selectedIds.size === visibleSignals.length}
                   onChange={toggleSelectAll}
                 />
-                Select all
+                {t("feed.selectAll")}
               </label>
               {selectedIds.size > 0 && (
                 <div className="bulk-actions">
-                  <span className="subtitle">{selectedIds.size} selected</span>
-                  {STATUS_TRANSITIONS.map((transition) => (
+                  <span className="subtitle">{t("feed.selectedCount", { count: selectedIds.size })}</span>
+                  {STATUS_TRANSITION_VALUES.map((status) => (
                     <button
                       type="button"
-                      key={transition.value}
+                      key={status}
                       className="secondary"
-                      onClick={() => transitionSelected(transition.value)}
+                      onClick={() => transitionSelected(status)}
                     >
-                      {transition.label}
+                      {t(`transitions.${status}`)}
                     </button>
                   ))}
                 </div>

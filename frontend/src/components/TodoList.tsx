@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import type { SignalTodo } from "../api/types";
 
@@ -10,6 +11,7 @@ interface TodoListProps {
 }
 
 export default function TodoList({ todos, onAdd, onToggle, onDelete }: TodoListProps) {
+  const { t } = useTranslation(["signals", "common"]);
   const [draft, setDraft] = useState("");
 
   function handleSubmit(event: FormEvent) {
@@ -31,17 +33,17 @@ export default function TodoList({ todos, onAdd, onToggle, onDelete }: TodoListP
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Add a note or todo..."
+          placeholder={t("signals:todos.addPlaceholder")}
           maxLength={1000}
-          aria-label="New todo text"
+          aria-label={t("signals:todos.newTodoLabel")}
         />
         <button type="submit" disabled={!draft.trim()}>
-          Add
+          {t("common:add")}
         </button>
       </form>
 
       {sorted.length === 0 ? (
-        <p className="subtitle">No notes yet. Add one to track a follow-up on this signal.</p>
+        <p className="subtitle">{t("signals:todos.empty")}</p>
       ) : (
         <ul className="todo-items">
           {sorted.map((todo) => (
@@ -51,7 +53,11 @@ export default function TodoList({ todos, onAdd, onToggle, onDelete }: TodoListP
                   type="checkbox"
                   checked={todo.is_done}
                   onChange={() => onToggle(todo)}
-                  aria-label={todo.is_done ? `Mark "${todo.text}" incomplete` : `Mark "${todo.text}" complete`}
+                  aria-label={
+                    todo.is_done
+                      ? t("signals:todos.markIncomplete", { text: todo.text })
+                      : t("signals:todos.markComplete", { text: todo.text })
+                  }
                 />
                 <span className="todo-text">{todo.text}</span>
               </label>
@@ -59,9 +65,9 @@ export default function TodoList({ todos, onAdd, onToggle, onDelete }: TodoListP
                 type="button"
                 className="link-button todo-delete"
                 onClick={() => onDelete(todo)}
-                aria-label={`Delete "${todo.text}"`}
+                aria-label={t("signals:todos.delete", { text: todo.text })}
               >
-                Delete
+                {t("common:delete")}
               </button>
             </li>
           ))}

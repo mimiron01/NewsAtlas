@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from "react";
 
 import { api, clearToken, getToken, setToken } from "../api/client";
-import type { User } from "../api/types";
+import type { SupportedLanguage, User } from "../api/types";
+import i18n from "../i18n";
 
 interface AuthContextValue {
   user: User | null;
@@ -10,6 +11,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string, inviteCode: string) => Promise<void>;
   logout: () => Promise<void>;
+  setLanguagePreference: (language: SupportedLanguage | null) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -44,6 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loadCurrentUser();
   }, [loadCurrentUser]);
 
+  // Once we know who's logged in, the account/workspace settings become authoritative
+  // over whatever the browser-detected language guessed pre-login (see i18n/index.ts).
+  useEffect(() => {
+    if (user) {
+      i18n.changeLanguage(user.preferred_language ?? user.workspace_main_language);
+    }
+  }, [user]);
+
   const login = useCallback(async (email: string, password: string) => {
     const response = await api.post<TokenResponse>("/auth/login", { email, password });
     setToken(response.access_token);
@@ -64,6 +74,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [loadCurrentUser]
   );
 
+  const setLanguagePreference = useCallback(async (language: SupportedLanguage | null) => {
+    const updated = await api.patch<User>("/auth/me/language", { preferred_language: language });
+    setUser(updated);
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       // Best-effort: revokes the token server-side (see /auth/logout). Still clear the
@@ -77,8 +92,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, isLoading, login, signup, logout }),
-    [user, isLoading, login, signup, logout]
+    () => ({ user, isLoading, login, signup, logout, setLanguagePreference }),
+    [user, isLoading, login, signup, logout, setLanguagePreference]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

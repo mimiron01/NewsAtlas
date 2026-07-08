@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { ARTICLE_SOURCE_LABELS } from "../api/types";
 import type { Signal, SignalStatus } from "../api/types";
-import { STATUS_TRANSITIONS } from "../constants/signalStatus";
+import { STATUS_TRANSITION_VALUES } from "../constants/signalStatus";
 import FavoriteButton from "./FavoriteButton";
 
 interface SignalRowProps {
@@ -13,6 +14,8 @@ interface SignalRowProps {
 }
 
 export default function SignalRow({ signal, onFavoriteToggle, selection, onTransition }: SignalRowProps) {
+  const { t } = useTranslation("signals");
+
   return (
     <li>
       <div className="signal-row">
@@ -22,13 +25,13 @@ export default function SignalRow({ signal, onFavoriteToggle, selection, onTrans
             className="signal-checkbox"
             checked={selection.checked}
             onChange={selection.onToggle}
-            aria-label={`Select ${signal.article_title}`}
+            aria-label={t("select", { title: signal.article_title })}
           />
         )}
         <FavoriteButton isFavorited={signal.is_favorited} onToggle={() => onFavoriteToggle(signal)} />
         <Link to={`/signals/${signal.id}`} className="signal-row-link">
           <div className="signal-row-main">
-            <span className={`status-badge status-${signal.status}`}>{signal.status}</span>
+            <span className={`status-badge status-${signal.status}`}>{t(`status.${signal.status}`)}</span>
             {signal.relevance_score !== null && (
               <span className={`score-badge score-${signal.relevance_score}`}>
                 {signal.relevance_score}/5
@@ -36,9 +39,7 @@ export default function SignalRow({ signal, onFavoriteToggle, selection, onTrans
             )}
             <span className="source-badge">{ARTICLE_SOURCE_LABELS[signal.article_source]}</span>
             {signal.open_todo_count > 0 && (
-              <span className="todo-pill">
-                {signal.open_todo_count} open {signal.open_todo_count === 1 ? "task" : "tasks"}
-              </span>
+              <span className="todo-pill">{t("openTasks", { count: signal.open_todo_count })}</span>
             )}
             <div>
               <strong>{signal.target_company_name}</strong>
@@ -49,14 +50,14 @@ export default function SignalRow({ signal, onFavoriteToggle, selection, onTrans
         </Link>
         {onTransition && (
           <div className="signal-row-actions">
-            {STATUS_TRANSITIONS.filter((t) => t.value !== signal.status).map((transition) => (
+            {STATUS_TRANSITION_VALUES.filter((status) => status !== signal.status).map((status) => (
               <button
                 type="button"
-                key={transition.value}
+                key={status}
                 className="secondary"
-                onClick={() => onTransition(signal.id, transition.value)}
+                onClick={() => onTransition(signal.id, status)}
               >
-                {transition.label}
+                {t(`transitions.${status}`)}
               </button>
             ))}
           </div>

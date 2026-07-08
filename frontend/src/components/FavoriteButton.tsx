@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 import { StarIcon } from "./icons/NavIcons";
 
 interface FavoriteButtonProps {
@@ -7,11 +9,12 @@ interface FavoriteButtonProps {
 }
 
 export default function FavoriteButton({ isFavorited, onToggle, className }: FavoriteButtonProps) {
+  const { t } = useTranslation("signals");
   return (
     <button
       type="button"
       className={`favorite-button${isFavorited ? " active" : ""}${className ? ` ${className}` : ""}`}
-      aria-label={isFavorited ? "Unfavorite" : "Favorite"}
+      aria-label={isFavorited ? t("unfavorite") : t("favorite")}
       aria-pressed={isFavorited}
       onClick={(event) => {
         event.preventDefault();

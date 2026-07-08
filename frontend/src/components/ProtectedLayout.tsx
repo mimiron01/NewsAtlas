@@ -1,17 +1,13 @@
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Outlet, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../context/AuthContext";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { useTheme } from "../hooks/useTheme";
+import LanguageSwitcher from "./LanguageSwitcher";
 import { HomeIcon, MenuIcon, MoonIcon, SignalsIcon, SunIcon, TargetsIcon } from "./icons/NavIcons";
 import ProfileMenu from "./ProfileMenu";
-
-const THEME_LABEL: Record<string, string> = {
-  light: "Light",
-  dark: "Dark",
-  system: "System",
-};
 
 export default function ProtectedLayout() {
   const { user, isLoading, logout } = useAuth();
@@ -19,13 +15,14 @@ export default function ProtectedLayout() {
   const { theme, cycleTheme } = useTheme();
   const [isNavOpen, setIsNavOpen] = useState(false);
   const location = useLocation();
+  const { t } = useTranslation(["nav", "common"]);
 
   useEffect(() => {
     setIsNavOpen(false);
   }, [location.pathname]);
 
   if (isLoading) {
-    return <p className="centered">Loading...</p>;
+    return <p className="centered">{t("common:loading")}</p>;
   }
 
   if (!user) {
@@ -37,7 +34,7 @@ export default function ProtectedLayout() {
       <button
         type="button"
         className="nav-toggle"
-        aria-label="Toggle navigation"
+        aria-label={t("nav:toggleNav")}
         onClick={() => setIsNavOpen((open) => !open)}
       >
         <MenuIcon />
@@ -46,23 +43,24 @@ export default function ProtectedLayout() {
         <div className="nav-backdrop" onClick={() => setIsNavOpen(false)} aria-hidden="true" />
       )}
       <aside className={`sidebar ${isNavOpen ? "open" : ""}`}>
-        <h1 className="brand">NewsAtlas</h1>
+        <h1 className="brand">{t("nav:brand")}</h1>
         <nav>
           <NavLink to="/" end>
-            <HomeIcon /> Dashboard
+            <HomeIcon /> {t("nav:links.dashboard")}
           </NavLink>
           <NavLink to="/signals">
-            <SignalsIcon /> Signals
+            <SignalsIcon /> {t("nav:links.signals")}
           </NavLink>
           <NavLink to="/settings/targets">
-            <TargetsIcon /> My companies
+            <TargetsIcon /> {t("nav:links.targets")}
           </NavLink>
         </nav>
         <div className="sidebar-footer">
           <button type="button" className="theme-toggle" onClick={cycleTheme}>
             {theme === "dark" ? <MoonIcon /> : <SunIcon />}
-            {THEME_LABEL[theme]} theme
+            {t(`nav:theme.${theme}`)}
           </button>
+          <LanguageSwitcher />
           <ProfileMenu user={user} isAdmin={isAdmin} onLogout={logout} />
         </div>
       </aside>

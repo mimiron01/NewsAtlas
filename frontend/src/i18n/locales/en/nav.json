@@ -1,0 +1,23 @@
+{
+  "brand": "NewsAtlas",
+  "toggleNav": "Toggle navigation",
+  "links": {
+    "dashboard": "Dashboard",
+    "signals": "Signals",
+    "targets": "My companies"
+  },
+  "theme": {
+    "light": "Light theme",
+    "dark": "Dark theme",
+    "system": "System theme"
+  },
+  "language": {
+    "workspaceDefault": "Workspace default",
+    "en": "English",
+    "de": "Deutsch"
+  },
+  "profile": {
+    "settings": "Settings",
+    "logout": "Log out"
+  }
+}

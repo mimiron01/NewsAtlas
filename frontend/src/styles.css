@@ -167,7 +167,8 @@ button.link-button:hover:not(:disabled) { text-decoration: underline; transform:
   border-top: 1px solid var(--border);
   padding-top: 12px;
 }
-.theme-toggle {
+.theme-toggle,
+.language-toggle {
   display: flex;
   align-items: center;
   gap: 8px;

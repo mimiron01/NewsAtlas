@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
 import type { DashboardSummary, Signal, TargetCompany, WorkspaceSettings } from "../api/types";
@@ -12,7 +13,8 @@ import { useIsAdmin } from "../hooks/useIsAdmin";
 import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function Dashboard() {
-  usePageTitle("Dashboard");
+  const { t } = useTranslation("dashboard");
+  usePageTitle(t("title"));
   const { showToast } = useToast();
   const isAdmin = useIsAdmin();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
@@ -29,7 +31,7 @@ export default function Dashboard() {
         setSummary(result);
         setLoadError(null);
       })
-      .catch((err) => setLoadError(err instanceof ApiError ? err.message : "Failed to load dashboard"))
+      .catch((err) => setLoadError(err instanceof ApiError ? err.message : t("loadFailed")))
       .finally(() => setIsLoading(false));
   }
 
@@ -72,7 +74,7 @@ export default function Dashboard() {
       setSummary((prev) =>
         prev ? { ...prev, favorite_count: prev.favorite_count + (nextFavorited ? -1 : 1) } : prev
       );
-      showToast(err instanceof ApiError ? err.message : "Failed to update favorite", "error");
+      showToast(err instanceof ApiError ? err.message : t("favoriteUpdateFailed"), "error");
     }
   }
 
@@ -95,7 +97,7 @@ export default function Dashboard() {
           ? { ...prev, open_todos: [removed, ...prev.open_todos], open_todo_count: prev.open_todo_count + 1 }
           : prev
       );
-      showToast(err instanceof ApiError ? err.message : "Failed to update todo", "error");
+      showToast(err instanceof ApiError ? err.message : t("todoUpdateFailed"), "error");
     }
   }
 
@@ -123,23 +125,23 @@ export default function Dashboard() {
     <div>
       <div className="panel-card feed-toolbar">
         <div>
-          <h2>Dashboard</h2>
-          <p className="subtitle">Your newest and most relevant signals, at a glance.</p>
+          <h2>{t("title")}</h2>
+          <p className="subtitle">{t("subtitle")}</p>
         </div>
       </div>
 
       <div className="dashboard-stats">
         <Link to="/signals?status=new" className="dashboard-stat">
           <strong>{summary.new_signal_count}</strong>
-          <span>New signals</span>
+          <span>{t("stats.newSignals")}</span>
         </Link>
         <Link to="/signals?favorited=true" className="dashboard-stat">
           <strong>{summary.favorite_count}</strong>
-          <span>Favorites</span>
+          <span>{t("stats.favorites")}</span>
         </Link>
         <a href="#open-todos-panel" className="dashboard-stat">
           <strong>{summary.open_todo_count}</strong>
-          <span>Open todos</span>
+          <span>{t("stats.openTodos")}</span>
         </a>
       </div>
 
@@ -153,17 +155,15 @@ export default function Dashboard() {
 
       <div className="panel-card">
         <div className="feed-toolbar">
-          <h3>Top signals</h3>
+          <h3>{t("topSignals")}</h3>
           <Link to="/signals" className="link-button">
-            View all signals →
+            {t("viewAllSignals")}
           </Link>
         </div>
         {summary.top_signals.length === 0 ? (
           <div className="empty-state">
             <EmptyStateIllustration />
-            <p className="subtitle">
-              No open signals yet. Once signals come in, your newest and most relevant ones show up here.
-            </p>
+            <p className="subtitle">{t("noSignalsYet")}</p>
           </div>
         ) : (
           <ul className="signal-list">
@@ -176,9 +176,9 @@ export default function Dashboard() {
 
       <div className="dashboard-panels">
         <div className="panel-card">
-          <h3>Recent favorites</h3>
+          <h3>{t("recentFavorites")}</h3>
           {summary.recent_favorites.length === 0 ? (
-            <p className="subtitle">You haven't favorited any signals yet. Star a signal to pin it here.</p>
+            <p className="subtitle">{t("noFavoritesYet")}</p>
           ) : (
             <ul className="dashboard-mini-list">
               {summary.recent_favorites.map((signal) => (
@@ -192,9 +192,9 @@ export default function Dashboard() {
         </div>
 
         <div className="panel-card" id="open-todos-panel">
-          <h3>Open todos</h3>
+          <h3>{t("openTodosHeading")}</h3>
           {summary.open_todos.length === 0 ? (
-            <p className="subtitle">No open todos. Add one from a signal to track a follow-up.</p>
+            <p className="subtitle">{t("noOpenTodos")}</p>
           ) : (
             <ul className="dashboard-mini-list">
               {summary.open_todos.map((todo) => (
@@ -204,7 +204,7 @@ export default function Dashboard() {
                       type="checkbox"
                       checked={false}
                       onChange={() => handleTodoDone(todo.id)}
-                      aria-label={`Mark "${todo.text}" complete`}
+                      aria-label={t("markTodoComplete", { text: todo.text })}
                     />
                     <span className="todo-text">{todo.text}</span>
                   </label>

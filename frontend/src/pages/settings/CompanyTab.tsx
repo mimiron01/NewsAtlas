@@ -67,6 +67,23 @@ export default function CompanyTab() {
           />
         </label>
 
+        <label>
+          Main language
+          <select
+            value={settings.main_language}
+            onChange={(e) =>
+              setSettings({ ...settings, main_language: e.target.value as "en" | "de" })
+            }
+          >
+            <option value="en">English</option>
+            <option value="de">Deutsch</option>
+          </select>
+          <span className="field-hint">
+            The standard language for the interface and AI-generated signal summaries. Users can
+            still override it for themselves in their own profile.
+          </span>
+        </label>
+
         <div className="field-row">
           <label>
             Ingestion interval (hours)

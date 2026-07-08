@@ -1,0 +1,22 @@
+{
+  "loading": "Loading...",
+  "add": "Add",
+  "delete": "Delete",
+  "setupChecklist": {
+    "title": "Get started",
+    "companyProfile": {
+      "label": "Describe your company",
+      "body": "Tell the AI what you sell so it can explain why each signal matters.",
+      "linkLabel": "Set up company profile"
+    },
+    "targetCompany": {
+      "label": "Add a target company",
+      "body": "Pick the companies you want news signals for.",
+      "linkLabel": "Add target companies"
+    },
+    "firstSignals": {
+      "label": "Fetch your first signals",
+      "body": "Click \"Fetch new signals\" below once you've added a target company."
+    }
+  }
+}
