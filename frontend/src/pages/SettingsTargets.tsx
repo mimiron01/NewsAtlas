@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
 import type { BackfillTriggerResult, TargetCompany, WorkspaceSettings } from "../api/types";
@@ -8,7 +9,8 @@ import { useIsAdmin } from "../hooks/useIsAdmin";
 import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function SettingsTargets() {
-  usePageTitle("My companies");
+  const { t } = useTranslation("settings");
+  usePageTitle(t("targets.title"));
   const { showToast } = useToast();
   const isAdmin = useIsAdmin();
   const [companies, setCompanies] = useState<TargetCompany[]>([]);
@@ -28,10 +30,10 @@ export default function SettingsTargets() {
     api
       .get<TargetCompany[]>("/target-companies")
       .then(setCompanies)
-      .catch((err) => showToast(err instanceof ApiError ? err.message : "Failed to load companies", "error"));
+      .catch((err) => showToast(err instanceof ApiError ? err.message : t("targets.loadFailed"), "error"));
   }
 
-  useEffect(loadCompanies, []);
+  useEffect(loadCompanies, [t]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -53,13 +55,13 @@ export default function SettingsTargets() {
       setName("");
       setKeywords([]);
       setIndustry("");
-      showToast("Target company added.", "success");
+      showToast(t("targets.addedToast"), "success");
       if (backfillEnabled && created.backfilled_at === null) {
         setJustCreatedId(created.id);
       }
       loadCompanies();
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Failed to add company", "error");
+      showToast(err instanceof ApiError ? err.message : t("targets.addFailed"), "error");
     } finally {
       setIsSubmitting(false);
     }
@@ -71,7 +73,7 @@ export default function SettingsTargets() {
       await api.patch(`/target-companies/${company.id}`, { is_active: !company.is_active });
       loadCompanies();
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Failed to update company", "error");
+      showToast(err instanceof ApiError ? err.message : t("targets.updateFailed"), "error");
     } finally {
       setPendingId(null);
     }
@@ -83,7 +85,7 @@ export default function SettingsTargets() {
       await api.post(`/target-companies/${company.id}/mute`);
       loadCompanies();
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Failed to update company", "error");
+      showToast(err instanceof ApiError ? err.message : t("targets.updateFailed"), "error");
     } finally {
       setPendingId(null);
     }
@@ -94,12 +96,14 @@ export default function SettingsTargets() {
     try {
       await api.delete(`/target-companies/${company.id}`);
       showToast(
-        isAdmin ? `Deleted "${company.name}".` : `Unfollowed "${company.name}".`,
+        isAdmin
+          ? t("targets.deletedToast", { name: company.name })
+          : t("targets.unfollowedToast", { name: company.name }),
         "success"
       );
       loadCompanies();
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Failed to remove company", "error");
+      showToast(err instanceof ApiError ? err.message : t("targets.removeFailed"), "error");
     } finally {
       setPendingId(null);
       setConfirmingId(null);
@@ -113,71 +117,69 @@ export default function SettingsTargets() {
       showToast(result.message, "success");
       setJustCreatedId(company.id);
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Failed to trigger backfill", "error");
+      showToast(err instanceof ApiError ? err.message : t("targets.backfillFailed"), "error");
     } finally {
       setPendingId(null);
     }
   }
 
   function removeLabel(): string {
-    return isAdmin ? "Delete" : "Unfollow";
+    return isAdmin ? t("targets.delete") : t("targets.unfollow");
   }
 
   function confirmCopy(company: TargetCompany): string {
     if (isAdmin) {
-      return `This permanently deletes "${company.name}" and all its signals for every user. Continue?`;
+      return t("targets.confirmDeleteAdmin", { name: company.name });
     }
     if (company.follower_count <= 1) {
-      return `You're the only follower — unfollowing "${company.name}" removes it (and its signals) for everyone. Continue?`;
+      return t("targets.confirmUnfollowOnly", { name: company.name });
     }
-    return `Unfollow "${company.name}"? Other users tracking it keep seeing it.`;
+    return t("targets.confirmUnfollowShared", { name: company.name });
   }
 
   return (
     <div>
       <form className="panel-card" onSubmit={handleAdd}>
-        <h2>My companies</h2>
-        <p className="subtitle">
-          Add the companies you want news signals for. Keywords/aliases help match more articles.
-        </p>
+        <h2>{t("targets.title")}</h2>
+        <p className="subtitle">{t("targets.subtitle")}</p>
         <div className="field-row">
           <label>
-            Company name
+            {t("targets.companyName")}
             <input value={name} onChange={(e) => setName(e.target.value)} required />
           </label>
           <label>
-            Industry (optional)
+            {t("targets.industryOptional")}
             <input value={industry} onChange={(e) => setIndustry(e.target.value)} />
           </label>
         </div>
         <label>
-          Keywords / aliases
+          {t("targets.keywords")}
           <TagInput
             tags={keywords}
             onChange={setKeywords}
-            placeholder="Type a keyword and press Enter"
+            placeholder={t("targets.keywordsPlaceholder")}
           />
         </label>
         <button type="submit" disabled={isSubmitting}>
-          Add target company
+          {t("targets.addTargetCompany")}
         </button>
       </form>
 
       <div className="panel-card">
-        <h3>Tracked companies ({companies.length})</h3>
-        {companies.length === 0 && <p className="subtitle">No target companies yet.</p>}
+        <h3>{t("targets.trackedCompanies", { count: companies.length })}</h3>
+        {companies.length === 0 && <p className="subtitle">{t("targets.noCompaniesYet")}</p>}
         <ul className="target-list">
           {companies.map((company) => (
             <li key={company.id} className={company.is_active ? "" : "inactive"}>
               <div>
                 <strong>{company.name}</strong>
                 {company.industry && <span className="tag">{company.industry}</span>}
-                {company.is_muted && <span className="tag">Muted</span>}
+                {company.is_muted && <span className="tag">{t("targets.muted")}</span>}
                 {company.keywords.length > 0 && (
                   <div className="keywords">{company.keywords.join(", ")}</div>
                 )}
                 {company.id === justCreatedId && company.backfilled_at === null && (
-                  <div className="field-hint">Backfilling historical coverage from NewsData.io...</div>
+                  <div className="field-hint">{t("targets.backfilling")}</div>
                 )}
               </div>
               <div className="actions">
@@ -186,9 +188,9 @@ export default function SettingsTargets() {
                     type="button"
                     disabled={pendingId === company.id}
                     onClick={() => triggerBackfill(company)}
-                    title="Pull historical coverage for this company from NewsData.io's archive"
+                    title={t("targets.backfillTitle")}
                   >
-                    Backfill history
+                    {t("targets.backfillHistory")}
                   </button>
                 )}
                 <button
@@ -196,14 +198,14 @@ export default function SettingsTargets() {
                   disabled={pendingId === company.id}
                   onClick={() => toggleMute(company)}
                 >
-                  {company.is_muted ? "Unmute" : "Mute"}
+                  {company.is_muted ? t("targets.unmute") : t("targets.mute")}
                 </button>
                 <button
                   type="button"
                   disabled={pendingId === company.id}
                   onClick={() => toggleActive(company)}
                 >
-                  {company.is_active ? "Pause" : "Resume"}
+                  {company.is_active ? t("targets.pause") : t("targets.resume")}
                 </button>
                 {confirmingId === company.id ? (
                   <>
@@ -213,10 +215,10 @@ export default function SettingsTargets() {
                       disabled={pendingId === company.id}
                       onClick={() => remove(company)}
                     >
-                      Confirm {removeLabel().toLowerCase()}
+                      {t("targets.confirmAction", { action: removeLabel().toLowerCase() })}
                     </button>
                     <button type="button" onClick={() => setConfirmingId(null)}>
-                      Cancel
+                      {t("targets.cancel")}
                     </button>
                   </>
                 ) : (

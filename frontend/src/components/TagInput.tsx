@@ -1,4 +1,5 @@
 import { KeyboardEvent, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface TagInputProps {
   tags: string[];
@@ -7,6 +8,7 @@ interface TagInputProps {
 }
 
 export default function TagInput({ tags, onChange, placeholder }: TagInputProps) {
+  const { t } = useTranslation("settings");
   const [draft, setDraft] = useState("");
 
   function commitDraft() {
@@ -38,7 +40,7 @@ export default function TagInput({ tags, onChange, placeholder }: TagInputProps)
           <button
             type="button"
             className="tag-chip-remove"
-            aria-label={`Remove ${tag}`}
+            aria-label={t("targets.removeTag", { tag })}
             onClick={() => removeTag(index)}
           >
             ×

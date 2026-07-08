@@ -1,16 +1,14 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../../api/client";
 import type { AIUsageSummary } from "../../api/types";
 import Skeleton from "../../components/Skeleton";
-
-const CALL_TYPE_LABELS: Record<string, string> = {
-  embedding: "Duplicate detection (embeddings)",
-  triage: "Relevance triage (small model)",
-  summarize: "Full summarization (large model)",
-};
+import { useLocaleFormat } from "../../hooks/useLocaleFormat";
 
 export default function UsageTab() {
+  const { t } = useTranslation("settings");
+  const { formatNumber } = useLocaleFormat();
   const [summary, setSummary] = useState<AIUsageSummary | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -18,8 +16,8 @@ export default function UsageTab() {
     api
       .get<AIUsageSummary>("/ai-usage/summary?days=30")
       .then(setSummary)
-      .catch((err) => setLoadError(err instanceof ApiError ? err.message : "Failed to load AI usage"));
-  }, []);
+      .catch((err) => setLoadError(err instanceof ApiError ? err.message : t("usage.loadFailed")));
+  }, [t]);
 
   if (loadError) {
     return <p className="error-text">{loadError}</p>;
@@ -36,50 +34,47 @@ export default function UsageTab() {
   return (
     <div>
       <div className="panel-card">
-        <h2>AI usage</h2>
-        <p className="subtitle">
-          Mistral token usage over the last {summary.period_days} days, broken down by pipeline
-          stage so you can see the cost impact of duplicate-skipping and triage filtering.
-        </p>
+        <h2>{t("usage.title")}</h2>
+        <p className="subtitle">{t("usage.subtitle", { days: summary.period_days })}</p>
         <div className="usage-totals">
           <div>
             <strong>{summary.total_calls}</strong>
-            <span>API calls</span>
+            <span>{t("usage.apiCalls")}</span>
           </div>
           <div>
-            <strong>{summary.total_tokens.toLocaleString()}</strong>
-            <span>Total tokens</span>
+            <strong>{formatNumber(summary.total_tokens)}</strong>
+            <span>{t("usage.totalTokens")}</span>
           </div>
           <div>
-            <strong>{summary.prompt_tokens.toLocaleString()}</strong>
-            <span>Prompt tokens</span>
+            <strong>{formatNumber(summary.prompt_tokens)}</strong>
+            <span>{t("usage.promptTokens")}</span>
           </div>
           <div>
-            <strong>{summary.completion_tokens.toLocaleString()}</strong>
-            <span>Completion tokens</span>
+            <strong>{formatNumber(summary.completion_tokens)}</strong>
+            <span>{t("usage.completionTokens")}</span>
           </div>
         </div>
       </div>
 
       <div className="panel-card">
-        <h3>By pipeline stage</h3>
+        <h3>{t("usage.byStage")}</h3>
         {summary.by_call_type.length === 0 ? (
-          <p className="subtitle">No AI calls recorded yet.</p>
+          <p className="subtitle">{t("usage.noCallsYet")}</p>
         ) : (
           <table className="usage-table">
             <thead>
               <tr>
-                <th>Stage</th>
-                <th>Calls</th>
-                <th>Total tokens</th>
+                <th>{t("usage.stage")}</th>
+                <th>{t("usage.calls")}</th>
+                <th>{t("usage.totalTokens")}</th>
               </tr>
             </thead>
             <tbody>
               {summary.by_call_type.map((row) => (
                 <tr key={row.call_type}>
-                  <td>{CALL_TYPE_LABELS[row.call_type] ?? row.call_type}</td>
+                  <td>{t(`usage.callTypes.${row.call_type}`, { defaultValue: row.call_type })}</td>
                   <td>{row.call_count}</td>
-                  <td>{row.total_tokens.toLocaleString()}</td>
+                  <td>{formatNumber(row.total_tokens)}</td>
                 </tr>
               ))}
             </tbody>
@@ -88,22 +83,22 @@ export default function UsageTab() {
       </div>
 
       <div className="panel-card">
-        <h3>By target company</h3>
+        <h3>{t("usage.byCompany")}</h3>
         {summary.by_target_company.length === 0 ? (
-          <p className="subtitle">No AI calls recorded yet.</p>
+          <p className="subtitle">{t("usage.noCallsYet")}</p>
         ) : (
           <table className="usage-table">
             <thead>
               <tr>
-                <th>Target company</th>
-                <th>Total tokens</th>
+                <th>{t("usage.targetCompany")}</th>
+                <th>{t("usage.totalTokens")}</th>
               </tr>
             </thead>
             <tbody>
               {summary.by_target_company.map((row) => (
                 <tr key={row.target_company_id ?? "unknown"}>
-                  <td>{row.target_company_name ?? "(deleted target company)"}</td>
-                  <td>{row.total_tokens.toLocaleString()}</td>
+                  <td>{row.target_company_name ?? t("usage.deletedCompany")}</td>
+                  <td>{formatNumber(row.total_tokens)}</td>
                 </tr>
               ))}
             </tbody>

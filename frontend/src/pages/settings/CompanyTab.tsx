@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ApiError, api } from "../../api/client";
 import type { WorkspaceSettings } from "../../api/types";
@@ -8,6 +9,7 @@ import { useSettingsContext } from "./SettingsLayout";
 import { buildSettingsPayload } from "./settingsPayload";
 
 export default function CompanyTab() {
+  const { t } = useTranslation("settings");
   const { showToast } = useToast();
   const { settings, setSettings, loadError } = useSettingsContext();
   const [isSaving, setIsSaving] = useState(false);
@@ -19,9 +21,9 @@ export default function CompanyTab() {
     try {
       const updated = await api.put<WorkspaceSettings>("/settings", buildSettingsPayload(settings));
       setSettings(updated);
-      showToast("Settings saved.", "success");
+      showToast(t("saved"), "success");
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Failed to save settings", "error");
+      showToast(err instanceof ApiError ? err.message : t("saveFailed"), "error");
     } finally {
       setIsSaving(false);
     }
@@ -42,14 +44,11 @@ export default function CompanyTab() {
   return (
     <form onSubmit={handleSubmit}>
       <div className="panel-card">
-        <h2>Company profile</h2>
-        <p className="subtitle">
-          This description is given to the AI model so it can explain why each news signal matters
-          for your business and draft relevant outreach snippets.
-        </p>
+        <h2>{t("company.title")}</h2>
+        <p className="subtitle">{t("company.subtitle")}</p>
 
         <label>
-          Company name
+          {t("company.companyName")}
           <input
             value={settings.company_name}
             onChange={(e) => setSettings({ ...settings, company_name: e.target.value })}
@@ -58,17 +57,17 @@ export default function CompanyTab() {
         </label>
 
         <label>
-          Offering description
+          {t("company.offeringDescription")}
           <textarea
             rows={8}
             value={settings.offering_description}
             onChange={(e) => setSettings({ ...settings, offering_description: e.target.value })}
-            placeholder="Describe what your company sells, who it's for, and the problems it solves..."
+            placeholder={t("company.offeringPlaceholder")}
           />
         </label>
 
         <label>
-          Main language
+          {t("company.mainLanguage")}
           <select
             value={settings.main_language}
             onChange={(e) =>
@@ -78,15 +77,12 @@ export default function CompanyTab() {
             <option value="en">English</option>
             <option value="de">Deutsch</option>
           </select>
-          <span className="field-hint">
-            The standard language for the interface and AI-generated signal summaries. Users can
-            still override it for themselves in their own profile.
-          </span>
+          <span className="field-hint">{t("company.mainLanguageHint")}</span>
         </label>
 
         <div className="field-row">
           <label>
-            Ingestion interval (hours)
+            {t("company.ingestionInterval")}
             <input
               type="number"
               min={1}
@@ -98,7 +94,7 @@ export default function CompanyTab() {
             />
           </label>
           <label>
-            Daily digest send time
+            {t("company.digestSendTime")}
             <input
               type="time"
               value={settings.digest_send_time}
@@ -109,7 +105,7 @@ export default function CompanyTab() {
       </div>
 
       <button type="submit" disabled={isSaving}>
-        {isSaving ? "Saving..." : "Save settings"}
+        {isSaving ? t("saving") : t("save")}
       </button>
     </form>
   );

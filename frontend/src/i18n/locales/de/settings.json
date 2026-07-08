@@ -1,1 +1,196 @@
-{}
+{
+  "heading": "Einstellungen",
+  "tabs": {
+    "company": "Unternehmen",
+    "sources": "Nachrichtenquellen",
+    "ai": "KI-Konfiguration",
+    "usage": "KI-Nutzung",
+    "users": "Benutzer",
+    "logs": "Protokolle"
+  },
+  "loadFailed": "Einstellungen konnten nicht geladen werden",
+  "saveFailed": "Einstellungen konnten nicht gespeichert werden",
+  "saved": "Einstellungen gespeichert.",
+  "saving": "Wird gespeichert...",
+  "save": "Einstellungen speichern",
+  "clearing": "Wird entfernt...",
+  "clearOverride": "In-App-Override entfernen",
+
+  "company": {
+    "title": "Unternehmensprofil",
+    "subtitle": "Diese Beschreibung wird dem KI-Modell zur Verfügung gestellt, damit es erklären kann, warum jedes News-Signal für Ihr Unternehmen relevant ist, und passende Kontakt-Textbausteine entwerfen kann.",
+    "companyName": "Firmenname",
+    "offeringDescription": "Angebotsbeschreibung",
+    "offeringPlaceholder": "Beschreiben Sie, was Ihr Unternehmen verkauft, für wen und welche Probleme es löst...",
+    "mainLanguage": "Hauptsprache",
+    "mainLanguageHint": "Die Standardsprache für die Oberfläche und die von der KI erstellten Signalzusammenfassungen. Benutzer können sie in ihrem eigenen Profil weiterhin überschreiben.",
+    "ingestionInterval": "Abrufintervall (Stunden)",
+    "digestSendTime": "Versandzeit der täglichen Zusammenfassung"
+  },
+
+  "targets": {
+    "title": "Meine Unternehmen",
+    "subtitle": "Fügen Sie die Unternehmen hinzu, für die Sie News-Signale erhalten möchten. Schlüsselwörter/Aliasse helfen, mehr Artikel zuzuordnen.",
+    "companyName": "Firmenname",
+    "industryOptional": "Branche (optional)",
+    "keywords": "Schlüsselwörter / Aliasse",
+    "keywordsPlaceholder": "Schlüsselwort eingeben und Enter drücken",
+    "addTargetCompany": "Zielunternehmen hinzufügen",
+    "trackedCompanies": "Verfolgte Unternehmen ({{count}})",
+    "noCompaniesYet": "Noch keine Zielunternehmen.",
+    "muted": "Stummgeschaltet",
+    "backfilling": "Historische Berichterstattung wird von NewsData.io nachgeladen...",
+    "backfillHistory": "Historie nachladen",
+    "backfillTitle": "Historische Berichterstattung für dieses Unternehmen aus dem NewsData.io-Archiv abrufen",
+    "unmute": "Stummschaltung aufheben",
+    "mute": "Stummschalten",
+    "pause": "Pausieren",
+    "resume": "Fortsetzen",
+    "delete": "Löschen",
+    "unfollow": "Nicht mehr folgen",
+    "confirmAction": "{{action}} bestätigen",
+    "cancel": "Abbrechen",
+    "addedToast": "Zielunternehmen hinzugefügt.",
+    "deletedToast": "„{{name}}“ gelöscht.",
+    "unfollowedToast": "„{{name}}“ nicht mehr gefolgt.",
+    "loadFailed": "Unternehmen konnten nicht geladen werden",
+    "addFailed": "Unternehmen konnte nicht hinzugefügt werden",
+    "updateFailed": "Unternehmen konnte nicht aktualisiert werden",
+    "removeFailed": "Unternehmen konnte nicht entfernt werden",
+    "backfillFailed": "Nachladen konnte nicht gestartet werden",
+    "confirmDeleteAdmin": "Dadurch werden „{{name}}“ und alle zugehörigen Signale für alle Benutzer dauerhaft gelöscht. Fortfahren?",
+    "confirmUnfollowOnly": "Sie sind der einzige Follower — wenn Sie „{{name}}“ nicht mehr folgen, wird es (mit allen Signalen) für alle entfernt. Fortfahren?",
+    "confirmUnfollowShared": "„{{name}}“ nicht mehr folgen? Andere Benutzer, die es verfolgen, sehen es weiterhin.",
+    "removeTag": "{{tag}} entfernen"
+  },
+
+  "sources": {
+    "title": "Nachrichtenquellen",
+    "subtitle": "Von welchen Anbietern der Abruf Daten bezieht, jeweils mit eigenem durchgesetzten Ratenlimit — eine Quelle wird für den Rest eines Laufs nicht mehr aufgerufen, sobald ihr Limit erreicht ist, statt die Überschreitung erst im Nachhinein zu protokollieren. Die Nutzung gegenüber jedem Limit wird direkt darunter angezeigt.",
+    "maxRequestsPerDay": "Max. Anfragen / Tag",
+    "maxRequestsPerMinute": "Max. Anfragen / Minute",
+    "noUsageYet": "Noch keine Nutzung erfasst.",
+    "rateLimitedCount": "{{count}}x in den letzten 24 Std. ratenbegrenzt",
+    "recentActivity": "Letzte Aktivität ({{count}})",
+    "table": {
+      "when": "Wann",
+      "type": "Typ",
+      "company": "Unternehmen",
+      "requests": "Anfragen",
+      "articles": "Artikel"
+    },
+    "requestsToday": "{{used}} / {{limit}} Anfragen heute",
+    "requestsLastMinute": "{{used}} / {{limit}} in der letzten Minute",
+    "googleNewsRss": {
+      "hint": "Kostenloser Feed ohne API-Schlüssel. Google veröffentlicht kein offizielles Kontingent dafür, daher ist das Limit unten eine selbst auferlegte Höflichkeitsgrenze und keine echte Plan-Stufe.",
+      "country": "Land",
+      "language": "Sprache"
+    },
+    "newsdata": {
+      "hint": "Kostenpflichtige API — nutzt vollständige Artikelinhalte als Grundlage, native Duplikaterkennung, native Stimmungs-/Tag-Analyse und einen einmaligen historischen Nachlade-Vorgang beim Hinzufügen eines Unternehmens.",
+      "fetchFullContent": "Vollständigen Artikelinhalt abrufen, wenn der Plan dies enthält (besser fundierte Zusammenfassungen)",
+      "useNativeDedupe": "Native Duplikaterkennung von NewsData.io verwenden",
+      "backfillWindow": "Historisches Nachlade-Fenster (Tage, 0 = aus)",
+      "backfillHint": "Wenn gesetzt, erhalten neu erstellte Unternehmen automatisch einen einmaligen historischen Abruf über diese Anzahl an Tagen via NewsData.io-Archiv-Endpunkt.",
+      "apiKey": "NewsData.io-API-Schlüssel",
+      "apiKeyPlaceholder": "Neuen Schlüssel eingeben, um ihn zu setzen oder zu ersetzen"
+    },
+    "noApiKeyConfigured": "Kein API-Schlüssel konfiguriert — legen Sie unten einen fest oder über die Umgebungsvariable {{envVar}}.",
+    "usingInAppKey": "Verwendet einen In-App-Schlüssel{{suffix}}.",
+    "usingEnvKey": "Verwendet einen Schlüssel aus der Umgebungsvariable des Servers{{suffix}}.",
+    "endingIn": ", endet auf ...{{last4}}",
+    "clearNewsdataKeyToast": "In-App-Override des NewsData.io-API-Schlüssels entfernt.",
+    "clearNewsdataKeyFailed": "API-Schlüssel konnte nicht entfernt werden"
+  },
+
+  "ai": {
+    "title": "KI-Konfiguration",
+    "subtitle": "Steuert, wie Mistral zur Zusammenfassung von Artikeln verwendet wird — welche Modelle aufgerufen werden, wie aggressiv doppelte Berichterstattung gefiltert wird und welcher API-Schlüssel verwendet wird.",
+    "summarizationModel": "Zusammenfassungsmodell",
+    "triageModel": "Triage-Modell",
+    "preFilterLabel": "Artikel mit dem Triage-Modell vorfiltern, bevor die vollständige Zusammenfassung erfolgt (empfohlen — spart Kosten, indem wenig wertvolle Artikel vor dem teuren Aufruf übersprungen werden)",
+    "embeddingModel": "Embedding-Modell (Duplikaterkennung)",
+    "dedupeThreshold": "Ähnlichkeitsschwelle für Duplikate",
+    "dedupeHint": "Schwelle senken, um aggressiver zu deduplizieren (unterschiedliche Meldungen können zusammengeführt werden); erhöhen, um nur nahezu identische Berichterstattung zusammenzuführen.",
+    "apiKey": "Mistral-API-Schlüssel",
+    "apiKeyPlaceholder": "Neuen Schlüssel eingeben, um ihn zu setzen oder zu ersetzen",
+    "clearKeyToast": "In-App-Override des API-Schlüssels entfernt.",
+    "clearKeyFailed": "API-Schlüssel konnte nicht entfernt werden"
+  },
+
+  "usage": {
+    "title": "KI-Nutzung",
+    "subtitle": "Mistral-Token-Nutzung der letzten {{days}} Tage, aufgeschlüsselt nach Pipeline-Phase, damit Sie die Kostenauswirkung von übersprungenen Duplikaten und Triage-Filterung sehen können.",
+    "apiCalls": "API-Aufrufe",
+    "totalTokens": "Tokens gesamt",
+    "promptTokens": "Prompt-Tokens",
+    "completionTokens": "Completion-Tokens",
+    "byStage": "Nach Pipeline-Phase",
+    "byCompany": "Nach Zielunternehmen",
+    "noCallsYet": "Noch keine KI-Aufrufe erfasst.",
+    "stage": "Phase",
+    "calls": "Aufrufe",
+    "targetCompany": "Zielunternehmen",
+    "deletedCompany": "(gelöschtes Zielunternehmen)",
+    "loadFailed": "KI-Nutzung konnte nicht geladen werden",
+    "callTypes": {
+      "embedding": "Duplikaterkennung (Embeddings)",
+      "triage": "Relevanz-Triage (kleines Modell)",
+      "summarize": "Vollständige Zusammenfassung (großes Modell)"
+    }
+  },
+
+  "users": {
+    "title": "Benutzer",
+    "subtitle": "Benutzer befördern oder herabstufen. Admins verwalten die Arbeitsbereich-Einstellungen und können jedem Benutzer Unternehmen zuweisen.",
+    "loadFailed": "Benutzer konnten nicht geladen werden",
+    "roleLabel": {
+      "admin": "Admin",
+      "user": "Benutzer"
+    },
+    "promote": "Zum Admin befördern",
+    "demote": "Zum Benutzer herabstufen",
+    "lastAdminHint": "Sie könnten der letzte verbleibende Admin sein",
+    "roleUpdateFailed": "Rolle konnte nicht aktualisiert werden",
+    "roleChangedToAdmin": "{{name}} ist jetzt Admin.",
+    "roleChangedToUser": "{{name}} ist jetzt ein regulärer Benutzer.",
+    "assignTitle": "Einem Benutzer ein Unternehmen zuweisen",
+    "assignSubtitle": "Wählen Sie ein bestehendes Unternehmen aus dem Katalog, indem Sie seinen genauen Namen eingeben, oder einen neuen Namen, um es zu erstellen. Der Benutzer sieht es sofort in seinem Dashboard — ohne dass er etwas tun muss.",
+    "chooseUserFirst": "Wählen Sie einen Benutzer aus, dem dieses Unternehmen zugewiesen werden soll.",
+    "userLabel": "Benutzer",
+    "chooseUserPlaceholder": "Benutzer auswählen...",
+    "companyAssigned": "Unternehmen zugewiesen.",
+    "assignFailed": "Unternehmen konnte nicht zugewiesen werden",
+    "assignButton": "Unternehmen zuweisen"
+  },
+
+  "logs": {
+    "title": "Abrufprotokolle",
+    "subtitle": "Verlauf jedes „Neue Signale abrufen“-Laufs, manuell oder geplant, einschließlich aller Fehler beim Abrufen von einer Nachrichtenquelle oder beim Zusammenfassen eines Artikels.",
+    "noRunsYet": "Noch keine Abrufläufe.",
+    "loadFailed": "Protokolle konnten nicht geladen werden",
+    "status": {
+      "running": "Läuft",
+      "completed": "Abgeschlossen",
+      "failed": "Fehlgeschlagen"
+    },
+    "trigger": {
+      "manual": "Manuell",
+      "scheduled": "Geplant"
+    },
+    "bySource": "Nach Quelle:",
+    "runCrashed": "Lauf abgestürzt: {{error}}",
+    "errorCount_one": "{{count}} Fehler",
+    "errorCount_other": "{{count}} Fehler",
+    "companiesProcessed_one": "{{processed}}/{{total}} Unternehmen",
+    "companiesProcessed_other": "{{processed}}/{{total}} Unternehmen",
+    "articlesFetched_one": "{{count}} Artikel abgerufen",
+    "articlesFetched_other": "{{count}} Artikel abgerufen",
+    "newCount": "{{count}} neu",
+    "signalsCreated_one": "{{count}} Signal erstellt",
+    "signalsCreated_other": "{{count}} Signale erstellt",
+    "duplicatesSkipped_one": "{{count}} Duplikat",
+    "duplicatesSkipped_other": "{{count}} Duplikate",
+    "triagedOut": "{{count}} durch Triage aussortiert"
+  }
+}
