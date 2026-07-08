@@ -7,6 +7,11 @@
   --border: #e2e5ea;
   --danger: #c53030;
   --ok: #1a7f4e;
+  --accent-soft-bg: #e6f0ff;
+  --ok-soft-bg: #e9f9f1;
+  --danger-soft-bg: #fdecec;
+  --danger-solid: #c53030;
+  --ok-solid: #1a7f4e;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
@@ -19,6 +24,11 @@
   --border: #2a2e37;
   --danger: #e57373;
   --ok: #4fd39a;
+  --accent-soft-bg: #202a42;
+  --ok-soft-bg: #162d26;
+  --danger-soft-bg: #301818;
+  --danger-solid: #c53030;
+  --ok-solid: #1a7f4e;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -31,6 +41,11 @@
     --border: #2a2e37;
     --danger: #e57373;
     --ok: #4fd39a;
+    --accent-soft-bg: #202a42;
+    --ok-soft-bg: #162d26;
+    --danger-soft-bg: #301818;
+    --danger-solid: #c53030;
+    --ok-solid: #1a7f4e;
   }
 }
 
@@ -46,6 +61,12 @@ body {
   background: var(--bg);
   color: var(--fg);
 }
+
+a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+a:visited { color: var(--accent); }
 
 input, textarea, button, select {
   font-family: inherit;
@@ -82,14 +103,17 @@ button {
 button:hover:not(:disabled) { transform: translateY(-1px); }
 button:disabled { opacity: 0.6; cursor: default; transform: none; }
 
-button.danger { background: var(--danger); }
-button.link-button {
+button.danger { background: var(--danger-solid); }
+.link-button {
+  display: inline-block;
   background: none;
   color: var(--accent);
   font-weight: 500;
   padding: 4px 0;
+  text-decoration: none;
 }
-button.link-button:hover:not(:disabled) { text-decoration: underline; transform: none; }
+.link-button:hover:not(:disabled) { text-decoration: underline; transform: none; }
+.link-button:visited { color: var(--accent); }
 
 .field-row {
   display: flex;
@@ -283,7 +307,7 @@ button.link-button:hover:not(:disabled) { text-decoration: underline; transform:
 }
 .target-list .actions { display: flex; gap: 8px; }
 .target-list .actions button { background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
-.target-list .actions button.danger { background: #fdecec; color: var(--danger); border-color: #f3c8c8; }
+.target-list .actions button.danger { background: var(--danger-soft-bg); color: var(--danger); border-color: transparent; }
 
 .tag-input {
   display: flex;
@@ -389,10 +413,10 @@ button.link-button:hover:not(:disabled) { text-decoration: underline; transform:
   white-space: nowrap;
   margin-bottom: 6px;
 }
-.status-new { background: #e6f0ff; color: var(--accent); }
-.status-reviewed { background: #e9f9f1; color: var(--ok); }
+.status-new { background: var(--accent-soft-bg); color: var(--accent); }
+.status-reviewed { background: var(--ok-soft-bg); color: var(--ok); }
 .status-archived { background: var(--bg); color: var(--muted); }
-.status-dismissed { background: #fdecec; color: var(--danger); }
+.status-dismissed { background: var(--danger-soft-bg); color: var(--danger); }
 
 .signal-detail-badges { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 
@@ -410,9 +434,9 @@ button.link-button:hover:not(:disabled) { text-decoration: underline; transform:
   color: var(--muted);
   border: 1px solid var(--border);
 }
-.score-badge.score-5, .score-badge.score-4 { background: #e9f9f1; color: var(--ok); border-color: transparent; }
+.score-badge.score-5, .score-badge.score-4 { background: var(--ok-soft-bg); color: var(--ok); border-color: transparent; }
 .score-badge.score-1, .score-badge.score-2 { background: var(--bg); color: var(--muted); }
-.signal-type-badge { background: #e6f0ff; color: var(--accent); border-color: transparent; }
+.signal-type-badge { background: var(--accent-soft-bg); color: var(--accent); border-color: transparent; }
 .confidence-badge { background: #fdf4e3; color: #a15c00; border-color: transparent; }
 
 .supporting-quote {
@@ -460,7 +484,7 @@ button.link-button:hover:not(:disabled) { text-decoration: underline; transform:
   color: var(--ok);
   margin-top: 2px;
 }
-.checklist-steps li.done .checklist-mark { border-color: var(--ok); background: #e9f9f1; }
+.checklist-steps li.done .checklist-mark { border-color: var(--ok); background: var(--ok-soft-bg); }
 .checklist-label { font-weight: 600; }
 
 .progress-bar {
@@ -531,8 +555,8 @@ button.secondary {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   animation: toast-in 150ms ease;
 }
-.toast-success { background: var(--ok); }
-.toast-error { background: var(--danger); }
+.toast-success { background: var(--ok-solid); }
+.toast-error { background: var(--danger-solid); }
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
