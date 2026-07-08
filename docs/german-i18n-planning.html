@@ -189,10 +189,11 @@
     <li><a href="#formatting">7. Dates, numbers &amp; pluralization</a></li>
     <li><a href="#backend">8. Backend-originated user-facing text</a></li>
     <li><a href="#content-scope">9. Content scope: articles &amp; AI-generated text</a></li>
-    <li><a href="#testing">10. Testing &amp; quality gates</a></li>
-    <li><a href="#roadmap">11. Implementation roadmap</a></li>
-    <li><a href="#assumptions">12. Open questions &amp; assumptions</a></li>
-    <li><a href="#future">13. Future enhancements (out of scope)</a></li>
+    <li><a href="#source-language">10. Admin-configurable source language &amp; AI output language</a></li>
+    <li><a href="#testing">11. Testing &amp; quality gates</a></li>
+    <li><a href="#roadmap">12. Implementation roadmap</a></li>
+    <li><a href="#assumptions">13. Open questions &amp; assumptions</a></li>
+    <li><a href="#future">14. Future enhancements (out of scope)</a></li>
   </ol>
 </nav>
 
@@ -231,7 +232,7 @@
   <li>Region-specific variants (<code>de-AT</code>, <code>de-CH</code>, <code>en-GB</code>) — two
       flat locales, <code>en</code> and <code>de</code>, for now.</li>
   <li>Standing up CI/CD — the repo has no GitHub Actions pipeline today; not introducing one as part
-      of this effort, though the i18n completeness check (§10) is written so it can slot into one later.</li>
+      of this effort, though the i18n completeness check (§11) is written so it can slot into one later.</li>
 </ul>
 
 <h2 id="decisions">3. Key decisions</h2>
@@ -258,13 +259,13 @@ mirroring the <code>useTheme</code>/<code>cycleTheme</code> pattern already in t
 <span class="tag">recommended — confirm</span> Auto-detection with no escape hatch means a German
 browser locale with an English-preferring user (or vice versa) has no way to switch; this was not
 explicitly requested but is standard practice and is a small addition given the theme-toggle precedent
-already exists to copy. Flagged in <a href="#assumptions">§12</a> for explicit sign-off.</div>
+already exists to copy. Flagged in <a href="#assumptions">§13</a> for explicit sign-off.</div>
 
 <div class="decision"><strong>Persistence:</strong> client-side only, <code>localStorage</code> key
 <code>newsatlas_locale</code>, exactly mirroring <code>useTheme.ts</code>'s <code>newsatlas_theme</code>
 key. <span class="tag">default</span> No <code>users</code> table migration needed for MVP. Per-user
 server-persisted locale (so preference follows the user across devices) is a plausible fast-follow —
-see <a href="#assumptions">§12</a>.</div>
+see <a href="#assumptions">§13</a>.</div>
 
 <div class="decision"><strong><code>&lt;html lang&gt;</code> sync:</strong> reflect the active
 i18next language onto <code>document.documentElement.lang</code> whenever it changes.
@@ -381,8 +382,9 @@ layout.</div>
 </p>
 <ul>
   <li><strong>Ingested article content</strong> (<code>Article.title</code>, <code>.description</code>,
-      <code>.full_content</code>) — sourced in English by design (NewsAPI/Google News RSS/NewsData.io
-      queries hardcode <code>"language": "en"</code>).</li>
+      <code>.full_content</code>) — sourced in English by default. NewsAPI.org and NewsData.io hardcode
+      <code>"language": "en"</code> with no admin control; Google News RSS is the one exception — see
+      <a href="#source-language">§10</a>.</li>
   <li><strong>AI-generated Signal content</strong> (<code>Signal.summary</code>,
       <code>.business_relevance</code>, <code>.outreach_snippet_email</code>,
       <code>.outreach_snippet_linkedin</code>, <code>.outreach_call_opener</code>,
@@ -390,15 +392,53 @@ layout.</div>
 </ul>
 <p>
   Both remain English regardless of the UI's active language after this work ships. This is worth
-  surfacing explicitly (see <a href="#assumptions">§12</a>) because "bilingual support" as a product
+  surfacing explicitly (see <a href="#assumptions">§13</a>) because "bilingual support" as a product
   claim could be read either way, and a German-speaking user browsing an all-German interface full of
   English news summaries is a noticeably different experience than a fully localized one. Translating
   or regenerating that content (machine translation of articles, or prompting Mistral in German) is
   a materially larger effort — different cost profile, different quality bar, different failure modes —
-  and is called out as a distinct future initiative in <a href="#future">§13</a>, not bundled here.
+  and is called out as a distinct future initiative in <a href="#future">§14</a>, not bundled here.
 </p>
 
-<h2 id="testing">10. Testing &amp; quality gates</h2>
+<h2 id="source-language">10. Admin-configurable source language &amp; AI output language</h2>
+<p>
+  Prompted by a question during review: could an admin configure ingestion to fetch only German
+  articles, so Mistral works from native German source text instead of translating? Investigating the
+  actual ingestion pipeline surfaced one existing capability and one real gap.
+</p>
+<div class="decision"><strong>Google News RSS is already admin-configurable for German.</strong>
+<code>workspace_settings.google_news_rss_country</code> and <code>.google_news_rss_language</code>
+(<code>models/workspace_settings.py:54-56</code>) already exist end-to-end: exposed via
+<code>GET</code>/<code>PUT /settings</code> (<code>api/settings.py</code>) and editable today in
+Settings → Sources (<code>SourcesTab.tsx:182-200</code>, free-text Country/Language fields feeding
+<code>GoogleNewsRSSClient</code>'s <code>ceid={country}:{language}</code> query param). An admin can
+already set <code>country=DE</code>, <code>language=de</code> and Google News RSS will fetch
+German-language articles. <span class="tag">already shipped</span> No code change needed for this
+source.</div>
+<div class="decision"><strong>NewsAPI.org and NewsData.io stay English-only.</strong> Both clients
+hardcode <code>"language": "en"</code> in their query params (<code>news_client.py:43</code>,
+<code>newsdata_client.py:84</code>) with no equivalent admin setting. <span class="tag">confirmed —
+out of scope</span> Making these configurable was considered and explicitly deferred for this pass.
+An admin who wants ingestion to be German-only should enable Google News RSS with
+<code>country=DE</code>/<code>language=de</code> and disable NewsAPI/NewsData.io using their existing
+<code>newsapi_enabled</code>/<code>newsdata_enabled</code> toggles (already shipped, Settings →
+Sources) — a configuration-only change, not a code change. Leaving any English source enabled
+alongside a German-configured Google News RSS will keep producing English articles from that source.</div>
+<div class="assumption"><strong>Mistral has no explicit output-language directive.</strong> The
+system prompt in <code>ai_client.py</code> (<code>_SYSTEM_PROMPT</code>, lines 27-56) is written in
+English and specifies the required JSON <em>schema</em>, but never instructs the model what language
+to write the <em>content</em> in. In practice, LLMs typically mirror the language of the input they're
+given when not told otherwise — so feeding it German article titles/descriptions (via a German-only
+Google News RSS configuration) will likely produce German <code>summary</code>/
+<code>business_relevance</code>/outreach-snippet text, but this is emergent behavior, not a controlled
+setting. Per this review's decision, no explicit language instruction is being added to the prompt in
+this pass — the recommended path is entirely on the ingestion side (§10 above: configure/disable
+sources so only German content reaches Mistral), not a prompt change. If any English-fetching source
+stays enabled at the same time, expect a mix of German- and English-language Signals with no
+<code>language</code> field on <code>Article</code>/<code>Signal</code> to distinguish them
+downstream — flagged as a real limitation to watch for, not something this pass resolves.</div>
+
+<h2 id="testing">11. Testing &amp; quality gates</h2>
 <ul>
   <li><strong>i18n completeness script</strong> — a small Node script
       (<code>scripts/check-i18n-completeness.mjs</code>) that diffs keys across every
@@ -417,7 +457,7 @@ layout.</div>
       headers don't clip or wrap awkwardly).</li>
 </ul>
 
-<h2 id="roadmap">11. Implementation roadmap</h2>
+<h2 id="roadmap">12. Implementation roadmap</h2>
 
 <div class="phase">
   <h4><span class="phase-badge">Phase 0</span> Foundation</h4>
@@ -467,7 +507,7 @@ layout.</div>
   </ul>
 </div>
 
-<h2 id="assumptions">12. Open questions &amp; assumptions for follow-up sessions</h2>
+<h2 id="assumptions">13. Open questions &amp; assumptions for follow-up sessions</h2>
 <div class="assumption"><strong>Manual language switcher</strong> — only browser-based auto-detection
 was explicitly requested; this plan adds a manual override control anyway as standard practice (see
 <a href="#decisions">§3</a>). Confirm this is wanted, or that pure auto-detect (no escape hatch) is
@@ -489,11 +529,18 @@ displays verbatim, rather than instrumenting every endpoint speculatively.</div>
 completeness script and any new tests run locally/manually for now. Not proposing to introduce CI as
 part of this initiative, but noting it's the natural next home for these checks if/when one exists.</div>
 
-<h2 id="future">13. Future enhancements (explicitly out of scope here)</h2>
+<h2 id="future">14. Future enhancements (explicitly out of scope here)</h2>
 <ul>
   <li>Machine-translating or re-generating ingested article content and AI Signal fields into German
       (would require either a translation-API integration or a German-language Mistral prompt variant,
       plus a cost/latency tradeoff analysis — materially different scope from UI-string i18n).</li>
+  <li>Explicit output-language control in the Mistral prompt (<code>ai_client.py</code>
+      <code>_SYSTEM_PROMPT</code>) and a <code>language</code> column on <code>Article</code>/
+      <code>Signal</code> to track and guarantee content language, instead of relying on Mistral
+      implicitly mirroring whatever language the source article happens to be in — see
+      <a href="#source-language">§10</a>.</li>
+  <li>Making NewsAPI.org's and NewsData.io's hardcoded <code>"language": "en"</code> query params
+      admin-configurable, matching what Google News RSS already has — see <a href="#source-language">§10</a>.</li>
   <li>Locale-prefixed routing (<code>/de/...</code>) for SEO — not relevant to an authenticated internal
       tool today, but worth revisiting if any public-facing pages are ever added.</li>
   <li>Per-user server-persisted locale preference syncing across devices.</li>
