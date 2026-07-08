@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -28,5 +29,15 @@ class UserResponse(BaseModel):
     email: EmailStr
     name: str
     role: UserRole
+    # None = no personal override, follow workspace_main_language.
+    preferred_language: Literal["en", "de"] | None
+    # The workspace's current main_language, embedded here so any authenticated user
+    # (not just admins, who alone can call GET /settings) can learn the standard
+    # language without a separate endpoint.
+    workspace_main_language: Literal["en", "de"]
 
     model_config = {"from_attributes": True}
+
+
+class UpdateLanguagePreferenceRequest(BaseModel):
+    preferred_language: Literal["en", "de"] | None = None

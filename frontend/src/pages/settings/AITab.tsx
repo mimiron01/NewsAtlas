@@ -1,4 +1,5 @@
 import { FormEvent, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ApiError, api } from "../../api/client";
 import type { WorkspaceSettings } from "../../api/types";
@@ -10,17 +11,20 @@ import { buildSettingsPayload } from "./settingsPayload";
 const MODEL_SUGGESTIONS = ["mistral-large-latest", "mistral-medium-latest", "mistral-small-latest"];
 const EMBED_MODEL_SUGGESTIONS = ["mistral-embed"];
 
-function apiKeyStatusText(settings: WorkspaceSettings): string {
+function apiKeyStatusText(settings: WorkspaceSettings, t: (key: string, options?: Record<string, unknown>) => string): string {
   if (!settings.mistral_api_key_configured) {
-    return "No API key configured — set one below or via the MISTRAL_API_KEY environment variable.";
+    return t("sources.noApiKeyConfigured", { envVar: "MISTRAL_API_KEY" });
   }
-  const suffix = settings.mistral_api_key_last4 ? ` ending in ...${settings.mistral_api_key_last4}` : "";
+  const suffix = settings.mistral_api_key_last4
+    ? t("sources.endingIn", { last4: settings.mistral_api_key_last4 })
+    : "";
   return settings.mistral_api_key_source === "workspace"
-    ? `Using an in-app key${suffix}.`
-    : `Using a key from the server's environment variable${suffix}.`;
+    ? t("sources.usingInAppKey", { suffix })
+    : t("sources.usingEnvKey", { suffix });
 }
 
 export default function AITab() {
+  const { t } = useTranslation("settings");
   const { showToast } = useToast();
   const { settings, setSettings, loadError } = useSettingsContext();
   const [isSaving, setIsSaving] = useState(false);
@@ -39,9 +43,9 @@ export default function AITab() {
       const updated = await api.put<WorkspaceSettings>("/settings", payload);
       setSettings(updated);
       setApiKeyInput("");
-      showToast("Settings saved.", "success");
+      showToast(t("saved"), "success");
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Failed to save settings", "error");
+      showToast(err instanceof ApiError ? err.message : t("saveFailed"), "error");
     } finally {
       setIsSaving(false);
     }
@@ -57,9 +61,9 @@ export default function AITab() {
       });
       setSettings(updated);
       setApiKeyInput("");
-      showToast("In-app API key override cleared.", "success");
+      showToast(t("ai.clearKeyToast"), "success");
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Failed to clear API key", "error");
+      showToast(err instanceof ApiError ? err.message : t("ai.clearKeyFailed"), "error");
     } finally {
       setIsClearingKey(false);
     }
@@ -80,15 +84,12 @@ export default function AITab() {
   return (
     <form onSubmit={handleSubmit}>
       <div className="panel-card">
-        <h2>AI configuration</h2>
-        <p className="subtitle">
-          Controls how Mistral is used to summarize articles — which models are called, how
-          aggressively duplicate coverage is filtered, and which API key is used.
-        </p>
+        <h2>{t("ai.title")}</h2>
+        <p className="subtitle">{t("ai.subtitle")}</p>
 
         <div className="field-row">
           <label>
-            Summarization model
+            {t("ai.summarizationModel")}
             <input
               list="mistral-model-suggestions"
               value={settings.mistral_model}
@@ -102,7 +103,7 @@ export default function AITab() {
             </datalist>
           </label>
           <label>
-            Triage model
+            {t("ai.triageModel")}
             <input
               list="mistral-model-suggestions"
               value={settings.mistral_triage_model}
@@ -118,13 +119,12 @@ export default function AITab() {
             checked={settings.mistral_triage_enabled}
             onChange={(e) => setSettings({ ...settings, mistral_triage_enabled: e.target.checked })}
           />
-          Pre-filter articles with the triage model before full summarization (recommended — cuts
-          cost by skipping low-value articles before the expensive call)
+          {t("ai.preFilterLabel")}
         </label>
 
         <div className="field-row">
           <label>
-            Embedding model (duplicate detection)
+            {t("ai.embeddingModel")}
             <input
               list="mistral-embed-model-suggestions"
               value={settings.mistral_embed_model}
@@ -138,7 +138,7 @@ export default function AITab() {
             </datalist>
           </label>
           <label>
-            Duplicate similarity threshold
+            {t("ai.dedupeThreshold")}
             <input
               type="number"
               min={0}
@@ -154,22 +154,19 @@ export default function AITab() {
             />
           </label>
         </div>
-        <p className="subtitle">
-          Lower the threshold to dedupe more aggressively (more distinct stories may get merged);
-          raise it to only merge near-identical coverage.
-        </p>
+        <p className="subtitle">{t("ai.dedupeHint")}</p>
 
         <label>
-          Mistral API key
+          {t("ai.apiKey")}
           <input
             type="password"
             value={apiKeyInput}
             onChange={(e) => setApiKeyInput(e.target.value)}
-            placeholder="Enter a new key to set or rotate it"
+            placeholder={t("ai.apiKeyPlaceholder")}
             autoComplete="off"
           />
         </label>
-        <p className="subtitle">{apiKeyStatusText(settings)}</p>
+        <p className="subtitle">{apiKeyStatusText(settings, t)}</p>
         {settings.mistral_api_key_source === "workspace" && (
           <button
             type="button"
@@ -177,13 +174,13 @@ export default function AITab() {
             onClick={handleClearApiKeyOverride}
             disabled={isClearingKey}
           >
-            {isClearingKey ? "Clearing..." : "Clear in-app override"}
+            {isClearingKey ? t("clearing") : t("clearOverride")}
           </button>
         )}
       </div>
 
       <button type="submit" disabled={isSaving}>
-        {isSaving ? "Saving..." : "Save settings"}
+        {isSaving ? t("saving") : t("save")}
       </button>
     </form>
   );

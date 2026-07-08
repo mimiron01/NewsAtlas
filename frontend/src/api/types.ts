@@ -1,10 +1,14 @@
 export type UserRole = "admin" | "user";
+export type SupportedLanguage = "en" | "de";
 
 export interface User {
   id: string;
   email: string;
   name: string;
   role: UserRole;
+  // null = no personal override, follow workspace_main_language.
+  preferred_language: SupportedLanguage | null;
+  workspace_main_language: SupportedLanguage;
 }
 
 export interface AdminUser {
@@ -32,6 +36,7 @@ export interface WorkspaceSettings {
   offering_description: string;
   digest_send_time: string;
   ingestion_interval_hours: number;
+  main_language: SupportedLanguage;
   mistral_model: string;
   mistral_triage_model: string;
   mistral_embed_model: string;
@@ -65,6 +70,7 @@ export interface WorkspaceSettingsUpdatePayload {
   offering_description: string;
   digest_send_time: string;
   ingestion_interval_hours: number;
+  main_language: SupportedLanguage;
   mistral_model: string;
   mistral_triage_model: string;
   mistral_embed_model: string;

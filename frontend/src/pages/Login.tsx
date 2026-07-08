@@ -1,5 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { ApiError } from "../api/client";
 import { useAuth } from "../context/AuthContext";
@@ -8,6 +9,7 @@ import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function Login() {
   usePageTitle();
+  const { t } = useTranslation("auth");
   const { login, signup } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<"login" | "signup">("login");
@@ -30,7 +32,7 @@ export default function Login() {
       }
       navigate("/");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong");
+      setError(err instanceof ApiError ? err.message : t("genericError"));
     } finally {
       setIsSubmitting(false);
     }
@@ -42,19 +44,19 @@ export default function Login() {
         <div className="auth-illustration">
           <EmptyStateIllustration />
         </div>
-        <h1>NewsAtlas</h1>
+        <h1>{t("brand")}</h1>
         <p className="subtitle">
-          {mode === "login" ? "Sign in to your workspace" : "Create a workspace account"}
+          {mode === "login" ? t("subtitleLogin") : t("subtitleSignup")}
         </p>
 
         {mode === "signup" && (
           <label>
-            Name
+            {t("name")}
             <input value={name} onChange={(e) => setName(e.target.value)} required />
           </label>
         )}
         <label>
-          Email
+          {t("email")}
           <input
             type="email"
             value={email}
@@ -63,7 +65,7 @@ export default function Login() {
           />
         </label>
         <label>
-          Password
+          {t("password")}
           <input
             type="password"
             value={password}
@@ -71,11 +73,11 @@ export default function Login() {
             required
             minLength={10}
           />
-          <span className="field-hint">At least 10 characters</span>
+          <span className="field-hint">{t("passwordHint")}</span>
         </label>
         {mode === "signup" && (
           <label>
-            Invite code
+            {t("inviteCode")}
             <input
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value)}
@@ -88,7 +90,7 @@ export default function Login() {
         {error && <p className="error-text">{error}</p>}
 
         <button type="submit" disabled={isSubmitting}>
-          {mode === "login" ? "Sign in" : "Create account"}
+          {mode === "login" ? t("signIn") : t("createAccount")}
         </button>
 
         <button
@@ -96,7 +98,7 @@ export default function Login() {
           className="link-button"
           onClick={() => setMode(mode === "login" ? "signup" : "login")}
         >
-          {mode === "login" ? "Need an account? Sign up" : "Already have an account? Sign in"}
+          {mode === "login" ? t("switchToSignup") : t("switchToLogin")}
         </button>
       </form>
     </div>

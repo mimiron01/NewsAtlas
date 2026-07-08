@@ -66,6 +66,52 @@ def test_summarize_article_success_first_attempt(monkeypatch):
     assert usage.total_tokens == 150
 
 
+def test_summarize_article_defaults_to_english_language_directive(monkeypatch):
+    import json
+
+    client = _client()
+    captured_messages = {}
+
+    def fake_chat(model, messages, **kw):
+        captured_messages["messages"] = messages
+        return json.dumps(_full_response()), _usage()
+
+    monkeypatch.setattr(client, "_chat", fake_chat)
+    client.summarize_article(
+        company_name="ProAir",
+        offering_description="HVAC services",
+        target_company_name="Acme",
+        article_title="Acme raises funding",
+        article_description="Acme raised $10M",
+    )
+    system_content = captured_messages["messages"][0]["content"]
+    assert "in English" in system_content
+
+
+def test_summarize_article_honors_output_language(monkeypatch):
+    import json
+
+    client = _client()
+    captured_messages = {}
+
+    def fake_chat(model, messages, **kw):
+        captured_messages["messages"] = messages
+        return json.dumps(_full_response()), _usage()
+
+    monkeypatch.setattr(client, "_chat", fake_chat)
+    client.summarize_article(
+        company_name="ProAir",
+        offering_description="HVAC services",
+        target_company_name="Acme",
+        article_title="Acme raises funding",
+        article_description="Acme raised $10M",
+        output_language="de",
+    )
+    system_content = captured_messages["messages"][0]["content"]
+    assert "in German" in system_content
+    assert "regardless of what language" in system_content
+
+
 def test_summarize_article_clamps_out_of_range_score(monkeypatch):
     import json
 

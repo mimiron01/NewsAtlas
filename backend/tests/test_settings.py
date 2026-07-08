@@ -27,6 +27,7 @@ def _full_update_payload(**overrides):
         "offering_description": "HVAC equipment and maintenance services.",
         "digest_send_time": "08:30",
         "ingestion_interval_hours": 4,
+        "main_language": "en",
         "mistral_model": "mistral-large-latest",
         "mistral_triage_model": "mistral-small-latest",
         "mistral_embed_model": "mistral-embed",
@@ -56,6 +57,7 @@ def test_get_settings_creates_default_row(client):
     body = resp.json()
     assert body["company_name"] == ""
     assert body["ingestion_interval_hours"] == 6
+    assert body["main_language"] == "en"
     assert body["mistral_model"] == "mistral-large-latest"
     assert body["mistral_triage_enabled"] is True
     assert body["mistral_dedupe_similarity_threshold"] == 0.9
@@ -69,6 +71,26 @@ def test_update_settings(client):
     assert body["company_name"] == "ProAir"
     assert body["digest_send_time"] == "08:30"
     assert body["ingestion_interval_hours"] == 4
+
+
+def test_update_settings_changes_main_language(client):
+    headers = _admin_headers(client)
+    resp = client.put(
+        "/settings", json=_full_update_payload(main_language="de"), headers=headers
+    )
+    assert resp.status_code == 200
+    assert resp.json()["main_language"] == "de"
+
+    resp = client.get("/settings", headers=headers)
+    assert resp.json()["main_language"] == "de"
+
+
+def test_update_settings_rejects_unsupported_main_language(client):
+    headers = _admin_headers(client)
+    resp = client.put(
+        "/settings", json=_full_update_payload(main_language="fr"), headers=headers
+    )
+    assert resp.status_code == 422
 
 
 def test_update_settings_changes_mistral_model_choices(client):

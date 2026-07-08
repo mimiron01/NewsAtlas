@@ -1,0 +1,23 @@
+{
+  "brand": "NewsAtlas",
+  "toggleNav": "Navigation umschalten",
+  "links": {
+    "dashboard": "Übersicht",
+    "signals": "Signale",
+    "targets": "Meine Unternehmen"
+  },
+  "theme": {
+    "light": "Helles Design",
+    "dark": "Dunkles Design",
+    "system": "Systemdesign"
+  },
+  "language": {
+    "workspaceDefault": "Standard des Arbeitsbereichs",
+    "en": "English",
+    "de": "Deutsch"
+  },
+  "profile": {
+    "settings": "Einstellungen",
+    "logout": "Abmelden"
+  }
+}

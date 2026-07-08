@@ -10,7 +10,14 @@ from app.core.limiter import limiter
 from app.core.security import create_access_token, hash_password, verify_password
 from app.db.session import get_db
 from app.models.user import User, UserRole
-from app.schemas.auth import LoginRequest, SignupRequest, TokenResponse, UserResponse
+from app.schemas.auth import (
+    LoginRequest,
+    SignupRequest,
+    TokenResponse,
+    UpdateLanguagePreferenceRequest,
+    UserResponse,
+)
+from app.services.workspace_settings import get_or_create_workspace_settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -89,6 +96,35 @@ def logout(
     log_event("logout", request=request, user_id=str(current_user.id))
 
 
+def _to_user_response(user: User, db: Session) -> UserResponse:
+    workspace_settings = get_or_create_workspace_settings(db)
+    return UserResponse(
+        id=user.id,
+        email=user.email,
+        name=user.name,
+        role=user.role,
+        preferred_language=user.preferred_language,
+        workspace_main_language=workspace_settings.main_language,
+    )
+
+
 @router.get("/me", response_model=UserResponse)
-def me(current_user: User = Depends(get_current_user)) -> User:
-    return current_user
+def me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> UserResponse:
+    return _to_user_response(current_user, db)
+
+
+@router.patch("/me/language", response_model=UserResponse)
+def update_language_preference(
+    payload: UpdateLanguagePreferenceRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UserResponse:
+    """Sets or clears the caller's personal language override. `preferred_language: null`
+    clears it back to "follow the workspace's main_language" (see UserResponse)."""
+    current_user.preferred_language = payload.preferred_language
+    db.commit()
+    db.refresh(current_user)
+    return _to_user_response(current_user, db)

@@ -65,12 +65,13 @@ class FakeAIClient:
 
     def summarize_article(self, *, company_name, offering_description, target_company_name,
                            article_title, article_description, industry=None,
-                           recent_signals=None, feedback_note=None):
+                           recent_signals=None, feedback_note=None, output_language="en"):
         self.summarize_calls.append(article_title)
         self.last_recent_signals = recent_signals
         self.last_industry = industry
         self.last_feedback_note = feedback_note
         self.last_article_description = article_description
+        self.last_output_language = output_language
         return (
             AISummaryResult(
                 summary=f"Summary of {article_title}",

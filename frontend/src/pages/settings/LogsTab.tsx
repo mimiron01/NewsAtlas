@@ -1,25 +1,16 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../../api/client";
 import { ARTICLE_SOURCE_LABELS } from "../../api/types";
 import type { IngestionRunStatus } from "../../api/types";
 import Skeleton from "../../components/Skeleton";
-
-const STATUS_LABELS: Record<IngestionRunStatus["status"], string> = {
-  running: "Running",
-  completed: "Completed",
-  failed: "Failed",
-};
+import { useLocaleFormat } from "../../hooks/useLocaleFormat";
 
 const STATUS_CLASSES: Record<IngestionRunStatus["status"], string> = {
   running: "status-new",
   completed: "status-reviewed",
   failed: "status-dismissed",
-};
-
-const TRIGGER_LABELS: Record<IngestionRunStatus["trigger"], string> = {
-  manual: "Manual",
-  scheduled: "Scheduled",
 };
 
 function formatDuration(startedAt: string, finishedAt: string | null): string {
@@ -30,6 +21,8 @@ function formatDuration(startedAt: string, finishedAt: string | null): string {
 }
 
 export default function LogsTab() {
+  const { t } = useTranslation("settings");
+  const { formatDate } = useLocaleFormat();
   const [runs, setRuns] = useState<IngestionRunStatus[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -37,8 +30,8 @@ export default function LogsTab() {
     api
       .get<IngestionRunStatus[]>("/ingestion/runs?limit=50")
       .then(setRuns)
-      .catch((err) => setLoadError(err instanceof ApiError ? err.message : "Failed to load logs"));
-  }, []);
+      .catch((err) => setLoadError(err instanceof ApiError ? err.message : t("logs.loadFailed")));
+  }, [t]);
 
   if (loadError) {
     return <p className="error-text">{loadError}</p>;
@@ -54,13 +47,10 @@ export default function LogsTab() {
 
   return (
     <div className="panel-card">
-      <h2>Ingestion logs</h2>
-      <p className="subtitle">
-        History of every "Fetch new signals" run, manual or scheduled, including any errors
-        encountered while pulling from a news source or summarizing an article.
-      </p>
+      <h2>{t("logs.title")}</h2>
+      <p className="subtitle">{t("logs.subtitle")}</p>
 
-      {runs.length === 0 && <p className="subtitle">No ingestion runs yet.</p>}
+      {runs.length === 0 && <p className="subtitle">{t("logs.noRunsYet")}</p>}
 
       <ul className="target-list">
         {runs.map((run) => {
@@ -69,22 +59,31 @@ export default function LogsTab() {
             <li key={run.id}>
               <div>
                 <span className={`status-badge ${STATUS_CLASSES[run.status]}`}>
-                  {STATUS_LABELS[run.status]}
+                  {t(`logs.status.${run.status}`)}
                 </span>{" "}
-                <strong>{new Date(run.started_at).toLocaleString()}</strong>
-                <span className="tag">{TRIGGER_LABELS[run.trigger]}</span>
+                <strong>{formatDate(run.started_at, { dateStyle: "short", timeStyle: "short" })}</strong>
+                <span className="tag">{t(`logs.trigger.${run.trigger}`)}</span>
                 {run.finished_at && <span className="tag">{formatDuration(run.started_at, run.finished_at)}</span>}
                 <div className="keywords">
-                  {run.companies_processed}/{run.companies_total} compan
-                  {run.companies_total === 1 ? "y" : "ies"} · {run.articles_fetched} article(s) fetched ·{" "}
-                  {run.articles_new} new · {run.signals_created} signal(s) created
+                  {t("logs.companiesProcessed", { processed: run.companies_processed, total: run.companies_total, count: run.companies_total })}
+                  {" · "}
+                  {t("logs.articlesFetched", { count: run.articles_fetched })}
+                  {" · "}
+                  {t("logs.newCount", { count: run.articles_new })}
+                  {" · "}
+                  {t("logs.signalsCreated", { count: run.signals_created })}
                   {(run.duplicates_skipped > 0 || run.triaged_out > 0) && (
-                    <> · {run.duplicates_skipped} duplicate(s), {run.triaged_out} triaged out</>
+                    <>
+                      {" · "}
+                      {t("logs.duplicatesSkipped", { count: run.duplicates_skipped })}
+                      {", "}
+                      {t("logs.triagedOut", { count: run.triaged_out })}
+                    </>
                   )}
                 </div>
                 {Object.keys(run.by_source).length > 0 && (
                   <div className="field-hint">
-                    By source:{" "}
+                    {t("logs.bySource")}{" "}
                     {Object.entries(run.by_source)
                       .map(
                         ([source, count]) =>
@@ -93,11 +92,13 @@ export default function LogsTab() {
                       .join(", ")}
                   </div>
                 )}
-                {run.fatal_error && <p className="error-text">Run crashed: {run.fatal_error}</p>}
+                {run.fatal_error && (
+                  <p className="error-text">{t("logs.runCrashed", { error: run.fatal_error })}</p>
+                )}
                 {hasIssues && run.errors.length > 0 && (
                   <details>
                     <summary className="field-hint error-text">
-                      {run.errors.length} error{run.errors.length === 1 ? "" : "s"}
+                      {t("logs.errorCount", { count: run.errors.length })}
                     </summary>
                     <ul className="error-list">
                       {run.errors.map((message, idx) => (

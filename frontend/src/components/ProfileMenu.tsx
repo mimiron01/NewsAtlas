@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import type { User } from "../api/types";
 import { ChevronUpDownIcon, GearIcon, LogoutIcon } from "./icons/NavIcons";
@@ -23,6 +24,7 @@ export default function ProfileMenu({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { t } = useTranslation("nav");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -58,11 +60,11 @@ export default function ProfileMenu({
         <div className="profile-popover" role="menu">
           {isAdmin && (
             <button type="button" role="menuitem" onClick={goToSettings}>
-              <GearIcon /> Settings
+              <GearIcon /> {t("profile.settings")}
             </button>
           )}
           <button type="button" role="menuitem" onClick={handleLogout}>
-            <LogoutIcon /> Log out
+            <LogoutIcon /> {t("profile.logout")}
           </button>
         </div>
       )}

@@ -1,0 +1,196 @@
+{
+  "heading": "Settings",
+  "tabs": {
+    "company": "Company",
+    "sources": "News sources",
+    "ai": "AI configuration",
+    "usage": "AI usage",
+    "users": "Users",
+    "logs": "Logs"
+  },
+  "loadFailed": "Failed to load settings",
+  "saveFailed": "Failed to save settings",
+  "saved": "Settings saved.",
+  "saving": "Saving...",
+  "save": "Save settings",
+  "clearing": "Clearing...",
+  "clearOverride": "Clear in-app override",
+
+  "company": {
+    "title": "Company profile",
+    "subtitle": "This description is given to the AI model so it can explain why each news signal matters for your business and draft relevant outreach snippets.",
+    "companyName": "Company name",
+    "offeringDescription": "Offering description",
+    "offeringPlaceholder": "Describe what your company sells, who it's for, and the problems it solves...",
+    "mainLanguage": "Main language",
+    "mainLanguageHint": "The standard language for the interface and AI-generated signal summaries. Users can still override it for themselves in their own profile.",
+    "ingestionInterval": "Ingestion interval (hours)",
+    "digestSendTime": "Daily digest send time"
+  },
+
+  "targets": {
+    "title": "My companies",
+    "subtitle": "Add the companies you want news signals for. Keywords/aliases help match more articles.",
+    "companyName": "Company name",
+    "industryOptional": "Industry (optional)",
+    "keywords": "Keywords / aliases",
+    "keywordsPlaceholder": "Type a keyword and press Enter",
+    "addTargetCompany": "Add target company",
+    "trackedCompanies": "Tracked companies ({{count}})",
+    "noCompaniesYet": "No target companies yet.",
+    "muted": "Muted",
+    "backfilling": "Backfilling historical coverage from NewsData.io...",
+    "backfillHistory": "Backfill history",
+    "backfillTitle": "Pull historical coverage for this company from NewsData.io's archive",
+    "unmute": "Unmute",
+    "mute": "Mute",
+    "pause": "Pause",
+    "resume": "Resume",
+    "delete": "Delete",
+    "unfollow": "Unfollow",
+    "confirmAction": "Confirm {{action}}",
+    "cancel": "Cancel",
+    "addedToast": "Target company added.",
+    "deletedToast": "Deleted \"{{name}}\".",
+    "unfollowedToast": "Unfollowed \"{{name}}\".",
+    "loadFailed": "Failed to load companies",
+    "addFailed": "Failed to add company",
+    "updateFailed": "Failed to update company",
+    "removeFailed": "Failed to remove company",
+    "backfillFailed": "Failed to trigger backfill",
+    "confirmDeleteAdmin": "This permanently deletes \"{{name}}\" and all its signals for every user. Continue?",
+    "confirmUnfollowOnly": "You're the only follower — unfollowing \"{{name}}\" removes it (and its signals) for everyone. Continue?",
+    "confirmUnfollowShared": "Unfollow \"{{name}}\"? Other users tracking it keep seeing it.",
+    "removeTag": "Remove {{tag}}"
+  },
+
+  "sources": {
+    "title": "News sources",
+    "subtitle": "Which providers ingestion pulls from, each with its own enforced rate limit — a source stops being called for the rest of a run once its limit is reached, rather than only logging the overage afterward. Usage against each limit is shown inline below it.",
+    "maxRequestsPerDay": "Max requests / day",
+    "maxRequestsPerMinute": "Max requests / minute",
+    "noUsageYet": "No usage recorded yet.",
+    "rateLimitedCount": "rate limited {{count}}x in the last 24h",
+    "recentActivity": "Recent activity ({{count}})",
+    "table": {
+      "when": "When",
+      "type": "Type",
+      "company": "Company",
+      "requests": "Requests",
+      "articles": "Articles"
+    },
+    "requestsToday": "{{used}} / {{limit}} requests today",
+    "requestsLastMinute": "{{used}} / {{limit}} in the last minute",
+    "googleNewsRss": {
+      "hint": "Free, keyless public feed. Google publishes no official quota for it, so the limit below is a self-imposed politeness ceiling, not a real plan tier.",
+      "country": "Country",
+      "language": "Language"
+    },
+    "newsdata": {
+      "hint": "Paid API — leans on full-article-content grounding, native duplicate removal, native sentiment/tags, and a one-time historical backfill when a company is added.",
+      "fetchFullContent": "Fetch full article content when the plan includes it (better-grounded summaries)",
+      "useNativeDedupe": "Use NewsData.io's native duplicate removal",
+      "backfillWindow": "Historical backfill window (days, 0 = off)",
+      "backfillHint": "When set, newly-created companies automatically get a one-time historical pull covering this many days via NewsData.io's archive endpoint.",
+      "apiKey": "NewsData.io API key",
+      "apiKeyPlaceholder": "Enter a new key to set or rotate it"
+    },
+    "noApiKeyConfigured": "No API key configured — set one below or via the {{envVar}} environment variable.",
+    "usingInAppKey": "Using an in-app key{{suffix}}.",
+    "usingEnvKey": "Using a key from the server's environment variable{{suffix}}.",
+    "endingIn": " ending in ...{{last4}}",
+    "clearNewsdataKeyToast": "In-app NewsData.io API key override cleared.",
+    "clearNewsdataKeyFailed": "Failed to clear API key"
+  },
+
+  "ai": {
+    "title": "AI configuration",
+    "subtitle": "Controls how Mistral is used to summarize articles — which models are called, how aggressively duplicate coverage is filtered, and which API key is used.",
+    "summarizationModel": "Summarization model",
+    "triageModel": "Triage model",
+    "preFilterLabel": "Pre-filter articles with the triage model before full summarization (recommended — cuts cost by skipping low-value articles before the expensive call)",
+    "embeddingModel": "Embedding model (duplicate detection)",
+    "dedupeThreshold": "Duplicate similarity threshold",
+    "dedupeHint": "Lower the threshold to dedupe more aggressively (more distinct stories may get merged); raise it to only merge near-identical coverage.",
+    "apiKey": "Mistral API key",
+    "apiKeyPlaceholder": "Enter a new key to set or rotate it",
+    "clearKeyToast": "In-app API key override cleared.",
+    "clearKeyFailed": "Failed to clear API key"
+  },
+
+  "usage": {
+    "title": "AI usage",
+    "subtitle": "Mistral token usage over the last {{days}} days, broken down by pipeline stage so you can see the cost impact of duplicate-skipping and triage filtering.",
+    "apiCalls": "API calls",
+    "totalTokens": "Total tokens",
+    "promptTokens": "Prompt tokens",
+    "completionTokens": "Completion tokens",
+    "byStage": "By pipeline stage",
+    "byCompany": "By target company",
+    "noCallsYet": "No AI calls recorded yet.",
+    "stage": "Stage",
+    "calls": "Calls",
+    "targetCompany": "Target company",
+    "deletedCompany": "(deleted target company)",
+    "loadFailed": "Failed to load AI usage",
+    "callTypes": {
+      "embedding": "Duplicate detection (embeddings)",
+      "triage": "Relevance triage (small model)",
+      "summarize": "Full summarization (large model)"
+    }
+  },
+
+  "users": {
+    "title": "Users",
+    "subtitle": "Promote or demote users. Admins manage workspace settings and can assign companies to any user.",
+    "loadFailed": "Failed to load users",
+    "roleLabel": {
+      "admin": "admin",
+      "user": "user"
+    },
+    "promote": "Promote to admin",
+    "demote": "Demote to user",
+    "lastAdminHint": "You may be the last remaining admin",
+    "roleUpdateFailed": "Failed to update role",
+    "roleChangedToAdmin": "{{name}} is now an admin.",
+    "roleChangedToUser": "{{name}} is now a regular user.",
+    "assignTitle": "Assign a company to a user",
+    "assignSubtitle": "Select an existing catalog company by typing its exact name, or a new name to create it. The user sees it in their dashboard immediately — no action needed from them.",
+    "chooseUserFirst": "Choose a user to assign this company to.",
+    "userLabel": "User",
+    "chooseUserPlaceholder": "Choose a user...",
+    "companyAssigned": "Company assigned.",
+    "assignFailed": "Failed to assign company",
+    "assignButton": "Assign company"
+  },
+
+  "logs": {
+    "title": "Ingestion logs",
+    "subtitle": "History of every \"Fetch new signals\" run, manual or scheduled, including any errors encountered while pulling from a news source or summarizing an article.",
+    "noRunsYet": "No ingestion runs yet.",
+    "loadFailed": "Failed to load logs",
+    "status": {
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed"
+    },
+    "trigger": {
+      "manual": "Manual",
+      "scheduled": "Scheduled"
+    },
+    "bySource": "By source:",
+    "runCrashed": "Run crashed: {{error}}",
+    "errorCount_one": "{{count}} error",
+    "errorCount_other": "{{count}} errors",
+    "companiesProcessed_one": "{{processed}}/{{total}} company",
+    "companiesProcessed_other": "{{processed}}/{{total}} companies",
+    "articlesFetched_one": "{{count}} article fetched",
+    "articlesFetched_other": "{{count}} articles fetched",
+    "newCount": "{{count}} new",
+    "signalsCreated_one": "{{count}} signal created",
+    "signalsCreated_other": "{{count}} signals created",
+    "duplicatesSkipped_one": "{{count}} duplicate",
+    "duplicatesSkipped_other": "{{count}} duplicates",
+    "triagedOut": "{{count}} triaged out"
+  }
+}

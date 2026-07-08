@@ -1,60 +1,74 @@
 import { FormEvent, useState } from "react";
+import { useTranslation } from "react-i18next";
 
 import { ApiError, api } from "../../api/client";
 import type { ArticleSource, NewsSourceUsageStat, WorkspaceSettings } from "../../api/types";
 import Skeleton from "../../components/Skeleton";
 import { useToast } from "../../context/ToastContext";
+import { useLocaleFormat } from "../../hooks/useLocaleFormat";
 import { useSettingsContext } from "./SettingsLayout";
 import { buildSettingsPayload } from "./settingsPayload";
 
-function newsdataApiKeyStatusText(settings: WorkspaceSettings): string {
+function newsdataApiKeyStatusText(settings: WorkspaceSettings, t: (key: string, options?: Record<string, unknown>) => string): string {
   if (!settings.newsdata_api_key_configured) {
-    return "No API key configured — set one below or via the NEWSDATA_API_KEY environment variable.";
+    return t("sources.noApiKeyConfigured", { envVar: "NEWSDATA_API_KEY" });
   }
-  const suffix = settings.newsdata_api_key_last4 ? ` ending in ...${settings.newsdata_api_key_last4}` : "";
+  const suffix = settings.newsdata_api_key_last4
+    ? t("sources.endingIn", { last4: settings.newsdata_api_key_last4 })
+    : "";
   return settings.newsdata_api_key_source === "workspace"
-    ? `Using an in-app key${suffix}.`
-    : `Using a key from the server's environment variable${suffix}.`;
+    ? t("sources.usingInAppKey", { suffix })
+    : t("sources.usingEnvKey", { suffix });
 }
 
 // Shows how close a source is to the enforced limit configured right above it, plus its
 // recent activity, directly in this panel — no separate report page needed.
 function UsageSummary({ stat }: { stat: NewsSourceUsageStat | undefined }) {
+  const { t } = useTranslation("settings");
+  const { formatDate } = useLocaleFormat();
   if (!stat || !stat.enabled) return null;
 
   const parts: string[] = [];
   if (stat.requests_per_day_limit !== null) {
-    parts.push(`${stat.requests_today} / ${stat.requests_per_day_limit} requests today`);
+    parts.push(t("sources.requestsToday", { used: stat.requests_today, limit: stat.requests_per_day_limit }));
   }
   if (stat.requests_per_minute_limit !== null) {
-    parts.push(`${stat.requests_last_minute} / ${stat.requests_per_minute_limit} in the last minute`);
+    parts.push(
+      t("sources.requestsLastMinute", {
+        used: stat.requests_last_minute,
+        limit: stat.requests_per_minute_limit,
+      })
+    );
   }
 
   return (
     <div className="news-usage-summary">
       <p className="field-hint">
-        {parts.join(" · ") || "No usage recorded yet."}
+        {parts.join(" · ") || t("sources.noUsageYet")}
         {stat.rate_limited_last_24h > 0 && (
-          <> · <span className="error-text">rate limited {stat.rate_limited_last_24h}x in the last 24h</span></>
+          <>
+            {" "}
+            · <span className="error-text">{t("sources.rateLimitedCount", { count: stat.rate_limited_last_24h })}</span>
+          </>
         )}
       </p>
       {stat.recent.length > 0 && (
         <details>
-          <summary className="field-hint">Recent activity ({stat.recent.length})</summary>
+          <summary className="field-hint">{t("sources.recentActivity", { count: stat.recent.length })}</summary>
           <table className="news-usage-table">
             <thead>
               <tr>
-                <th>When</th>
-                <th>Type</th>
-                <th>Company</th>
-                <th>Requests</th>
-                <th>Articles</th>
+                <th>{t("sources.table.when")}</th>
+                <th>{t("sources.table.type")}</th>
+                <th>{t("sources.table.company")}</th>
+                <th>{t("sources.table.requests")}</th>
+                <th>{t("sources.table.articles")}</th>
               </tr>
             </thead>
             <tbody>
               {stat.recent.map((entry, idx) => (
                 <tr key={idx}>
-                  <td>{new Date(entry.created_at).toLocaleString()}</td>
+                  <td>{formatDate(entry.created_at, { dateStyle: "short", timeStyle: "short" })}</td>
                   <td>{entry.call_type}</td>
                   <td>{entry.target_company_name ?? "—"}</td>
                   <td>{entry.requests_used}</td>
@@ -70,6 +84,7 @@ function UsageSummary({ stat }: { stat: NewsSourceUsageStat | undefined }) {
 }
 
 export default function SourcesTab() {
+  const { t } = useTranslation("settings");
   const { showToast } = useToast();
   const { settings, setSettings, loadError, newsUsage, reloadNewsUsage } = useSettingsContext();
   const [isSaving, setIsSaving] = useState(false);
@@ -92,10 +107,10 @@ export default function SourcesTab() {
       const updated = await api.put<WorkspaceSettings>("/settings", payload);
       setSettings(updated);
       setNewsdataApiKeyInput("");
-      showToast("Settings saved.", "success");
+      showToast(t("saved"), "success");
       reloadNewsUsage();
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Failed to save settings", "error");
+      showToast(err instanceof ApiError ? err.message : t("saveFailed"), "error");
     } finally {
       setIsSaving(false);
     }
@@ -111,9 +126,9 @@ export default function SourcesTab() {
       });
       setSettings(updated);
       setNewsdataApiKeyInput("");
-      showToast("In-app NewsData.io API key override cleared.", "success");
+      showToast(t("sources.clearNewsdataKeyToast"), "success");
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Failed to clear API key", "error");
+      showToast(err instanceof ApiError ? err.message : t("sources.clearNewsdataKeyFailed"), "error");
     } finally {
       setIsClearingNewsdataKey(false);
     }
@@ -134,12 +149,8 @@ export default function SourcesTab() {
   return (
     <form onSubmit={handleSubmit}>
       <div className="panel-card">
-        <h2>News sources</h2>
-        <p className="subtitle">
-          Which providers ingestion pulls from, each with its own enforced rate limit — a source
-          stops being called for the rest of a run once its limit is reached, rather than only
-          logging the overage afterward. Usage against each limit is shown inline below it.
-        </p>
+        <h2>{t("sources.title")}</h2>
+        <p className="subtitle">{t("sources.subtitle")}</p>
 
         <div className="news-source-row">
           <label className="checkbox-label">
@@ -151,7 +162,7 @@ export default function SourcesTab() {
             <strong>NewsAPI.org</strong>
           </label>
           <label>
-            Max requests / day
+            {t("sources.maxRequestsPerDay")}
             <input
               type="number"
               min={1}
@@ -173,14 +184,11 @@ export default function SourcesTab() {
             />
             <strong>Google News RSS</strong>
           </label>
-          <p className="field-hint">
-            Free, keyless public feed. Google publishes no official quota for it, so the limit
-            below is a self-imposed politeness ceiling, not a real plan tier.
-          </p>
+          <p className="field-hint">{t("sources.googleNewsRss.hint")}</p>
           {settings.google_news_rss_enabled && (
             <div className="field-row">
               <label>
-                Country
+                {t("sources.googleNewsRss.country")}
                 <input
                   value={settings.google_news_rss_country}
                   onChange={(e) =>
@@ -190,7 +198,7 @@ export default function SourcesTab() {
                 />
               </label>
               <label>
-                Language
+                {t("sources.googleNewsRss.language")}
                 <input
                   value={settings.google_news_rss_language}
                   onChange={(e) =>
@@ -200,7 +208,7 @@ export default function SourcesTab() {
                 />
               </label>
               <label>
-                Max requests / minute
+                {t("sources.maxRequestsPerMinute")}
                 <input
                   type="number"
                   min={1}
@@ -227,15 +235,12 @@ export default function SourcesTab() {
             />
             <strong>NewsData.io</strong>
           </label>
-          <p className="field-hint">
-            Paid API — leans on full-article-content grounding, native duplicate removal, native
-            sentiment/tags, and a one-time historical backfill when a company is added.
-          </p>
+          <p className="field-hint">{t("sources.newsdata.hint")}</p>
           {settings.newsdata_enabled && (
             <>
               <div className="field-row">
                 <label>
-                  Max requests / day
+                  {t("sources.maxRequestsPerDay")}
                   <input
                     type="number"
                     min={1}
@@ -246,7 +251,7 @@ export default function SourcesTab() {
                   />
                 </label>
                 <label>
-                  Max requests / minute
+                  {t("sources.maxRequestsPerMinute")}
                   <input
                     type="number"
                     min={1}
@@ -268,7 +273,7 @@ export default function SourcesTab() {
                     setSettings({ ...settings, newsdata_full_content_enabled: e.target.checked })
                   }
                 />
-                Fetch full article content when the plan includes it (better-grounded summaries)
+                {t("sources.newsdata.fetchFullContent")}
               </label>
               <label className="checkbox-label">
                 <input
@@ -278,10 +283,10 @@ export default function SourcesTab() {
                     setSettings({ ...settings, newsdata_use_native_dedupe: e.target.checked })
                   }
                 />
-                Use NewsData.io's native duplicate removal
+                {t("sources.newsdata.useNativeDedupe")}
               </label>
               <label>
-                Historical backfill window (days, 0 = off)
+                {t("sources.newsdata.backfillWindow")}
                 <input
                   type="number"
                   min={0}
@@ -292,22 +297,19 @@ export default function SourcesTab() {
                   }
                 />
               </label>
-              <p className="field-hint">
-                When set, newly-created companies automatically get a one-time historical pull
-                covering this many days via NewsData.io's archive endpoint.
-              </p>
+              <p className="field-hint">{t("sources.newsdata.backfillHint")}</p>
 
               <label>
-                NewsData.io API key
+                {t("sources.newsdata.apiKey")}
                 <input
                   type="password"
                   value={newsdataApiKeyInput}
                   onChange={(e) => setNewsdataApiKeyInput(e.target.value)}
-                  placeholder="Enter a new key to set or rotate it"
+                  placeholder={t("sources.newsdata.apiKeyPlaceholder")}
                   autoComplete="off"
                 />
               </label>
-              <p className="field-hint">{newsdataApiKeyStatusText(settings)}</p>
+              <p className="field-hint">{newsdataApiKeyStatusText(settings, t)}</p>
               {settings.newsdata_api_key_source === "workspace" && (
                 <button
                   type="button"
@@ -315,7 +317,7 @@ export default function SourcesTab() {
                   onClick={handleClearNewsdataApiKeyOverride}
                   disabled={isClearingNewsdataKey}
                 >
-                  {isClearingNewsdataKey ? "Clearing..." : "Clear in-app override"}
+                  {isClearingNewsdataKey ? t("clearing") : t("clearOverride")}
                 </button>
               )}
             </>
@@ -325,7 +327,7 @@ export default function SourcesTab() {
       </div>
 
       <button type="submit" disabled={isSaving}>
-        {isSaving ? "Saving..." : "Save settings"}
+        {isSaving ? t("saving") : t("save")}
       </button>
     </form>
   );

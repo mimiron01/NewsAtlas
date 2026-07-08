@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 interface SetupChecklistProps {
   hasCompanyProfile: boolean;
@@ -11,25 +12,27 @@ export default function SetupChecklist({
   hasTargetCompany,
   hasSignals,
 }: SetupChecklistProps) {
+  const { t } = useTranslation("common");
+
   const steps = [
     {
       done: hasCompanyProfile,
-      label: "Describe your company",
-      body: "Tell the AI what you sell so it can explain why each signal matters.",
+      label: t("setupChecklist.companyProfile.label"),
+      body: t("setupChecklist.companyProfile.body"),
       to: "/settings/profile",
-      linkLabel: "Set up company profile",
+      linkLabel: t("setupChecklist.companyProfile.linkLabel"),
     },
     {
       done: hasTargetCompany,
-      label: "Add a target company",
-      body: "Pick the companies you want news signals for.",
+      label: t("setupChecklist.targetCompany.label"),
+      body: t("setupChecklist.targetCompany.body"),
       to: "/settings/targets",
-      linkLabel: "Add target companies",
+      linkLabel: t("setupChecklist.targetCompany.linkLabel"),
     },
     {
       done: hasSignals,
-      label: "Fetch your first signals",
-      body: "Click \"Fetch new signals\" below once you've added a target company.",
+      label: t("setupChecklist.firstSignals.label"),
+      body: t("setupChecklist.firstSignals.body"),
       to: null,
       linkLabel: null,
     },
@@ -37,7 +40,7 @@ export default function SetupChecklist({
 
   return (
     <div className="panel-card setup-checklist">
-      <h3>Get started</h3>
+      <h3>{t("setupChecklist.title")}</h3>
       <ul className="checklist-steps">
         {steps.map((step) => (
           <li key={step.label} className={step.done ? "done" : ""}>

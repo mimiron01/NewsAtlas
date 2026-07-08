@@ -17,6 +17,8 @@ def test_signup_login_me_flow(client):
     me_resp = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
     assert me_resp.status_code == 200
     assert me_resp.json()["email"] == "sales@proair.com"
+    assert me_resp.json()["preferred_language"] is None
+    assert me_resp.json()["workspace_main_language"] == "en"
 
     login_resp = client.post(
         "/auth/login", json={"email": "sales@proair.com", "password": "s3curePass!"}
@@ -100,6 +102,51 @@ def test_login_wrong_password_rejected(client):
 
 def test_me_requires_auth(client):
     resp = client.get("/auth/me")
+    assert resp.status_code == 401
+
+
+def test_update_language_preference(client):
+    signup_resp = client.post(
+        "/auth/signup",
+        json={
+            "email": "lang@proair.com",
+            "password": "password123",
+            "name": "A",
+            "invite_code": VALID_INVITE,
+        },
+    )
+    headers = {"Authorization": f"Bearer {signup_resp.json()['access_token']}"}
+
+    resp = client.patch("/auth/me/language", json={"preferred_language": "de"}, headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["preferred_language"] == "de"
+
+    me_resp = client.get("/auth/me", headers=headers)
+    assert me_resp.json()["preferred_language"] == "de"
+
+    # Clearing back to null reverts to "follow the workspace default".
+    resp = client.patch("/auth/me/language", json={"preferred_language": None}, headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["preferred_language"] is None
+
+
+def test_update_language_preference_rejects_unsupported_language(client):
+    signup_resp = client.post(
+        "/auth/signup",
+        json={
+            "email": "badlang@proair.com",
+            "password": "password123",
+            "name": "A",
+            "invite_code": VALID_INVITE,
+        },
+    )
+    headers = {"Authorization": f"Bearer {signup_resp.json()['access_token']}"}
+    resp = client.patch("/auth/me/language", json={"preferred_language": "fr"}, headers=headers)
+    assert resp.status_code == 422
+
+
+def test_update_language_preference_requires_auth(client):
+    resp = client.patch("/auth/me/language", json={"preferred_language": "de"})
     assert resp.status_code == 401
 
 

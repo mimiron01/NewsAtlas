@@ -1,0 +1,20 @@
+{
+  "title": "Dashboard",
+  "subtitle": "Your newest and most relevant signals, at a glance.",
+  "stats": {
+    "newSignals": "New signals",
+    "favorites": "Favorites",
+    "openTodos": "Open todos"
+  },
+  "topSignals": "Top signals",
+  "viewAllSignals": "View all signals →",
+  "noSignalsYet": "No open signals yet. Once signals come in, your newest and most relevant ones show up here.",
+  "recentFavorites": "Recent favorites",
+  "noFavoritesYet": "You haven't favorited any signals yet. Star a signal to pin it here.",
+  "openTodosHeading": "Open todos",
+  "noOpenTodos": "No open todos. Add one from a signal to track a follow-up.",
+  "markTodoComplete": "Mark \"{{text}}\" complete",
+  "loadFailed": "Failed to load dashboard",
+  "favoriteUpdateFailed": "Failed to update favorite",
+  "todoUpdateFailed": "Failed to update todo"
+}

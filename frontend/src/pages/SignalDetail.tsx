@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
 import { ARTICLE_SOURCE_LABELS } from "../api/types";
@@ -7,29 +8,16 @@ import type { Signal, SignalStatus, SignalTodo } from "../api/types";
 import FavoriteButton from "../components/FavoriteButton";
 import Skeleton from "../components/Skeleton";
 import TodoList from "../components/TodoList";
-import { STATUS_TRANSITIONS } from "../constants/signalStatus";
+import { STATUS_TRANSITION_VALUES } from "../constants/signalStatus";
 import { useToast } from "../context/ToastContext";
+import { useLocaleFormat } from "../hooks/useLocaleFormat";
 import { usePageTitle } from "../hooks/usePageTitle";
 
-const SIGNAL_TYPE_LABELS: Record<string, string> = {
-  funding: "Funding",
-  leadership_change: "Leadership change",
-  expansion: "Expansion",
-  hiring_surge: "Hiring surge",
-  layoffs: "Layoffs",
-  product_launch: "Product launch",
-  partnership: "Partnership",
-  competitor_mention: "Competitor mention",
-  other: "Other",
-};
-
-const OUTREACH_CHANNELS: { key: "email" | "linkedin" | "call"; label: string }[] = [
-  { key: "email", label: "Email" },
-  { key: "linkedin", label: "LinkedIn" },
-  { key: "call", label: "Call opener" },
-];
+const OUTREACH_CHANNEL_KEYS: ("email" | "linkedin" | "call")[] = ["email", "linkedin", "call"];
 
 export default function SignalDetail() {
+  const { t } = useTranslation("signals");
+  const { formatDate } = useLocaleFormat();
   const { signalId } = useParams<{ signalId: string }>();
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -51,13 +39,13 @@ export default function SignalDetail() {
           navigate("/signals", { replace: true });
           return;
         }
-        setLoadError(err instanceof ApiError ? err.message : "Failed to load signal");
+        setLoadError(err instanceof ApiError ? err.message : t("loadFailed"));
       });
     api
       .get<SignalTodo[]>(`/signals/${signalId}/todos`)
       .then(setTodos)
       .catch(() => undefined);
-  }, [signalId, navigate]);
+  }, [signalId, navigate, t]);
 
   async function updateStatus(status: SignalStatus) {
     if (!signal) return;
@@ -65,7 +53,7 @@ export default function SignalDetail() {
       const updated = await api.patch<Signal>(`/signals/${signal.id}`, { status });
       setSignal(updated);
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Failed to update status", "error");
+      showToast(err instanceof ApiError ? err.message : t("statusUpdateFailed"), "error");
     }
   }
 
@@ -80,7 +68,7 @@ export default function SignalDetail() {
       setSignal(updated);
     } catch (err) {
       setSignal((prev) => (prev ? { ...prev, is_favorited: !nextFavorited } : prev));
-      showToast(err instanceof ApiError ? err.message : "Failed to update favorite", "error");
+      showToast(err instanceof ApiError ? err.message : t("favoriteUpdateFailed"), "error");
     }
   }
 
@@ -91,7 +79,7 @@ export default function SignalDetail() {
       setTodos((prev) => [...prev, created]);
       setSignal((prev) => (prev ? { ...prev, open_todo_count: prev.open_todo_count + 1 } : prev));
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : "Failed to add todo", "error");
+      showToast(err instanceof ApiError ? err.message : t("todoAddFailed"), "error");
     }
   }
 
@@ -109,7 +97,7 @@ export default function SignalDetail() {
       setSignal((prev) =>
         prev ? { ...prev, open_todo_count: prev.open_todo_count + (nextDone ? 1 : -1) } : prev
       );
-      showToast(err instanceof ApiError ? err.message : "Failed to update todo", "error");
+      showToast(err instanceof ApiError ? err.message : t("todoUpdateFailed"), "error");
     }
   }
 
@@ -125,7 +113,7 @@ export default function SignalDetail() {
       if (!todo.is_done) {
         setSignal((prev) => (prev ? { ...prev, open_todo_count: prev.open_todo_count + 1 } : prev));
       }
-      showToast(err instanceof ApiError ? err.message : "Failed to delete todo", "error");
+      showToast(err instanceof ApiError ? err.message : t("todoDeleteFailed"), "error");
     }
   }
 
@@ -160,26 +148,26 @@ export default function SignalDetail() {
   return (
     <div>
       <Link to="/signals" className="link-button">
-        ← Back to signals
+        {t("backToSignals")}
       </Link>
 
       <div className="panel-card">
         <div className="signal-detail-badges">
           <FavoriteButton isFavorited={signal.is_favorited} onToggle={toggleFavorite} className="detail" />
-          <span className={`status-badge status-${signal.status}`}>{signal.status}</span>
+          <span className={`status-badge status-${signal.status}`}>{t(`status.${signal.status}`)}</span>
           {signal.relevance_score !== null && (
             <span className={`score-badge score-${signal.relevance_score}`}>
-              Relevance {signal.relevance_score}/5
+              {t("relevance", { score: signal.relevance_score })}
             </span>
           )}
           {signal.signal_type && (
             <span className="signal-type-badge">
-              {SIGNAL_TYPE_LABELS[signal.signal_type] ?? signal.signal_type}
+              {t(`signalTypes.${signal.signal_type}`, { defaultValue: signal.signal_type })}
             </span>
           )}
           {signal.confidence && signal.confidence !== "high" && (
-            <span className="confidence-badge" title="Model's confidence that this analysis is accurately grounded in the article">
-              {signal.confidence} confidence
+            <span className="confidence-badge" title={t("confidenceTitle")}>
+              {t("confidence", { level: t(`confidenceLevels.${signal.confidence}`) })}
             </span>
           )}
           <span className="source-badge">{ARTICLE_SOURCE_LABELS[signal.article_source]}</span>
@@ -187,19 +175,18 @@ export default function SignalDetail() {
         <h2>{signal.article_title}</h2>
         <p className="subtitle">
           {signal.target_company_name} · {signal.article_source_name}
-          {signal.article_published_at &&
-            ` · ${new Date(signal.article_published_at).toLocaleDateString()}`}
+          {signal.article_published_at && ` · ${formatDate(signal.article_published_at)}`}
         </p>
         <p>
           <a href={signal.article_url} target="_blank" rel="noreferrer">
-            View original article ↗
+            {t("viewOriginalArticle")}
           </a>
         </p>
 
-        <h3>Summary</h3>
+        <h3>{t("summary")}</h3>
         <p>{signal.summary}</p>
 
-        <h3>Why it matters</h3>
+        <h3>{t("whyItMatters")}</h3>
         <p>{signal.business_relevance}</p>
         {signal.supporting_quote && (
           <blockquote className="supporting-quote">"{signal.supporting_quote}"</blockquote>
@@ -207,21 +194,21 @@ export default function SignalDetail() {
 
         {hasEntities && (
           <>
-            <h3>Details</h3>
+            <h3>{t("details")}</h3>
             <ul className="entities-list">
               {entities.amount && (
                 <li>
-                  <strong>Amount:</strong> {entities.amount}
+                  <strong>{t("amount")}:</strong> {entities.amount}
                 </li>
               )}
               {entities.people && entities.people.length > 0 && (
                 <li>
-                  <strong>People:</strong> {entities.people.join(", ")}
+                  <strong>{t("people")}:</strong> {entities.people.join(", ")}
                 </li>
               )}
               {entities.tags && entities.tags.length > 0 && (
                 <li>
-                  <strong>Tags:</strong> {entities.tags.join(", ")}
+                  <strong>{t("tags")}:</strong> {entities.tags.join(", ")}
                 </li>
               )}
             </ul>
@@ -231,49 +218,49 @@ export default function SignalDetail() {
         {(signal.article_external_sentiment || (signal.article_external_tags && signal.article_external_tags.length > 0)) && (
           <p className="field-hint">
             {signal.article_external_sentiment && (
-              <>NewsData.io sentiment: {signal.article_external_sentiment}</>
+              <>{t("newsdataSentiment", { sentiment: signal.article_external_sentiment })}</>
             )}
             {signal.article_external_sentiment && signal.article_external_tags && signal.article_external_tags.length > 0 && " · "}
             {signal.article_external_tags && signal.article_external_tags.length > 0 && (
-              <>NewsData.io tags: {signal.article_external_tags.join(", ")}</>
+              <>{t("newsdataTags", { tags: signal.article_external_tags.join(", ") })}</>
             )}
           </p>
         )}
 
-        <h3>Outreach snippet</h3>
+        <h3>{t("outreachSnippet")}</h3>
         <div className="snippet-tabs">
-          {OUTREACH_CHANNELS.map((channel) => (
+          {OUTREACH_CHANNEL_KEYS.map((channel) => (
             <button
               type="button"
-              key={channel.key}
-              className={`snippet-tab${activeChannel === channel.key ? " active" : ""}`}
-              onClick={() => setActiveChannel(channel.key)}
+              key={channel}
+              className={`snippet-tab${activeChannel === channel ? " active" : ""}`}
+              onClick={() => setActiveChannel(channel)}
             >
-              {channel.label}
+              {t(`outreachChannels.${channel}`)}
             </button>
           ))}
         </div>
         <div className="snippet-box">{snippetForChannel(signal, activeChannel)}</div>
         <button type="button" onClick={copySnippet}>
-          {copied ? "Copied!" : "Copy snippet"}
+          {copied ? t("copied") : t("copySnippet")}
         </button>
 
         <div className="status-actions">
-          {STATUS_TRANSITIONS.filter((t) => t.value !== signal.status).map((transition) => (
+          {STATUS_TRANSITION_VALUES.filter((status) => status !== signal.status).map((status) => (
             <button
               type="button"
-              key={transition.value}
+              key={status}
               className="secondary"
-              onClick={() => updateStatus(transition.value)}
+              onClick={() => updateStatus(status)}
             >
-              {transition.label}
+              {t(`transitions.${status}`)}
             </button>
           ))}
         </div>
       </div>
 
       <div className="panel-card">
-        <h3>Notes &amp; todos</h3>
+        <h3>{t("notesAndTodos")}</h3>
         <TodoList todos={todos} onAdd={addTodo} onToggle={toggleTodo} onDelete={deleteTodo} />
       </div>
     </div>
