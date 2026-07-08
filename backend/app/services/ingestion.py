@@ -93,6 +93,8 @@ def run_ingestion(
         model=workspace_settings.mistral_model,
         triage_model=workspace_settings.mistral_triage_model,
         embed_model=workspace_settings.mistral_embed_model,
+        max_requests_per_second=app_settings.mistral_max_requests_per_second,
+        max_retries=app_settings.mistral_max_retries,
     )
 
     # Every enabled source gets a slot in this list; disabled sources are simply never
