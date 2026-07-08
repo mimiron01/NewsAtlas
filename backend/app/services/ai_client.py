@@ -1,9 +1,14 @@
 import json
 import logging
 import math
+import random
+import time
+from typing import Callable
 
 import httpx
 from pydantic import BaseModel, ValidationError, field_validator
+
+from app.services.mistral_rate_limiter import MistralRateLimiter, get_shared_rate_limiter
 
 logger = logging.getLogger("newsatlas.ai_client")
 
@@ -159,6 +164,14 @@ class AIClient:
     BASE_URL = "https://api.mistral.ai/v1"
     MAX_ATTEMPTS = 2
 
+    # Conservative default: Mistral doesn't expose a remaining-quota header, so the only
+    # safe way to avoid 429s is to self-pace under the account's actual tier limit
+    # (Admin Console > Limits) rather than find it out by getting throttled.
+    DEFAULT_MAX_REQUESTS_PER_SECOND = 1.0
+    DEFAULT_MAX_RETRIES = 5
+    BACKOFF_BASE_SECONDS = 1.0
+    BACKOFF_MAX_SECONDS = 60.0
+
     def __init__(
         self,
         api_key: str,
@@ -166,12 +179,22 @@ class AIClient:
         triage_model: str = "mistral-small-latest",
         embed_model: str = "mistral-embed",
         timeout: float = 30.0,
+        max_requests_per_second: float = DEFAULT_MAX_REQUESTS_PER_SECOND,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+        rate_limiter: MistralRateLimiter | None = None,
+        sleep: Callable[[float], None] = time.sleep,
     ):
         self.api_key = api_key
         self.model = model
         self.triage_model = triage_model
         self.embed_model = embed_model
         self.timeout = timeout
+        self.max_retries = max_retries
+        # Shared across every AIClient in the process unless a caller injects its own
+        # (tests do, to avoid real sleeps and cross-test timing coupling) — see
+        # mistral_rate_limiter.get_shared_rate_limiter for why this must be shared.
+        self.rate_limiter = rate_limiter or get_shared_rate_limiter(max_requests_per_second)
+        self._sleep = sleep
 
     def summarize_article(
         self,
@@ -225,7 +248,13 @@ class AIClient:
                 cumulative_usage = _sum_usage(cumulative_usage, usage)
                 data = json.loads(content)
                 return AISummaryResult.model_validate(data), cumulative_usage
-            except (httpx.HTTPError, json.JSONDecodeError, ValidationError) as exc:
+            except httpx.HTTPError as exc:
+                # _chat already retried transient failures (429/5xx/network errors)
+                # internally with backoff, so an HTTPError surfacing here means those
+                # retries were exhausted — another attempt here would only re-prompt for
+                # malformed JSON, which can't fix a rate limit or outage.
+                raise AIClientError(f"Mistral summarization failed: {exc}")
+            except (json.JSONDecodeError, ValidationError) as exc:
                 last_error = exc
                 if content is not None:
                     messages.append({"role": "assistant", "content": content})
@@ -276,13 +305,9 @@ class AIClient:
         if not texts:
             return [], MistralUsage()
 
-        headers = self._headers()
         payload = {"model": self.embed_model, "input": texts}
         try:
-            response = httpx.post(
-                f"{self.BASE_URL}/embeddings", headers=headers, json=payload, timeout=self.timeout
-            )
-            response.raise_for_status()
+            response = self._post(f"{self.BASE_URL}/embeddings", payload)
             body = response.json()
             # Sort by the response's own index rather than trusting array order, so a
             # provider that reorders results doesn't silently attach the wrong embedding
@@ -318,13 +343,7 @@ class AIClient:
         }
         if max_tokens is not None:
             payload["max_tokens"] = max_tokens
-        response = httpx.post(
-            f"{self.BASE_URL}/chat/completions",
-            headers=self._headers(),
-            json=payload,
-            timeout=self.timeout,
-        )
-        response.raise_for_status()
+        response = self._post(f"{self.BASE_URL}/chat/completions", payload)
         body = response.json()
         content = body["choices"][0]["message"]["content"]
         usage_body = body.get("usage", {})
@@ -334,3 +353,70 @@ class AIClient:
             total_tokens=usage_body.get("total_tokens", 0),
         )
         return content, usage
+
+    def _post(self, url: str, payload: dict) -> httpx.Response:
+        """POSTs `payload` to `url`, pacing every attempt (including retries) through
+        the shared rate limiter, and retrying on 429/5xx/network errors with exponential
+        backoff — honoring Mistral's `Retry-After` header when the response includes one.
+
+        Non-retryable errors (4xx other than 429, e.g. bad request or bad API key) raise
+        immediately on the first attempt since retrying them can't help.
+        """
+        headers = self._headers()
+        attempt = 0
+        while True:
+            self.rate_limiter.acquire()
+            try:
+                response = httpx.post(url, headers=headers, json=payload, timeout=self.timeout)
+            except httpx.TransportError:
+                if attempt >= self.max_retries:
+                    raise
+                logger.warning(
+                    "Mistral request failed (attempt %d/%d), backing off before retry",
+                    attempt + 1,
+                    self.max_retries + 1,
+                )
+                self._backoff(attempt, retry_after=None)
+                attempt += 1
+                continue
+
+            if not self._is_retryable_status(response.status_code):
+                response.raise_for_status()
+                return response
+
+            if attempt >= self.max_retries:
+                response.raise_for_status()
+
+            logger.warning(
+                "Mistral API returned %s (attempt %d/%d), backing off before retry",
+                response.status_code,
+                attempt + 1,
+                self.max_retries + 1,
+            )
+            self._backoff(attempt, retry_after=self._parse_retry_after(response))
+            attempt += 1
+
+    @staticmethod
+    def _is_retryable_status(status_code: int) -> bool:
+        return status_code == 429 or status_code >= 500
+
+    def _backoff(self, attempt: int, *, retry_after: float | None) -> None:
+        if retry_after is not None:
+            delay = retry_after
+        else:
+            delay = self.BACKOFF_BASE_SECONDS * (2**attempt)
+        delay = min(delay, self.BACKOFF_MAX_SECONDS)
+        # Jitter avoids every article in a batch that got 429'd at the same instant
+        # retrying at the exact same instant again.
+        delay += random.uniform(0, delay * 0.1)
+        self._sleep(delay)
+
+    @staticmethod
+    def _parse_retry_after(response: httpx.Response) -> float | None:
+        header = response.headers.get("retry-after")
+        if not header:
+            return None
+        try:
+            return max(0.0, float(header))
+        except ValueError:
+            return None

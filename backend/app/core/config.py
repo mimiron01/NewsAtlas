@@ -40,6 +40,16 @@ class Settings(BaseSettings):
     # Toggle for the small-model triage pass; disabling sends every article straight to
     # the full summarization call (higher cost, useful for debugging/comparison).
     mistral_triage_enabled: bool = True
+    # Self-imposed pacing cap for outbound Mistral calls (see services/ai_client.py,
+    # services/mistral_rate_limiter.py). Mistral enforces requests-per-second limits per
+    # account tier and exposes no remaining-quota header, so the client has to stay under
+    # a known-safe ceiling rather than discover the real one via 429s. Defaults
+    # conservatively for the free/evaluation tier; raise it to match a paid tier's actual
+    # limit (visible in the Mistral Admin Console under Limits).
+    mistral_max_requests_per_second: float = 1.0
+    # Retries per HTTP call (not per article) when Mistral returns 429/5xx or a network
+    # error occurs; each retry backs off exponentially, honoring `Retry-After` if present.
+    mistral_max_retries: int = 5
 
     smtp_host: str = ""
     smtp_port: int = 587
