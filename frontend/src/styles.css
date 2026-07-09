@@ -192,7 +192,7 @@ button.danger { background: var(--danger-solid); }
   padding-top: 12px;
 }
 .theme-toggle,
-.language-toggle {
+.language-select {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -203,6 +203,17 @@ button.danger { background: var(--danger-solid); }
   font-size: 0.82rem;
   padding: 6px 10px;
   align-self: flex-start;
+}
+.language-select select {
+  background: transparent;
+  color: inherit;
+  border: none;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.language-select select:focus {
+  outline: none;
 }
 
 .nav-toggle {

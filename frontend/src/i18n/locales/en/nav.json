@@ -12,6 +12,7 @@
     "system": "System theme"
   },
   "language": {
+    "label": "Language",
     "workspaceDefault": "Workspace default",
     "en": "English",
     "de": "Deutsch"

@@ -12,6 +12,7 @@
     "system": "Systemdesign"
   },
   "language": {
+    "label": "Sprache",
     "workspaceDefault": "Standard des Arbeitsbereichs",
     "en": "English",
     "de": "Deutsch"
