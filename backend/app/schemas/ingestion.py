@@ -6,6 +6,9 @@ from pydantic import BaseModel, Field
 
 class IngestionRunResult(BaseModel):
     target_companies_processed: int
+    # True if the run stopped early because an admin requested cancellation (see
+    # IngestionProgress.should_cancel) rather than running to completion.
+    cancelled: bool = False
     articles_fetched: int
     articles_new: int
     signals_created: int
@@ -27,6 +30,7 @@ class IngestionRunStatusResponse(BaseModel):
 
     id: uuid.UUID
     status: str
+    cancel_requested: bool
     trigger: str
     started_at: datetime
     finished_at: datetime | None

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.audit import log_event
 from app.db.session import SessionLocal
 from app.models.ingestion_run import (
+    STATUS_CANCELLED,
     STATUS_COMPLETED,
     STATUS_FAILED,
     STATUS_RUNNING,
@@ -38,6 +39,15 @@ class ProgressTracker:
         run.errors = [*run.errors, message]
         self.db.commit()
 
+    def should_cancel(self) -> bool:
+        # Single-column read, called at the same cadence as update() (every checkpoint) —
+        # cheap next to the news-fetch/AI call it's bracketing.
+        return bool(
+            self.db.query(IngestionRun.cancel_requested)
+            .filter(IngestionRun.id == self.run_id)
+            .scalar()
+        )
+
 
 def get_running_run(db: Session) -> IngestionRun | None:
     return (
@@ -54,6 +64,22 @@ def get_latest_run(db: Session) -> IngestionRun | None:
 
 def list_runs(db: Session, limit: int = 50) -> list[IngestionRun]:
     return db.query(IngestionRun).order_by(IngestionRun.started_at.desc()).limit(limit).all()
+
+
+def request_cancel(db: Session, run_id: uuid.UUID) -> IngestionRun | None:
+    """Marks a running IngestionRun for cancellation; the pipeline notices at its next
+    checkpoint (see IngestionProgress.should_cancel / ProgressTracker.should_cancel above)
+    and stops cleanly, flipping status to "cancelled" itself once it does. Returns the run
+    row regardless of its current status (None only if run_id doesn't exist) — the caller
+    (api/ingestion.py) decides the right HTTP response for an already-finished run."""
+    run = db.get(IngestionRun, run_id)
+    if run is None:
+        return None
+    if run.status == STATUS_RUNNING and not run.cancel_requested:
+        run.cancel_requested = True
+        db.commit()
+        db.refresh(run)
+    return run
 
 
 def create_run(
@@ -103,7 +129,10 @@ def execute_ingestion_run(run_id: uuid.UUID) -> None:
 
         db.query(IngestionRun).filter(IngestionRun.id == run_id).update(
             {
-                "status": STATUS_COMPLETED,
+                # A cancellation is a clean stop, not a failure — result already holds
+                # accurate partial counters for whatever was processed before the
+                # pipeline noticed cancel_requested (see run_ingestion/should_cancel).
+                "status": STATUS_CANCELLED if result.cancelled else STATUS_COMPLETED,
                 "finished_at": datetime.now(timezone.utc),
                 "companies_processed": result.target_companies_processed,
                 "articles_fetched": result.articles_fetched,
@@ -140,6 +169,7 @@ def to_status_response(run: IngestionRun) -> IngestionRunStatusResponse:
     return IngestionRunStatusResponse(
         id=run.id,
         status=run.status,
+        cancel_requested=run.cancel_requested,
         trigger=run.trigger,
         started_at=run.started_at,
         finished_at=run.finished_at,

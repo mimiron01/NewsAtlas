@@ -11,6 +11,7 @@ const STATUS_CLASSES: Record<IngestionRunStatus["status"], string> = {
   running: "status-new",
   completed: "status-reviewed",
   failed: "status-dismissed",
+  cancelled: "status-archived",
 };
 
 function formatDuration(startedAt: string, finishedAt: string | null): string {

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -11,6 +11,7 @@ from app.models.mixins import UUIDPrimaryKeyMixin
 STATUS_RUNNING = "running"
 STATUS_COMPLETED = "completed"
 STATUS_FAILED = "failed"
+STATUS_CANCELLED = "cancelled"
 
 TRIGGER_MANUAL = "manual"
 TRIGGER_SCHEDULED = "scheduled"
@@ -34,6 +35,13 @@ class IngestionRun(Base, UUIDPrimaryKeyMixin):
         DateTime(timezone=True), server_default=func.now(), index=True
     )
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Set by an admin's POST /ingestion/runs/{id}/cancel while status is still "running";
+    # the pipeline polls this at each checkpoint (see ProgressTracker.should_cancel /
+    # IngestionProgress) and stops cleanly, flipping status to "cancelled" once it
+    # actually does. A separate flag rather than a transitional status value so
+    # get_running_run() (status == "running") keeps working unchanged while a cancel is
+    # pending but not yet observed.
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     # --- Live progress, updated in place while status == "running" (see ProgressTracker) ---
     companies_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

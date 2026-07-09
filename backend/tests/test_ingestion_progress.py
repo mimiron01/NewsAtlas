@@ -1,6 +1,13 @@
 from datetime import datetime, timezone
 
-from app.models.ingestion_run import STATUS_COMPLETED, STATUS_FAILED, STATUS_RUNNING, IngestionRun
+from app.models.ingestion_run import (
+    STATUS_CANCELLED,
+    STATUS_COMPLETED,
+    STATUS_FAILED,
+    STATUS_RUNNING,
+    IngestionRun,
+)
+from app.models.signal import Signal
 from app.models.target_company import TargetCompany
 from app.schemas.ingestion import IngestionRunResult
 from app.services.ingestion import run_ingestion
@@ -16,10 +23,15 @@ from tests.test_ingestion import FailingAIClient, FakeAIClient
 
 
 class _RecordingProgress:
-    def __init__(self):
+    def __init__(self, cancel_after: int | None = None):
         self.state: dict[str, object] = {}
         self.updates: list[dict[str, object]] = []
         self.errors: list[str] = []
+        # If set, should_cancel() starts returning True once it's been called this many
+        # times — lets tests simulate an admin cancelling mid-run without any real
+        # threading/timing.
+        self.cancel_after = cancel_after
+        self._should_cancel_calls = 0
 
     def update(self, **fields):
         self.updates.append(fields)
@@ -27,6 +39,12 @@ class _RecordingProgress:
 
     def append_error(self, message: str):
         self.errors.append(message)
+
+    def should_cancel(self) -> bool:
+        self._should_cancel_calls += 1
+        if self.cancel_after is None:
+            return False
+        return self._should_cancel_calls > self.cancel_after
 
 
 class FakeNewsClient:
@@ -104,6 +122,90 @@ def test_run_ingestion_appends_errors_live_as_they_happen(db_session):
 
     assert len(progress.errors) == 1
     assert "summarization failed" in progress.errors[0]
+
+
+def test_run_ingestion_stops_between_companies_when_cancelled(db_session):
+    _company(db_session, "Acme Corp")
+    _company(db_session, "Globex Corp")
+    news = FakeNewsClient(
+        {
+            "Acme Corp": [_article("Acme raises $10M", "https://example.com/acme-funding")],
+            "Globex Corp": [_article("Globex opens office", "https://example.com/globex-office")],
+        }
+    )
+    # should_cancel() call #1 = outer-loop check before Acme (False); #2 = inner-loop
+    # check for Acme's one article (False, processed normally); #3 = outer-loop check
+    # before Globex — cancels there, so Globex never starts.
+    progress = _RecordingProgress(cancel_after=2)
+
+    result = run_ingestion(db_session, news_client=news, ai_client=FakeAIClient(), progress=progress)
+
+    assert result.cancelled is True
+    assert result.target_companies_processed == 1
+    assert result.signals_created == 1
+    company_name_updates = [u["current_company_name"] for u in progress.updates if "current_company_name" in u]
+    assert company_name_updates == ["Acme Corp"]
+
+
+def test_run_ingestion_stops_between_articles_when_cancelled(db_session):
+    _company(db_session, "Acme Corp")
+    news = FakeNewsClient(
+        {
+            "Acme Corp": [
+                _article("Acme raises $10M", "https://example.com/acme-1"),
+                _article("Acme opens office", "https://example.com/acme-2"),
+            ]
+        }
+    )
+    # should_cancel() call #1 = outer-loop check before Acme (False); #2 = inner-loop
+    # check for article 1 (False, processed normally); #3 = inner-loop check for
+    # article 2 — cancels there, mid-company.
+    progress = _RecordingProgress(cancel_after=2)
+
+    result = run_ingestion(db_session, news_client=news, ai_client=FakeAIClient(), progress=progress)
+
+    assert result.cancelled is True
+    # The company that was interrupted still counts as "processed" — its partial
+    # results are real and shouldn't stall the progress bar's company count.
+    assert result.target_companies_processed == 1
+    assert result.signals_created == 1
+    assert db_session.query(Signal).count() == 1
+
+
+def test_progress_tracker_should_cancel_reads_db_flag(db_session):
+    run = create_run(db_session, trigger="manual")
+    tracker = ProgressTracker(db_session, run.id)
+
+    assert tracker.should_cancel() is False
+
+    run.cancel_requested = True
+    db_session.commit()
+
+    assert tracker.should_cancel() is True
+
+
+def test_execute_ingestion_run_marks_row_cancelled_with_partial_counts(db_session, monkeypatch):
+    run = create_run(db_session, trigger="manual")
+    monkeypatch.setattr("app.services.ingestion_runs.SessionLocal", lambda: db_session)
+    monkeypatch.setattr(db_session, "close", lambda: None)
+    fake_result = IngestionRunResult(
+        target_companies_processed=1,
+        cancelled=True,
+        articles_fetched=2,
+        articles_new=2,
+        signals_created=1,
+        errors=[],
+    )
+    monkeypatch.setattr(
+        "app.services.ingestion_runs.run_ingestion", lambda db, progress=None: fake_result
+    )
+
+    execute_ingestion_run(run.id)
+
+    db_session.refresh(run)
+    assert run.status == STATUS_CANCELLED
+    assert run.signals_created == 1
+    assert run.finished_at is not None
 
 
 def test_progress_percent_caps_below_100_while_running():

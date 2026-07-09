@@ -9,6 +9,7 @@ export function buildSettingsPayload(settings: WorkspaceSettings): WorkspaceSett
     offering_description: settings.offering_description,
     digest_send_time: settings.digest_send_time,
     ingestion_interval_hours: settings.ingestion_interval_hours,
+    max_articles_per_company_per_run: settings.max_articles_per_company_per_run,
     main_language: settings.main_language,
     mistral_model: settings.mistral_model,
     mistral_triage_model: settings.mistral_triage_model,

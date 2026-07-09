@@ -10,6 +10,7 @@ class WorkspaceSettingsResponse(BaseModel):
     offering_description: str
     digest_send_time: str
     ingestion_interval_hours: int
+    max_articles_per_company_per_run: int
     # The workspace standard UI/AI language; individual users may override it (see
     # UserResponse.preferred_language / UserResponse.workspace_main_language).
     main_language: Literal["en", "de"]
@@ -52,6 +53,8 @@ class WorkspaceSettingsUpdate(BaseModel):
     offering_description: str = Field(default="", max_length=8000)
     digest_send_time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
     ingestion_interval_hours: int = Field(ge=1, le=48)
+    # 0 disables the cap (unlimited).
+    max_articles_per_company_per_run: int = Field(ge=0, le=1000)
     main_language: Literal["en", "de"] = "en"
 
     mistral_model: str = Field(min_length=1, max_length=100)

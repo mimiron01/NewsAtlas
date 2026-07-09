@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NewsAtlas — Ingestion Reliability &amp; Attribution Planning</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6270;
+    --accent: #2757c7;
+    --accent-bg: #eef2fc;
+    --border: #e2e5ea;
+    --code-bg: #f5f6f8;
+    --ok: #1a7f4e;
+    --warn: #a15c00;
+    --bad: #b3261e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.1rem; margin-top: 28px; color: var(--fg); }
+  h4 { font-size: 1rem; margin-top: 20px; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  .meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 12px 0 32px;
+    padding: 12px 16px;
+    background: var(--accent-bg);
+    border-radius: 8px;
+  }
+  .meta strong { color: var(--fg); }
+  nav.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin: 24px 0 40px;
+  }
+  nav.toc h2 { margin-top: 0; border: none; font-size: 1.05rem; padding-bottom: 4px; }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.92rem; }
+  nav.toc a:hover { text-decoration: underline; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--code-bg); font-weight: 600; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+  .decision {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-bg);
+    padding: 10px 16px;
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .decision strong { color: var(--accent); }
+  .finding {
+    border-left: 4px solid var(--bad);
+    background: #fdeceb;
+    padding: 10px 16px;
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .finding strong { color: var(--bad); }
+  .answer {
+    border-left: 4px solid var(--ok);
+    background: #e9f7f0;
+    padding: 10px 16px;
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .answer strong { color: var(--ok); }
+  .phase {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .phase h4 { margin-top: 0; display: flex; align-items: center; gap: 10px; }
+  .phase-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 20px;
+  }
+  .assumption {
+    border-left: 4px solid var(--warn);
+    background: #fdf4e3;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+  ul.checklist { list-style: none; padding-left: 4px; }
+  ul.checklist li::before { content: "☐ "; color: var(--muted); }
+  .diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+    font-size: 0.82rem;
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.4;
+  }
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    margin-left: 6px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Ingestion Reliability &amp; Attribution</h1>
+<p class="subtitle">Planning document — admin cancel control, per-company article cap, page-lifetime clarification, and the article→company misattribution bug</p>
+
+<div class="meta">
+  <div><strong>Status:</strong> Planning / pre-implementation (research complete, no code changed)</div>
+  <div><strong>Builds on:</strong> <a href="planning.html">planning.html</a> (base ingestion pipeline),
+  <a href="news-source-expansion-planning.html">news-source-expansion-planning.html</a> (multi-source fetch),
+  <a href="role-based-company-management-planning.html">role-based-company-management-planning.html</a> (admin role)</div>
+  <div><strong>Doc purpose:</strong> Source of truth for four related asks in one session: stop-fetch control,
+  per-company article cap, an explanation of run lifetime vs. page lifetime, and a root-cause fix plan for
+  wrong-company signal attribution</div>
+</div>
+
+<p>
+  This document covers four related requests against the ingestion pipeline
+  (<code>backend/app/services/ingestion.py</code> and friends):
+</p>
+<ol>
+  <li>Give admins a way to <strong>stop an in-progress fetch run</strong> if something goes wrong.</li>
+  <li><strong>Cap each company to at most 10 articles per fetch run</strong>, always the newest ones.</li>
+  <li>Answer: <strong>what happens to a run if the user leaves the page</strong> that started it?</li>
+  <li>Root-cause and fix a bug where <strong>signals get attributed to the wrong company</strong> — a
+  concrete report of two signals attached to target company "HWA AG" whose linked articles never
+  actually mention "HWA AG".</li>
+</ol>
+<p>
+  All four turned out to share one investigation: the same ingestion loop, the same per-run progress
+  model, and the same News-source→AI pipeline. Findings and a fix plan for each follow.
+</p>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#lifecycle">1. How a fetch run actually executes today</a></li>
+    <li><a href="#pagelife">2. Answer: does the run survive leaving the page?</a></li>
+    <li><a href="#cancel">3. Admin-only stop/cancel control</a></li>
+    <li><a href="#cap">4. Per-company 10-newest-articles cap</a></li>
+    <li><a href="#misattribution">5. Root cause: articles attributed to the wrong company</a></li>
+    <li><a href="#data-model">6. Data model changes</a></li>
+    <li><a href="#api">7. API surface changes</a></li>
+    <li><a href="#frontend">8. Frontend changes</a></li>
+    <li><a href="#roadmap">9. Implementation roadmap</a></li>
+    <li><a href="#assumptions">10. Open questions &amp; assumptions</a></li>
+    <li><a href="#future">11. Future enhancements (out of scope)</a></li>
+  </ol>
+</nav>
+
+<h2 id="lifecycle">1. How a fetch run actually executes today</h2>
+<p>
+  Everything else in this document depends on understanding this precisely, so it's worth stating up
+  front, with evidence:
+</p>
+<ul>
+  <li><code>POST /ingestion/run-now</code> (<code>backend/app/api/ingestion.py:27-51</code>) creates an
+  <code>IngestionRun</code> row (<code>status=running</code>) and hands the work off via genuine FastAPI
+  <code>background_tasks.add_task(execute_ingestion_run, run.id)</code> — <em>not</em> an
+  <code>await</code>ed inline call. Starlette runs this after the HTTP response is already sent, on the
+  same process/event loop, but with no reference back to the request or the client connection at all.</li>
+  <li><code>execute_ingestion_run(run_id)</code> (<code>backend/app/services/ingestion_runs.py:77-121</code>)
+  takes a plain UUID, opens its <em>own</em> fresh <code>SessionLocal()</code>, and runs the whole
+  pipeline (<code>run_ingestion</code>) synchronously to completion, updating the same
+  <code>IngestionRun</code> row's progress fields as it goes (<code>ProgressTracker</code>,
+  <code>ingestion_runs.py:19-39</code> — one small commit per update, so a poller never reads a
+  half-written row).</li>
+  <li>The scheduled job (<code>backend/app/services/scheduler.py:16-27</code>) calls the exact same
+  <code>execute_ingestion_run(run_id)</code> from an APScheduler background thread — there is only one
+  execution engine for both triggers.</li>
+  <li>Inside the pipeline (<code>backend/app/services/ingestion.py</code>), work commits incrementally,
+  not as one long transaction: a commit after each company's new <code>Article</code> rows are inserted
+  (line 269), and a commit after every article is skipped or turned into a <code>Signal</code>
+  (<code>_skip_article</code>, line 486; signal creation, line 461). There is no point in the run where a
+  half-finished unit of work is uncommitted for long.</li>
+</ul>
+<div class="answer">
+  <strong>Net effect:</strong> a fetch run is a purely server-side background job from the moment the
+  trigger request returns. It has no dependency on any browser tab, WebSocket, or open connection —
+  closing the tab, navigating away within the SPA, or even losing network entirely on the client has zero
+  effect on the run in progress.
+</div>
+
+<h2 id="pagelife">2. Answer: does the run survive leaving the page?</h2>
+<p><strong>Yes, unconditionally, by design.</strong> Evidence from the frontend confirms this wasn't an
+accident:</p>
+<ul>
+  <li><code>frontend/src/pages/SignalsFeed.tsx:126-129</code> — on every mount, the page calls
+  <code>pollIngestionStatus()</code> once unconditionally, specifically so that reloading the page (or
+  opening it fresh in a new tab, or a different admin loading it) picks up a run already in flight rather
+  than only ever reacting to this browser's own trigger click.</li>
+  <li>Polling (<code>SignalsFeed.tsx:131-136</code>) only runs a <code>setInterval</code> while
+  <code>isRunningIngestion</code> is true, and is torn down on unmount — but that only stops <em>this
+  browser tab</em> from refreshing its own view of the status; it never talks to or affects the backend
+  job itself.</li>
+  <li><code>GET /ingestion/status</code> (<code>backend/app/api/ingestion.py:54-62</code>) always reflects
+  the latest <code>IngestionRun</code> row from the DB — reloading the page, or any other authenticated
+  user loading the Signals page, sees the same live progress.</li>
+</ul>
+<p>
+  So today: a user can close the tab, log out, or go to a completely different page, and the fetch run
+  keeps running exactly as if they'd stayed. The only thing that changes is nobody's <em>watching</em> it
+  update live — the next time anyone opens the Signals feed (or the admin Logs tab), they'll see it
+  either still running or already finished/failed.
+</p>
+<div class="assumption">
+  <strong>Worth surfacing, not fixing:</strong> because the progress bar only shows on the Signals feed
+  page, an admin who triggers a run and then navigates to Settings has no visual indicator anywhere else
+  in the app that a run is still in flight. This isn't broken — the run itself is fine — but a small nav
+  badge/toast ("still fetching…") would improve confidence over relying on "I trust it kept going." Noted
+  as a candidate small addition, not required for correctness. See <a href="#future">§11</a>.
+</div>
+
+<h2 id="cancel">3. Admin-only stop/cancel control</h2>
+<p>
+  There is currently no cancellation concept anywhere in the codebase — no <code>STATUS_CANCELLED</code>,
+  no cancel endpoint, no stop button. It needs to be built from scratch, but the pipeline's existing
+  structure makes this straightforward:
+</p>
+<ul>
+  <li>The outer loop over target companies (<code>ingestion.py:142-165</code>) and the inner loop over a
+  company's new articles (<code>_process_new_articles</code>, <code>ingestion.py:377</code>) are both
+  natural, already-frequent checkpoints — a progress update/commit already happens at nearly every
+  iteration of both.</li>
+  <li>Because every meaningful unit of work commits immediately (§1), stopping between iterations leaves
+  the DB in a fully consistent state. No rollback, no orphaned half-written signals, no distributed
+  transaction concerns.</li>
+  <li><code>IngestionProgress</code> (<code>ingestion.py:38-46</code>) is already an injected interface
+  with a DB-backed implementation (<code>ProgressTracker</code>) — the natural place to add a cancellation
+  check alongside the existing <code>update()</code>/<code>append_error()</code> methods.</li>
+</ul>
+
+<h3>3.1 Design</h3>
+<div class="decision"><strong>Cancellation is cooperative, not a hard kill.</strong> The pipeline is
+synchronous/blocking (plain <code>httpx.get</code> calls to news sources and Mistral) inside a background
+thread — there's no safe way to abort an in-flight HTTP call mid-request without threading/async-cancellation
+machinery well beyond what this codebase uses anywhere else. A "Stop" click sets a flag; the run checks it
+at the next checkpoint (before starting the next article, or before starting the next company) and exits
+cleanly. <span class="tag">confirmed</span> Worst-case latency before it actually stops is roughly one
+in-flight news-fetch or Mistral call plus its commit — a few seconds, not instant, and should be described
+that way in the UI ("Stopping…" rather than an immediate disappearance).</div>
+
+<div class="decision"><strong>New column, not a repurposed status:</strong> add
+<code>IngestionRun.cancel_requested: bool</code> (default <code>false</code>) rather than overloading
+<code>status</code> with a transitional "cancel_requested" value. <code>status</code> gains exactly one
+new terminal value: <code>STATUS_CANCELLED = "cancelled"</code>, set only once the loop actually observes
+the flag and exits. This keeps <code>get_running_run()</code> (<code>status == STATUS_RUNNING</code>,
+used by the manual-trigger overlap guard and the scheduler's overlap guard) correct with no changes — a
+cancel-requested-but-not-yet-stopped run is still, accurately, "running." <span class="tag">confirmed</span></div>
+
+<div class="decision"><strong>Endpoint is admin-only.</strong> <code>POST
+/ingestion/runs/{run_id}/cancel</code> behind <code>require_admin</code> (matching the existing
+admin-only pattern used for <code>GET /ingestion/runs</code>). Triggering a run stays open to any
+authenticated user (unchanged, existing behavior) — only stopping one is admin-gated, per the ask.
+<span class="tag">confirmed</span></div>
+
+<div class="decision"><strong>Applies uniformly to scheduled runs too.</strong> Since both the manual and
+scheduled trigger paths funnel through the same <code>execute_ingestion_run</code>/<code>run_ingestion</code>,
+no special-casing is needed — an admin can cancel a scheduled run exactly the same way as a manual one, by
+its <code>run_id</code> (there's only ever one <code>running</code> row at a time, so the frontend already
+has it via <code>GET /ingestion/status</code>). <span class="tag">confirmed</span></div>
+
+<h3>3.2 Pipeline changes (sketch)</h3>
+<pre><code># ingestion.py — IngestionProgress gains a cancellation check
+class IngestionProgress(Protocol):
+    def update(self, **fields: object) -> None: ...
+    def append_error(self, message: str) -> None: ...
+    def should_cancel(self) -> bool: ...          # NEW
+
+class _NullProgress:
+    ...
+    def should_cancel(self) -> bool:
+        return False
+
+class _IngestionCancelled(Exception):
+    """Internal control-flow signal — never escapes run_ingestion()."""
+
+def run_ingestion(db, ..., progress=None) -> IngestionRunResult:
+    ...
+    for idx, target_company in enumerate(target_companies, start=1):
+        if progress.should_cancel():
+            raise _IngestionCancelled()
+        outcome = _ingest_target_company(...)
+        ...
+        progress.update(companies_processed=idx)
+    ...
+
+def _process_new_articles(db, *, progress, ...):
+    ...
+    for position, article in enumerate(new_articles):
+        if progress.should_cancel():
+            raise _IngestionCancelled()
+        ...
+</code></pre>
+<pre><code># ingestion_runs.py — ProgressTracker implements the check; execute_ingestion_run
+# catches the cancellation distinctly from a genuine crash
+
+class ProgressTracker:
+    ...
+    def should_cancel(self) -> bool:
+        # Single-column read; cheap, and consistent with the once-per-checkpoint
+        # DB round trip `update()` already does.
+        return bool(
+            self.db.query(IngestionRun.cancel_requested)
+            .filter(IngestionRun.id == self.run_id)
+            .scalar()
+        )
+
+def execute_ingestion_run(run_id: uuid.UUID) -> None:
+    db = SessionLocal()
+    try:
+        tracker = ProgressTracker(db, run_id)
+        try:
+            result = run_ingestion(db, progress=tracker)
+        except _IngestionCancelled:
+            db.query(IngestionRun).filter(IngestionRun.id == run_id).update({
+                "status": STATUS_CANCELLED,
+                "finished_at": datetime.now(timezone.utc),
+                # whatever partial counters the pipeline had accumulated so far —
+                # requires run_ingestion to report partial totals on cancellation
+                # too, not just on the success path.
+            })
+            db.commit()
+            return
+        except Exception as exc:
+            ...  # unchanged
+        ...  # unchanged success path
+    finally:
+        db.close()
+</code></pre>
+<div class="assumption"><strong>Partial-result reporting on cancel:</strong> today
+<code>run_ingestion</code> only returns an <code>IngestionRunResult</code> on the success path,
+accumulated in local variables across the whole loop. To report "cancelled after 3/8 companies, 4 signals
+created so far" instead of zeroing everything out, <code>_IngestionCancelled</code> needs to carry the
+accumulated totals at the point of cancellation (or <code>run_ingestion</code> catches it internally and
+returns a result with a <code>cancelled=True</code> flag rather than letting the exception propagate all
+the way to <code>execute_ingestion_run</code>). Either works; the internal-catch approach is slightly
+cleaner since it keeps <code>execute_ingestion_run</code>'s exception handling limited to genuine crashes.
+Pick one during implementation — flagged here so it isn't decided ad hoc mid-PR.</div>
+
+<h2 id="cap">4. Per-company 10-newest-articles cap</h2>
+<p>Today there is <strong>no cap at all</strong>, and it's a real gap, not just a missing nice-to-have:</p>
+<table>
+<tr><th>Source</th><th>Current behavior</th><th>File</th></tr>
+<tr><td>NewsAPI.org</td><td><code>pageSize=20</code>, sorted <code>publishedAt</code> desc by the
+provider — bounded, but still up to 20</td><td><code>news_client.py:42-44</code></td></tr>
+<tr><td>Google News RSS</td><td>No page-size param exists on this feed at all; returns the full feed
+(commonly ~100 entries), filtered only by <code>since</code> client-side. <strong>Not
+recency-sorted</strong> — RSS entry order is query-dependent, not a contractual newest-first
+order.</td><td><code>google_news_rss_client.py:30-57</code></td></tr>
+<tr><td>NewsData.io</td><td>Up to <code>MAX_PAGES_PER_CALL = 2</code> pages, page size
+provider-controlled — this cap exists purely to bound paid-credit spend, not article
+volume.</td><td><code>newsdata_client.py:12,92-121</code></td></tr>
+</table>
+<p>
+  After merging all enabled sources (<code>ingestion.py:198-227</code>), there's no sort or truncation
+  applied to the combined list at any point — a single company could realistically see 100+ raw fetched
+  items in one run, every one of which (after URL-dedupe) gets embedded, triaged, and potentially fully
+  summarized by Mistral. That's the actual cost/noise problem a cap solves, independent of the
+  misattribution bug in <a href="#misattribution">§5</a>.
+</p>
+
+<h3>4.1 Where to apply the cap</h3>
+<p>Every raw article from every source already carries <code>published_at: datetime | None</code>,
+populated consistently by each client's own parser (<code>news_client.py:69-75</code>,
+<code>google_news_rss_client.py:86-92</code>, <code>newsdata_client.py:129-137</code>) — so the data needed
+for a recency cap exists before any DB row is ever created. Two candidate insertion points, with a
+recommendation:</p>
+<table>
+<tr><th>Option</th><th>Where</th><th>Trade-off</th></tr>
+<tr><td>A — cap raw fetch results</td><td>Right after <code>fetched_items</code> is assembled across all
+providers (<code>ingestion.py:227</code>), before the URL/DB dedupe pass</td><td>Simple, but risks
+under-delivering: if several of the "10 newest raw" turn out to already be in the DB from a previous run,
+you could end up with fewer than 10 actually-new articles even though other, still-unseen articles existed
+further down the list.</td></tr>
+<tr><td><strong>B — cap after dedupe (recommended)</strong></td><td>After the URL/DB-existing filter builds
+the deduped candidate list, sort by <code>published_at</code> desc (treat <code>None</code> as
+lowest-priority/oldest) and slice to N <em>before</em> constructing <code>Article</code> ORM rows</td>
+<td>Guarantees up to N genuinely-new articles get processed per company per run — directly bounds the
+expensive embedding/triage/summarization calls, which is the actual goal ("limit articles per fetch run").
+Requires restructuring the loop at <code>ingestion.py:232-261</code> into two passes: build a deduped list
+of raw <code>(source, fetched)</code> survivors first, sort+slice, then construct/<code>add()</code>
+<code>Article</code> rows only for the surviving N — instead of constructing every Article row and only
+then discarding some.</td></tr>
+</table>
+<div class="decision"><strong>Recommendation: Option B.</strong> It directly bounds AI spend per company
+per run (the load-bearing motivation) and matches "only take the newest" literally — of whatever's
+actually new, take the 10 newest. <span class="tag">default</span></div>
+
+<h3>4.2 Configuration</h3>
+<div class="decision"><strong>New workspace setting, not a hardcoded constant:</strong> add
+<code>workspace_settings.max_articles_per_company_per_run: int</code>, default <code>10</code>, following
+the exact same pattern as every other ingestion knob already on that model
+(<code>newsapi_max_requests_per_day</code>, <code>newsdata_max_requests_per_day/minute</code>,
+<code>google_news_rss_max_requests_per_minute</code> — all in
+<code>backend/app/models/workspace_settings.py</code>) — surfaced in Settings the same way, likely on the
+existing Sources tab (<code>frontend/src/pages/settings/SourcesTab.tsx</code>) near the other per-source
+limits. <span class="tag">default</span></div>
+<div class="assumption"><strong>Confirm scope with the user:</strong> the ask was literally "the limit ...
+should be 10" — read here as "default to exactly 10," admin-adjustable like every other limit in this
+settings model, rather than hardcoded and unconfigurable. Flagging in case a hardcoded, non-configurable 10
+was actually intended.</div>
+<div class="assumption"><strong>Backfill flow is out of scope for this cap:</strong> the one-time NewsData.io
+historical backfill (<code>services/newsdata_backfill.py</code>, triggered per-company after a company is
+created or manually via <code>POST /target-companies/{id}/backfill</code>) is deliberately meant to pull a
+large historical batch and is architecturally separate from the routine polling loop this cap targets.
+Confirm this reading — if the backfill should also be capped per company, that's a small additional change
+to <code>newsdata_backfill.py</code> using the same sort-and-slice helper.</div>
+<p>
+  Reporting: <code>outcome.articles_fetched</code>/<code>by_source</code> should keep reflecting the full
+  raw volume actually pulled from providers (useful for the Logs view and cost tracking, unchanged from
+  today), while <code>articles_new</code>/downstream signal counts reflect only the capped subset that was
+  actually processed — worth a one-line tooltip/hint in the Logs tab once this ships, so "47 fetched, 10
+  new" doesn't read as a bug.
+</p>
+
+<h2 id="misattribution">5. Root cause: articles attributed to the wrong company</h2>
+<p>
+  Reported symptom: after a fetch run, two signals were attached to target company "HWA AG," but the
+  linked article, when opened, never mentions "HWA AG" anywhere. Investigated every layer of the pipeline;
+  findings below, ruled-out hypotheses first so the actual cause is clearly isolated.
+</p>
+
+<h3>5.1 Ruled out, with evidence</h3>
+<table>
+<tr><th>Hypothesis</th><th>Verdict</th><th>Evidence</th></tr>
+<tr><td>Attribution decided/reassigned after fetch time (some later join or update touches
+<code>target_company_id</code>)</td><td>Ruled out</td><td><code>Article.target_company_id</code>
+(<code>models/article.py:22-24</code>, non-nullable) is set exactly once, at construction, inside the
+per-company fetch loop (<code>ingestion.py:248-259</code>): <code>target_company_id=target_company.id</code>.
+A repo-wide search for writes to this column found none outside this one call site — every other reference
+is a downstream read/join (signals feed, digest, AI usage).</td></tr>
+<tr><td>Dedupe (embedding similarity) merges/reassigns an article across companies</td><td>Ruled
+out</td><td>The dedupe candidate pool is explicitly filtered to
+<code>Article.target_company_id == target_company.id</code> before any similarity comparison
+(<code>ingestion.py:355-359</code>); <code>_find_duplicate</code> only ever compares within that
+pre-filtered, single-company list (<code>ingestion.py:512-525</code>).</td></tr>
+<tr><td>Race condition / closure bug in a loop over companies (e.g. a lambda capturing a loop variable by
+reference)</td><td>Ruled out</td><td>The company loop (<code>ingestion.py:142-151</code>) calls
+<code>_ingest_target_company(..., target_company=target_company, ...)</code> as a normal, synchronous,
+directly-passed argument — not a closure, not scheduled via <code>background_tasks.add_task</code> (the
+only <code>add_task</code> calls involving a company are single-company, per-HTTP-request operations in
+<code>target_companies.py</code>, unrelated to the multi-company ingestion loop). One session, one
+company at a time, no concurrency.</td></tr>
+<tr><td>Case-insensitive company-name dedupe (<code>get_or_create_company</code>) silently attaches new
+follows to a stale/wrong pre-existing row</td><td>Ruled out as the mechanism</td><td>This dedupe
+(<code>company_follows.py:20-24</code>) only affects which row a <em>follow</em> attaches to when a company
+is created/re-added by name — it doesn't touch article fetching or attribution, which still flows entirely
+through §5.1's first row (the per-company fetch loop using that company's own current name/keywords).</td></tr>
+<tr><td>"HWA AG" is a hardcoded example/seed/demo string leaking from a prompt template into unrelated
+output</td><td>Ruled out</td><td>Repo-wide search (source + git history) for the literal string
+<code>HWA</code> found zero matches anywhere in application code, prompts, fixtures, or commit history —
+only incidental substring hits inside minified <code>node_modules</code> bundles. It's real user-entered
+data (added via the target-companies UI), not a leaked placeholder.</td></tr>
+</table>
+
+<h3>5.2 Actual root cause: unverified, loose search-provider matching</h3>
+<div class="finding">
+  <strong>Primary cause:</strong> every news source query is built by
+  <code>build_or_query()</code> (<code>backend/app/services/news_query.py:7-22</code>) as
+  <code>name OR keyword1 OR keyword2 OR ...</code> — an <strong>OR</strong>, not an AND, of the company
+  name and every configured keyword/alias. All three clients call it identically
+  (<code>google_news_rss_client.py:31</code>, <code>news_client.py:87-88</code>,
+  <code>newsdata_client.py:82</code>). Any single keyword matching is sufficient for a provider to return
+  an article — the company name itself need not appear in it at all. <strong>No client, and no code
+  anywhere in <code>ingestion.py</code>, ever verifies that a fetched article's title/description
+  actually contains the company name or a keyword before it's stored as an <code>Article</code> row tied
+  to that company's <code>target_company_id</code>.</strong> The pipeline trusts each provider's own
+  search relevance unconditionally.
+</div>
+<p>
+  This is compounded by two contributing factors that make the resulting signal look confidently
+  "correct" even though it isn't:
+</p>
+<div class="finding">
+  <strong>Contributing factor — triage only filters topical noise, not wrong-company matches.</strong>
+  <code>_TRIAGE_SYSTEM_PROMPT</code> (<code>ai_client.py:77-85</code>) explicitly instructs: <em>"Answer
+  false only for articles with no plausible business/outreach angle at all (e.g. pure sports/celebrity/
+  local-interest noise that happened to match a keyword)."</em> This filters for topical relevance, not
+  "is this actually about the named target company." A real, legitimate business article about a
+  <em>different</em> company that happens to share a loosely-matched keyword with "HWA AG" has a
+  perfectly plausible business/outreach angle — it just isn't for HWA AG — and sails straight through
+  triage.
+</div>
+<div class="finding">
+  <strong>Contributing factor — the summarization prompt asserts the company as ground truth instead of
+  asking the model to verify it.</strong> <code>summarize_article</code>
+  (<code>ai_client.py:213-252</code>) builds its prompt with <code>f"Target company:
+  {target_company_name}"</code> (line 233) as a flat statement of fact, then asks for a summary,
+  business-relevance narrative, and ready-to-send outreach snippets <em>about that company</em>. The model
+  is never asked to first confirm the article text actually references
+  <code>target_company_name</code> — it's simply told this is the target and asked to write fluent,
+  confident sales content accordingly. Given an article that isn't really about HWA AG, the model does
+  exactly what it's instructed to do: writes a plausible-sounding HWA AG signal anyway, because the prompt
+  never gave it permission to say "this isn't actually about HWA AG."
+</div>
+
+<h3>5.3 Fix plan, in priority order</h3>
+<div class="phase">
+  <h4><span class="phase-badge">Fix 1 — highest priority</span> Post-fetch grounding filter (code-level, cheap, catches most cases)</h4>
+  <p>
+    After merging each source's raw results for a company (<code>ingestion.py:227</code>, before the
+    URL/DB dedupe pass — the same insertion point identified for the article cap in
+    <a href="#cap">§4.1</a>, so these two changes naturally land together), drop any fetched item whose
+    combined title + description (+ full_content when NewsData provided it) contains <strong>none</strong>
+    of: the company name, or any configured keyword, as a case-insensitive substring. This is pure string
+    matching — no extra API/AI calls — and directly prevents the loosely-matched false positives identified
+    in §5.2 from ever becoming an <code>Article</code> row in the first place.
+  </p>
+  <p><em>Known limit:</em> doesn't help when the false-positive trigger is the keyword itself being too
+  generic (the article genuinely contains the substring, just not about the right entity) — see Fix 4.</p>
+</div>
+<div class="phase">
+  <h4><span class="phase-badge">Fix 2</span> Tighten the triage prompt to check company identity</h4>
+  <p>
+    Update <code>_TRIAGE_SYSTEM_PROMPT</code> (<code>ai_client.py:77-85</code>) to explicitly ask whether
+    the article's actual subject is <code>target_company_name</code> (or a clear alias), not merely
+    whether the topic has <em>some</em> business angle. Second line of defense for cases that pass Fix 1's
+    substring check (keyword technically present) but are still about a different entity — e.g. the
+    company mentioned only in a boilerplate "also see" list.
+  </p>
+</div>
+<div class="phase">
+  <h4><span class="phase-badge">Fix 3</span> Let the summarizer say "this isn't actually about them"</h4>
+  <p>
+    Stop asserting <code>Target company: {target_company_name}</code> as unquestioned fact. Instruct the
+    model to first judge whether the target company is genuinely the article's subject, and add an escape
+    hatch to <code>AISummaryResult</code> (<code>ai_client.py:98-131</code>) — e.g. a
+    <code>company_mentioned: bool</code> field — so a mismatch skips <code>Signal</code> creation with a
+    new <code>skip_reason="company_mismatch"</code> (same pattern as the existing
+    <code>"triaged_out"</code>/<code>"ai_error"</code> skip reasons in <code>_skip_article</code>,
+    <code>ingestion.py:482-486</code>) instead of forcing a fabricated-sounding but fluent summary.
+  </p>
+</div>
+<div class="phase">
+  <h4><span class="phase-badge">Fix 4 — lower priority</span> Product guidance on keyword quality</h4>
+  <p>
+    Add a hint near the "Keywords / aliases" field (<code>SettingsTargets.tsx</code>, i18n key
+    <code>targets.keywordsPlaceholder</code> and the surrounding subtitle) discouraging single generic
+    words/abbreviations that could match unrelated companies — no automated filter fully replaces users
+    picking well-scoped aliases, and this reduces how often Fix 1/2/3 are even needed. Not a code
+    correctness fix, a data-quality nudge.
+  </p>
+</div>
+<div class="phase">
+  <h4><span class="phase-badge">Optional cleanup</span> Retroactive audit of existing signals</h4>
+  <p>
+    Fixes 1–3 are forward-looking only — the already-stored HWA AG signals (and any other undetected
+    mismatches) aren't touched by a code change. A one-time admin script/endpoint that re-runs Fix 1's
+    substring check (and optionally Fix 2/3's AI check) against existing <code>Article</code>/<code>Signal</code>
+    rows, flagging or soft-deleting mismatches for admin review, would close the loop — sized as a
+    follow-up, not blocking the pipeline fix. See <a href="#future">§11</a>.
+  </p>
+</div>
+
+<h2 id="data-model">6. Data model changes</h2>
+<table>
+<tr><th>Table</th><th>Change</th><th>Notes</th></tr>
+<tr><td><code>ingestion_runs</code></td><td>Add <code>cancel_requested: boolean, default false</code></td>
+<td>Set by the new cancel endpoint; read by <code>ProgressTracker.should_cancel()</code> at each
+checkpoint</td></tr>
+<tr><td><code>ingestion_runs</code></td><td><code>status</code> gains a new value
+<code>"cancelled"</code></td><td>No column type change (already a free-text <code>String(16)</code>,
+<code>models/ingestion_run.py:28</code>) — just a new value the app recognizes</td></tr>
+<tr><td><code>workspace_settings</code></td><td>Add <code>max_articles_per_company_per_run: integer,
+default 10</code></td><td>Same style as <code>newsapi_max_requests_per_day</code> etc.</td></tr>
+<tr><td><code>articles</code></td><td>Add <code>skip_reason</code> value <code>"company_mismatch"</code>
+(Fix 3)</td><td><code>skip_reason</code> is already a free-text column
+(<code>models/article.py</code>) — no schema change, just a new recognized value alongside
+<code>"duplicate"</code>/<code>"triaged_out"</code>/<code>"ai_error"</code></td></tr>
+</table>
+<p>Two small Alembic migrations: one for the two new/changed columns above (<code>ingestion_runs.cancel_requested</code>,
+<code>workspace_settings.max_articles_per_company_per_run</code>); no migration needed for the
+free-text <code>status</code>/<code>skip_reason</code> value additions.</p>
+
+<h2 id="api">7. API surface changes</h2>
+<pre><code>POST   /ingestion/runs/{run_id}/cancel   # NEW, admin-only (require_admin): sets cancel_requested=true
+                                          #   on a running run; 404 if run doesn't exist; 409 (or a
+                                          #   no-op 200) if the run isn't currently `running`
+
+GET    /ingestion/status                 # unchanged shape, but IngestionRunStatusResponse gains
+                                          #   `cancel_requested: bool` so the frontend can show a
+                                          #   "Stopping…" state between the click and the loop
+                                          #   actually noticing; `status` can now be "cancelled"
+
+GET    /ingestion/runs                   # unchanged; run history now includes cancelled runs with
+                                          #   status="cancelled" and partial result counters
+
+PUT    /settings                         # gains max_articles_per_company_per_run (existing admin-only
+                                          #   endpoint, WorkspaceSettingsUpdate schema)
+</code></pre>
+
+<h2 id="frontend">8. Frontend changes</h2>
+<ul>
+  <li><strong>Stop button</strong> — <code>frontend/src/pages/SignalsFeed.tsx</code>, alongside the
+  existing progress bar block (lines 265-272): when <code>isRunningIngestion &amp;&amp; isAdmin</code>
+  (reusing the existing <code>useIsAdmin()</code> hook already imported in this file, line 14), render a
+  "Stop" button that calls the new cancel endpoint and disables itself while
+  <code>cancel_requested</code> is true but <code>status</code> hasn't flipped away from
+  <code>running</code> yet (label: "Stopping…"). Mirrors the existing
+  disabled-while-pending pattern already used for mute/pause/delete in
+  <code>SettingsTargets.tsx</code>.</li>
+  <li><strong>Logs tab</strong> (<code>frontend/src/pages/settings/LogsTab.tsx</code>) — add a
+  "Cancelled" status label/badge alongside the existing Running/Completed/Failed set
+  (i18n keys <code>logs.status.running/completed/failed</code> already exist; add
+  <code>logs.status.cancelled</code>).</li>
+  <li><strong>Sources tab</strong> (<code>frontend/src/pages/settings/SourcesTab.tsx</code>) — new numeric
+  input for <code>max_articles_per_company_per_run</code>, styled like the existing per-source
+  request-limit inputs on the same page.</li>
+  <li><strong>i18n</strong> — new keys under <code>signals.feed.ingestion.*</code>
+  (<code>stop</code>, <code>stopping</code>, <code>stopFailed</code>, a cancelled-state message
+  analogous to the existing failed/completed blocks at <code>SignalsFeed.tsx:274-320</code>) and under
+  <code>settings.sources.*</code> for the new cap field, in both <code>en</code> and
+  <code>de</code> locale files.</li>
+  <li><strong>Keyword-quality hint</strong> (Fix 4) — small copy addition near
+  <code>targets.keywordsPlaceholder</code> in <code>SettingsTargets.tsx</code>'s keyword field.</li>
+</ul>
+
+<h2 id="roadmap">9. Implementation roadmap</h2>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 1</span> Misattribution fix (highest user-facing impact)</h4>
+  <ul class="checklist">
+    <li>Fix 1: post-fetch grounding substring filter, applied per company before URL/DB dedupe</li>
+    <li>Fix 2: tighten <code>_TRIAGE_SYSTEM_PROMPT</code> to check company identity, not just topical
+        relevance</li>
+    <li>Fix 3: <code>company_mentioned</code> field on <code>AISummaryResult</code> +
+        <code>skip_reason="company_mismatch"</code> path</li>
+    <li>Tests: a fixture article that matches a company's keyword but doesn't mention the company name
+        should be dropped pre-ingestion (Fix 1) and, if it somehow reaches summarization, should produce
+        a skipped article, not a signal (Fix 3)</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 2</span> Per-company article cap</h4>
+  <ul class="checklist">
+    <li><code>workspace_settings.max_articles_per_company_per_run</code> column + migration + default 10</li>
+    <li>Restructure <code>ingestion.py:232-261</code> into dedupe-then-sort-then-slice-then-construct, per
+        §4.1 Option B</li>
+    <li>Sources tab UI for the new setting</li>
+    <li>Tests: a company with 15 fetched (13 after dedupe) new articles across sources yields exactly 10
+        <code>Article</code> rows, the 10 with the latest <code>published_at</code>; articles with
+        <code>published_at=None</code> are deprioritized, not crashed on</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 3</span> Admin cancel control</h4>
+  <ul class="checklist">
+    <li><code>ingestion_runs.cancel_requested</code> column + migration; <code>STATUS_CANCELLED</code></li>
+    <li><code>IngestionProgress.should_cancel()</code> + checkpoints in both loops in
+        <code>ingestion.py</code></li>
+    <li><code>POST /ingestion/runs/{run_id}/cancel</code>, admin-only, with audit log entry</li>
+    <li><code>execute_ingestion_run</code> distinguishes cancellation from a genuine crash; partial
+        result counters preserved on the cancelled row</li>
+    <li>Frontend Stop button + Logs tab "Cancelled" status</li>
+    <li>Tests: cancelling mid-run stops before the next company/article checkpoint, leaves already-created
+        signals intact, and the run row lands on <code>status=cancelled</code> with accurate partial
+        counts; a non-admin hitting the cancel endpoint gets 403; cancelling a scheduled run works
+        identically to a manual one</li>
+  </ul>
+</div>
+
+<div class="phase">
+  <h4><span class="phase-badge">Phase 4 — optional</span> Retroactive signal audit &amp; polish</h4>
+  <ul class="checklist">
+    <li>One-time script/admin endpoint re-checking existing signals against Fix 1's grounding rule,
+        surfacing mismatches for review</li>
+    <li>Keyword-quality hint copy (Fix 4)</li>
+    <li>Cross-page "a fetch is still running" indicator outside the Signals feed (see <a href="#pagelife">§2</a>)</li>
+  </ul>
+</div>
+
+<h2 id="assumptions">10. Open questions &amp; assumptions</h2>
+<div class="assumption"><strong>Cap value — configurable vs. hardcoded:</strong> defaulting
+<code>max_articles_per_company_per_run</code> to 10 but leaving it admin-adjustable, consistent with every
+other ingestion limit in this app. Confirm if a fixed, non-configurable 10 was actually intended.</div>
+<div class="assumption"><strong>Cap and the NewsData backfill flow:</strong> assumed the 10-newest cap
+applies only to the routine polling run (<code>run_ingestion</code>), not the separate one-time historical
+backfill (<code>newsdata_backfill.py</code>), which is deliberately meant to pull a larger historical
+batch. Confirm this reading.</div>
+<div class="assumption"><strong>Grounding filter scope (Fix 1):</strong> proposed as a simple
+case-insensitive substring check against title+description(+full_content). This will still admit an
+article where a generic keyword happens to literally appear but the article isn't really about that
+company (the known limit noted in §5.3) — Fix 2/3 exist specifically to catch that remaining slice.
+Confirm this two-layer (cheap filter + AI judgment) approach is the right level of investment vs. a
+heavier entity-recognition/disambiguation system, which is explicitly out of scope here.</div>
+<div class="assumption"><strong>Retroactive cleanup:</strong> Phase 4's audit of already-stored signals is
+proposed as optional/follow-up. Confirm whether the existing HWA AG signals (and any siblings) should be
+manually reviewed/deleted now versus waiting for the automated audit tool.</div>
+<div class="assumption"><strong>Cancel button visibility:</strong> assumed only admins should see/use the
+Stop control per the ask ("for admins only"), even though any authenticated user can currently trigger a
+run. A regular user who triggered a run they now want to stop would need to ask an admin. Confirm this
+asymmetry (trigger: anyone; cancel: admin-only) is intended rather than cancel also being available to
+whoever triggered that specific run.</div>
+
+<h2 id="future">11. Future enhancements (explicitly out of scope here)</h2>
+<ul>
+  <li>Hard/instant cancellation (interrupting an in-flight news-source or Mistral HTTP call mid-request)
+      — would require moving the pipeline onto cancellable async tasks or a real task-queue worker
+      (Celery/RQ) with process-level termination; today's cooperative, checkpoint-based cancel is the
+      pragmatic fit for the current synchronous-in-a-background-thread architecture.</li>
+  <li>Full entity recognition/disambiguation for company mentions (e.g. distinguishing "HWA AG" from an
+      unrelated "HWA" acronym via NER/knowledge-base linking) — Fix 1–3 are a pragmatic, cheap-to-build
+      layer; true disambiguation is a materially larger project.</li>
+  <li>Global "a fetch is running" indicator outside the Signals feed page (nav badge/toast) — noted in
+      §2 and Phase 4 as a nice-to-have, not required for correctness since the run itself is already
+      unaffected by navigation.</li>
+  <li>Per-user cancel permission (allowing the user who triggered a run to cancel their own, without full
+      admin rights) — see the open question in §10; not building this without confirmation it's wanted.</li>
+</ul>
+
+<footer>
+  NewsAtlas — ingestion reliability &amp; attribution planning document, drafted 2026-07-09. Covers
+  admin cancel control, per-company article cap, the run/page-lifetime question, and the article→company
+  misattribution bug. No code changed as part of this document — research and planning only.
+</footer>
+
+</body>
+</html>

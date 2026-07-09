@@ -28,6 +28,7 @@ def _to_response(settings: WorkspaceSettings) -> WorkspaceSettingsResponse:
         offering_description=settings.offering_description,
         digest_send_time=settings.digest_send_time,
         ingestion_interval_hours=settings.ingestion_interval_hours,
+        max_articles_per_company_per_run=settings.max_articles_per_company_per_run,
         main_language=settings.main_language,
         mistral_model=settings.mistral_model,
         mistral_triage_model=settings.mistral_triage_model,
@@ -75,6 +76,7 @@ def update_settings(
     settings.offering_description = payload.offering_description
     settings.digest_send_time = payload.digest_send_time
     settings.ingestion_interval_hours = payload.ingestion_interval_hours
+    settings.max_articles_per_company_per_run = payload.max_articles_per_company_per_run
     settings.main_language = payload.main_language
     settings.mistral_model = payload.mistral_model
     settings.mistral_triage_model = payload.mistral_triage_model

@@ -1,5 +1,5 @@
 import zlib
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.models.article import Article
 from app.models.ai_usage_log import AIUsageLog
@@ -41,10 +41,12 @@ class FakeAIClient:
         fail_for_urls: set[str] | None = None,
         embeddings_by_title: dict[str, list[float]] | None = None,
         not_relevant_titles: set[str] | None = None,
+        company_mismatch_titles: set[str] | None = None,
     ):
         self.fail_for_urls = fail_for_urls or set()
         self.embeddings_by_title = embeddings_by_title or {}
         self.not_relevant_titles = not_relevant_titles or set()
+        self.company_mismatch_titles = company_mismatch_titles or set()
         self.summarize_calls: list[str] = []
         self.triage_calls: list[str] = []
         self.embed_calls: list[list[str]] = []
@@ -74,6 +76,7 @@ class FakeAIClient:
         self.last_output_language = output_language
         return (
             AISummaryResult(
+                company_mentioned=article_title not in self.company_mismatch_titles,
                 summary=f"Summary of {article_title}",
                 business_relevance="Relevant because reasons",
                 outreach_snippet_email="Hi, saw your news...",
@@ -353,6 +356,114 @@ def test_ingestion_continues_after_news_fetch_error(db_session):
     assert result.articles_new == 1
     assert len(result.errors) == 1
     assert "Broken Co" in result.errors[0]
+
+
+def test_ingestion_drops_articles_that_never_mention_the_company(db_session):
+    """Regression test for the "HWA AG" misattribution bug: a provider can return an
+    article that matched the OR-joined name/keyword query but never actually contains
+    the company name or any keyword in its title/description — that must never become
+    an Article row (see docs/ingestion-reliability-planning.html §5, Fix 1)."""
+    _make_target_company(db_session)
+    news = FakeNewsClient(
+        {
+            "Acme Corp": [
+                _article("Acme raises $10M", "https://example.com/acme-funding"),
+                _article(
+                    "Totally unrelated company posts earnings",
+                    "https://example.com/unrelated",
+                    description="A different business made news today.",
+                ),
+            ]
+        }
+    )
+
+    result = run_ingestion(db_session, news_client=news, ai_client=FakeAIClient())
+
+    assert result.articles_fetched == 2
+    assert result.articles_new == 1
+    assert db_session.query(Article).count() == 1
+    stored = db_session.query(Article).first()
+    assert stored.url == "https://example.com/acme-funding"
+
+
+def test_ingestion_skips_signal_when_ai_flags_company_mismatch(db_session):
+    """Second line of defense (Fix 3): even if a keyword substring did technically
+    match (so the grounding filter let it through), the model can still say the
+    company isn't really the article's subject — that must skip signal creation
+    rather than fabricate one."""
+    _make_target_company(db_session)
+    ai = FakeAIClient(company_mismatch_titles={"Acme mentioned in passing"})
+    news = FakeNewsClient(
+        {
+            "Acme Corp": [
+                _article("Acme mentioned in passing", "https://example.com/acme-passing-mention")
+            ]
+        }
+    )
+
+    result = run_ingestion(db_session, news_client=news, ai_client=ai)
+
+    assert result.articles_new == 1
+    assert result.signals_created == 0
+    assert db_session.query(Signal).count() == 0
+    article = db_session.query(Article).first()
+    assert article.skip_reason == "company_mismatch"
+
+
+def test_ingestion_caps_articles_per_company_to_newest_n(db_session):
+    from app.services.workspace_settings import get_or_create_workspace_settings
+
+    _make_target_company(db_session)
+    settings = get_or_create_workspace_settings(db_session)
+    settings.max_articles_per_company_per_run = 2
+    db_session.commit()
+
+    now = datetime.now(timezone.utc)
+
+    def _dated_article(label, days_old):
+        art = _article(f"Acme story {label}", f"https://example.com/acme-{label}")
+        art.published_at = now - timedelta(days=days_old)
+        return art
+
+    news = FakeNewsClient(
+        {
+            "Acme Corp": [
+                _dated_article("oldest", 5),
+                _dated_article("newest", 0),
+                _dated_article("middle", 2),
+            ]
+        }
+    )
+
+    result = run_ingestion(db_session, news_client=news, ai_client=FakeAIClient())
+
+    assert result.articles_fetched == 3
+    assert result.articles_new == 2
+    stored_urls = {a.url for a in db_session.query(Article).all()}
+    assert stored_urls == {"https://example.com/acme-newest", "https://example.com/acme-middle"}
+
+
+def test_ingestion_cap_disabled_when_zero(db_session):
+    from app.services.workspace_settings import get_or_create_workspace_settings
+
+    _make_target_company(db_session)
+    settings = get_or_create_workspace_settings(db_session)
+    settings.max_articles_per_company_per_run = 0
+    db_session.commit()
+
+    news = FakeNewsClient(
+        {
+            "Acme Corp": [
+                _article("Acme story one", "https://example.com/acme-1"),
+                _article("Acme story two", "https://example.com/acme-2"),
+                _article("Acme story three", "https://example.com/acme-3"),
+            ]
+        }
+    )
+
+    result = run_ingestion(db_session, news_client=news, ai_client=FakeAIClient())
+
+    assert result.articles_new == 3
 
 
 def test_ingestion_continues_after_ai_failure(db_session):

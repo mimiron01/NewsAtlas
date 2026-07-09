@@ -46,9 +46,9 @@ def test_ingestion_merges_articles_from_multiple_enabled_sources(db_session):
     _make_target_company(db_session)
     _enable_sources(db_session, google_news_rss_enabled=True, newsdata_enabled=True)
 
-    news = FakeNewsClient({"Acme Corp": [_article("NewsAPI story", "https://example.com/newsapi")]})
-    google = FakeGoogleClient({"Acme Corp": [_article("Google story", "https://example.com/google")]})
-    newsdata = FakeNewsDataClient({"Acme Corp": [_article("NewsData story", "https://example.com/newsdata")]})
+    news = FakeNewsClient({"Acme Corp": [_article("Acme NewsAPI story", "https://example.com/newsapi")]})
+    google = FakeGoogleClient({"Acme Corp": [_article("Acme Google story", "https://example.com/google")]})
+    newsdata = FakeNewsDataClient({"Acme Corp": [_article("Acme NewsData story", "https://example.com/newsdata")]})
 
     result = run_ingestion(
         db_session,
@@ -70,8 +70,8 @@ def test_ingestion_cross_source_dedupe_collapses_same_url(db_session):
     _enable_sources(db_session, google_news_rss_enabled=True)
 
     shared_url = "https://example.com/shared-story"
-    news = FakeNewsClient({"Acme Corp": [_article("Same story", shared_url)]})
-    google = FakeGoogleClient({"Acme Corp": [_article("Same story", shared_url)]})
+    news = FakeNewsClient({"Acme Corp": [_article("Acme Same story", shared_url)]})
+    google = FakeGoogleClient({"Acme Corp": [_article("Acme Same story", shared_url)]})
 
     result = run_ingestion(
         db_session, news_client=news, ai_client=FakeAIClient(), google_news_client=google
@@ -86,9 +86,9 @@ def test_ingestion_isolates_one_source_failure_from_others(db_session):
     _make_target_company(db_session)
     _enable_sources(db_session, google_news_rss_enabled=True, newsdata_enabled=True)
 
-    news = FakeNewsClient({"Acme Corp": [_article("NewsAPI story", "https://example.com/newsapi")]})
+    news = FakeNewsClient({"Acme Corp": [_article("Acme NewsAPI story", "https://example.com/newsapi")]})
     google = FakeGoogleClient({}, error_for={"Acme Corp"})
-    newsdata = FakeNewsDataClient({"Acme Corp": [_article("NewsData story", "https://example.com/newsdata")]})
+    newsdata = FakeNewsDataClient({"Acme Corp": [_article("Acme NewsData story", "https://example.com/newsdata")]})
 
     result = run_ingestion(
         db_session,
@@ -115,8 +115,8 @@ def test_ingestion_skips_source_once_its_rate_limit_is_reached(db_session):
     db_session.add(NewsSourceUsageLog(source=ArticleSource.NEWSDATA, requests_used=2, target_company_id=tc.id))
     db_session.commit()
 
-    news = FakeNewsClient({"Acme Corp": [_article("NewsAPI story", "https://example.com/newsapi")]})
-    newsdata = FakeNewsDataClient({"Acme Corp": [_article("NewsData story", "https://example.com/newsdata")]})
+    news = FakeNewsClient({"Acme Corp": [_article("Acme NewsAPI story", "https://example.com/newsapi")]})
+    newsdata = FakeNewsDataClient({"Acme Corp": [_article("Acme NewsData story", "https://example.com/newsdata")]})
 
     result = run_ingestion(
         db_session, news_client=news, ai_client=FakeAIClient(), newsdata_client=newsdata
@@ -138,9 +138,9 @@ def test_ingestion_skips_source_once_its_rate_limit_is_reached(db_session):
 def test_ingestion_logs_news_source_usage_per_call(db_session):
     _make_target_company(db_session)
     _enable_sources(db_session, newsdata_enabled=True)
-    news = FakeNewsClient({"Acme Corp": [_article("NewsAPI story", "https://example.com/newsapi")]})
+    news = FakeNewsClient({"Acme Corp": [_article("Acme NewsAPI story", "https://example.com/newsapi")]})
     newsdata = FakeNewsDataClient(
-        {"Acme Corp": [_article("NewsData story", "https://example.com/newsdata")]}, requests_used=2
+        {"Acme Corp": [_article("Acme NewsData story", "https://example.com/newsdata")]}, requests_used=2
     )
 
     run_ingestion(db_session, news_client=news, ai_client=FakeAIClient(), newsdata_client=newsdata)

@@ -21,6 +21,10 @@ export default function SettingsTargets() {
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editKeywords, setEditKeywords] = useState<string[]>([]);
+  const [editIndustry, setEditIndustry] = useState("");
   // Only admins can read /settings, so backfill-related UI (the "backfilling..."
   // indicator and the manual trigger button) is admin-only — a regular user has no way
   // to know whether NewsData.io backfill is configured, and asking would just 403.
@@ -64,6 +68,37 @@ export default function SettingsTargets() {
       showToast(err instanceof ApiError ? err.message : t("targets.addFailed"), "error");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  function startEdit(company: TargetCompany) {
+    setConfirmingId(null);
+    setEditingId(company.id);
+    setEditName(company.name);
+    setEditKeywords(company.keywords);
+    setEditIndustry(company.industry ?? "");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+  }
+
+  async function saveEdit(event: FormEvent, company: TargetCompany) {
+    event.preventDefault();
+    setPendingId(company.id);
+    try {
+      await api.patch(`/target-companies/${company.id}`, {
+        name: editName,
+        keywords: editKeywords,
+        industry: editIndustry || null,
+      });
+      setEditingId(null);
+      showToast(t("targets.updatedToast", { name: editName }), "success");
+      loadCompanies();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("targets.updateFailed"), "error");
+    } finally {
+      setPendingId(null);
     }
   }
 
@@ -159,6 +194,7 @@ export default function SettingsTargets() {
             onChange={setKeywords}
             placeholder={t("targets.keywordsPlaceholder")}
           />
+          <span className="field-hint">{t("targets.keywordsHint")}</span>
         </label>
         <button type="submit" disabled={isSubmitting}>
           {t("targets.addTargetCompany")}
@@ -169,72 +205,117 @@ export default function SettingsTargets() {
         <h3>{t("targets.trackedCompanies", { count: companies.length })}</h3>
         {companies.length === 0 && <p className="subtitle">{t("targets.noCompaniesYet")}</p>}
         <ul className="target-list">
-          {companies.map((company) => (
-            <li key={company.id} className={company.is_active ? "" : "inactive"}>
-              <div>
-                <strong>{company.name}</strong>
-                {company.industry && <span className="tag">{company.industry}</span>}
-                {company.is_muted && <span className="tag">{t("targets.muted")}</span>}
-                {company.keywords.length > 0 && (
-                  <div className="keywords">{company.keywords.join(", ")}</div>
-                )}
-                {company.id === justCreatedId && company.backfilled_at === null && (
-                  <div className="field-hint">{t("targets.backfilling")}</div>
-                )}
-              </div>
-              <div className="actions">
-                {isAdmin && backfillEnabled && company.backfilled_at === null && company.id !== justCreatedId && (
+          {companies.map((company) =>
+            editingId === company.id ? (
+              <li key={company.id} className="editing">
+                <form className="target-edit-form" onSubmit={(e) => saveEdit(e, company)}>
+                  <div className="field-row">
+                    <label>
+                      {t("targets.companyName")}
+                      <input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        required
+                      />
+                    </label>
+                    <label>
+                      {t("targets.industryOptional")}
+                      <input value={editIndustry} onChange={(e) => setEditIndustry(e.target.value)} />
+                    </label>
+                  </div>
+                  <label>
+                    {t("targets.keywords")}
+                    <TagInput
+                      tags={editKeywords}
+                      onChange={setEditKeywords}
+                      placeholder={t("targets.keywordsPlaceholder")}
+                    />
+                    <span className="field-hint">{t("targets.keywordsHint")}</span>
+                  </label>
+                  <div className="actions">
+                    <button type="submit" disabled={pendingId === company.id}>
+                      {t("targets.save")}
+                    </button>
+                    <button type="button" onClick={cancelEdit} disabled={pendingId === company.id}>
+                      {t("targets.cancel")}
+                    </button>
+                  </div>
+                </form>
+              </li>
+            ) : (
+              <li key={company.id} className={company.is_active ? "" : "inactive"}>
+                <div>
+                  <strong>{company.name}</strong>
+                  {company.industry && <span className="tag">{company.industry}</span>}
+                  {company.is_muted && <span className="tag">{t("targets.muted")}</span>}
+                  {company.keywords.length > 0 && (
+                    <div className="keywords">{company.keywords.join(", ")}</div>
+                  )}
+                  {company.id === justCreatedId && company.backfilled_at === null && (
+                    <div className="field-hint">{t("targets.backfilling")}</div>
+                  )}
+                </div>
+                <div className="actions">
+                  {isAdmin && backfillEnabled && company.backfilled_at === null && company.id !== justCreatedId && (
+                    <button
+                      type="button"
+                      disabled={pendingId === company.id}
+                      onClick={() => triggerBackfill(company)}
+                      title={t("targets.backfillTitle")}
+                    >
+                      {t("targets.backfillHistory")}
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={pendingId === company.id}
-                    onClick={() => triggerBackfill(company)}
-                    title={t("targets.backfillTitle")}
+                    onClick={() => startEdit(company)}
                   >
-                    {t("targets.backfillHistory")}
+                    {t("targets.edit")}
                   </button>
-                )}
-                <button
-                  type="button"
-                  disabled={pendingId === company.id}
-                  onClick={() => toggleMute(company)}
-                >
-                  {company.is_muted ? t("targets.unmute") : t("targets.mute")}
-                </button>
-                <button
-                  type="button"
-                  disabled={pendingId === company.id}
-                  onClick={() => toggleActive(company)}
-                >
-                  {company.is_active ? t("targets.pause") : t("targets.resume")}
-                </button>
-                {confirmingId === company.id ? (
-                  <>
+                  <button
+                    type="button"
+                    disabled={pendingId === company.id}
+                    onClick={() => toggleMute(company)}
+                  >
+                    {company.is_muted ? t("targets.unmute") : t("targets.mute")}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pendingId === company.id}
+                    onClick={() => toggleActive(company)}
+                  >
+                    {company.is_active ? t("targets.pause") : t("targets.resume")}
+                  </button>
+                  {confirmingId === company.id ? (
+                    <>
+                      <button
+                        type="button"
+                        className="danger"
+                        disabled={pendingId === company.id}
+                        onClick={() => remove(company)}
+                      >
+                        {t("targets.confirmAction", { action: removeLabel().toLowerCase() })}
+                      </button>
+                      <button type="button" onClick={() => setConfirmingId(null)}>
+                        {t("targets.cancel")}
+                      </button>
+                    </>
+                  ) : (
                     <button
                       type="button"
                       className="danger"
-                      disabled={pendingId === company.id}
-                      onClick={() => remove(company)}
+                      title={confirmCopy(company)}
+                      onClick={() => setConfirmingId(company.id)}
                     >
-                      {t("targets.confirmAction", { action: removeLabel().toLowerCase() })}
+                      {removeLabel()}
                     </button>
-                    <button type="button" onClick={() => setConfirmingId(null)}>
-                      {t("targets.cancel")}
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className="danger"
-                    title={confirmCopy(company)}
-                    onClick={() => setConfirmingId(company.id)}
-                  >
-                    {removeLabel()}
-                  </button>
-                )}
-              </div>
-              {confirmingId === company.id && <p className="subtitle">{confirmCopy(company)}</p>}
-            </li>
-          ))}
+                  )}
+                </div>
+                {confirmingId === company.id && <p className="subtitle">{confirmCopy(company)}</p>}
+              </li>
+            )
+          )}
         </ul>
       </div>
     </div>
