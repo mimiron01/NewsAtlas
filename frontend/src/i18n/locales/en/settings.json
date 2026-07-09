@@ -25,7 +25,9 @@
     "mainLanguage": "Main language",
     "mainLanguageHint": "The standard language for the interface and AI-generated signal summaries. Users can still override it for themselves in their own profile.",
     "ingestionInterval": "Ingestion interval (hours)",
-    "digestSendTime": "Daily digest send time"
+    "digestSendTime": "Daily digest send time",
+    "maxArticlesPerCompany": "Max articles per company per fetch (0 = no limit)",
+    "maxArticlesPerCompanyHint": "Caps each company to its newest N articles per fetch run before they're summarized — protects against a single busy company (or a broad keyword list) using up the whole run's AI budget."
   },
 
   "targets": {
@@ -35,6 +37,7 @@
     "industryOptional": "Industry (optional)",
     "keywords": "Keywords / aliases",
     "keywordsPlaceholder": "Type a keyword and press Enter",
+    "keywordsHint": "Prefer specific names/domains over generic single words or abbreviations — an overly broad keyword can pull in unrelated articles that don't actually mention this company.",
     "addTargetCompany": "Add target company",
     "trackedCompanies": "Tracked companies ({{count}})",
     "noCompaniesYet": "No target companies yet.",
@@ -175,7 +178,8 @@
     "status": {
       "running": "Running",
       "completed": "Completed",
-      "failed": "Failed"
+      "failed": "Failed",
+      "cancelled": "Cancelled"
     },
     "trigger": {
       "manual": "Manual",

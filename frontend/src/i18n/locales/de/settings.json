@@ -25,7 +25,9 @@
     "mainLanguage": "Hauptsprache",
     "mainLanguageHint": "Die Standardsprache für die Oberfläche und die von der KI erstellten Signalzusammenfassungen. Benutzer können sie in ihrem eigenen Profil weiterhin überschreiben.",
     "ingestionInterval": "Abrufintervall (Stunden)",
-    "digestSendTime": "Versandzeit der täglichen Zusammenfassung"
+    "digestSendTime": "Versandzeit der täglichen Zusammenfassung",
+    "maxArticlesPerCompany": "Max. Artikel pro Unternehmen pro Abruf (0 = kein Limit)",
+    "maxArticlesPerCompanyHint": "Begrenzt jedes Unternehmen auf seine neuesten N Artikel pro Abruflauf, bevor sie zusammengefasst werden — schützt davor, dass ein einzelnes vielbeachtetes Unternehmen (oder eine breite Schlüsselwortliste) das gesamte KI-Budget eines Laufs verbraucht."
   },
 
   "targets": {
@@ -35,6 +37,7 @@
     "industryOptional": "Branche (optional)",
     "keywords": "Schlüsselwörter / Aliasse",
     "keywordsPlaceholder": "Schlüsselwort eingeben und Enter drücken",
+    "keywordsHint": "Bevorzugen Sie spezifische Namen/Domains statt generischer Einzelwörter oder Abkürzungen — ein zu allgemeines Schlüsselwort kann unpassende Artikel einbeziehen, die dieses Unternehmen gar nicht erwähnen.",
     "addTargetCompany": "Zielunternehmen hinzufügen",
     "trackedCompanies": "Verfolgte Unternehmen ({{count}})",
     "noCompaniesYet": "Noch keine Zielunternehmen.",
@@ -175,7 +178,8 @@
     "status": {
       "running": "Läuft",
       "completed": "Abgeschlossen",
-      "failed": "Fehlgeschlagen"
+      "failed": "Fehlgeschlagen",
+      "cancelled": "Abgebrochen"
     },
     "trigger": {
       "manual": "Manuell",

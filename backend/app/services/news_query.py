@@ -27,3 +27,24 @@ def is_safe_article_url(url: str | None) -> bool:
     dashboard and in digest emails, so a javascript:/data: URL from a malicious or
     compromised upstream feed would otherwise be a stored-XSS vector."""
     return bool(url) and url.startswith(("http://", "https://"))
+
+
+def article_mentions_company(
+    *, title: str, description: str | None, full_content: str | None, name: str, keywords: list[str]
+) -> bool:
+    """True if the company name or any configured keyword/alias appears as a
+    case-insensitive substring somewhere in the article's title/description/full_content.
+
+    build_or_query() above asks providers for an OR match on name-or-any-keyword, which
+    is necessary for keywords to work as aliases — but providers' own search relevance is
+    frequently loose/fuzzy (stemming, related-entity matches, etc.), so they can return an
+    article that never actually contains any of the terms it was matched on. This is a
+    cheap grounding guard against exactly that: articles that fail this check should never
+    be attributed to the company (see docs/ingestion-reliability-planning.html §5).
+    """
+    haystack = " ".join(filter(None, [title, description, full_content])).lower()
+    for term in [name, *keywords]:
+        term = term.strip()
+        if term and term.lower() in haystack:
+            return True
+    return False

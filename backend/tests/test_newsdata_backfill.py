@@ -107,7 +107,7 @@ def test_backfill_fetches_processes_and_marks_backfilled(db_session):
     tc = _make_company(db_session)
     _enable_backfill(db_session)
     client = FakeArchiveClient(
-        articles=[_article("Old funding round", "https://example.com/old-funding")], requests_used=2
+        articles=[_article("Acme old funding round", "https://example.com/old-funding")], requests_used=2
     )
     ai = FakeAIClient()
 
@@ -140,13 +140,15 @@ def test_backfill_dedupes_against_existing_article_url(db_session):
         target_company_id=tc.id,
         source=ArticleSource.NEWSAPI,
         source_name="Reuters",
-        title="Already ingested",
+        title="Acme already ingested",
         url="https://example.com/already-there",
     )
     db_session.add(existing)
     db_session.commit()
 
-    client = FakeArchiveClient(articles=[_article("Already ingested", "https://example.com/already-there")])
+    client = FakeArchiveClient(
+        articles=[_article("Acme already ingested", "https://example.com/already-there")]
+    )
     ran = run_backfill_for_company(db_session, tc.id, newsdata_client=client, ai_client=FakeAIClient())
 
     assert ran is True

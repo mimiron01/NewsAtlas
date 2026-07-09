@@ -16,6 +16,11 @@ class WorkspaceSettings(Base, UUIDPrimaryKeyMixin):
     offering_description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     digest_send_time: Mapped[str] = mapped_column(String(5), nullable=False, default="07:00")
     ingestion_interval_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=6)
+    # Caps how many of a company's newest-fetched (by published_at), genuinely-new
+    # articles get embedded/triaged/summarized per ingestion run — bounds AI spend from
+    # a single busy company or an overly broad keyword list. 0 disables the cap
+    # (unlimited), matching the newsdata_backfill_days "0 = off" convention below.
+    max_articles_per_company_per_run: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

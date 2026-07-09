@@ -1,11 +1,14 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
+import uuid
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_admin
+from app.core.audit import log_event
 from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.db.session import get_db
-from app.models.ingestion_run import TRIGGER_MANUAL
+from app.models.ingestion_run import STATUS_RUNNING, TRIGGER_MANUAL
 from app.models.user import User
 from app.schemas.ingestion import IngestionRunStatusResponse
 from app.services.ingestion_runs import (
@@ -14,6 +17,7 @@ from app.services.ingestion_runs import (
     get_latest_run,
     get_running_run,
     list_runs,
+    request_cancel,
     to_status_response,
 )
 from app.services.workspace_settings import (
@@ -48,6 +52,32 @@ def run_now(
 
     run = create_run(db, trigger=TRIGGER_MANUAL, triggered_by_user_id=current_user.id)
     background_tasks.add_task(execute_ingestion_run, run.id)
+    return to_status_response(run)
+
+
+@router.post("/runs/{run_id}/cancel", response_model=IngestionRunStatusResponse)
+def cancel_run(
+    run_id: uuid.UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(require_admin),
+) -> IngestionRunStatusResponse:
+    """Admin-only: request that an in-progress run stop. Cooperative, not instant — the
+    pipeline notices at its next per-company/per-article checkpoint (see
+    services/ingestion.py) and stops cleanly, typically within a few seconds."""
+    run = request_cancel(db, run_id)
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ingestion run not found")
+    if run.status != STATUS_RUNNING:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="This run is not currently running"
+        )
+    log_event(
+        "ingestion_run_cancel_requested",
+        request=request,
+        actor_id=str(current_admin.id),
+        run_id=str(run_id),
+    )
     return to_status_response(run)
 
 

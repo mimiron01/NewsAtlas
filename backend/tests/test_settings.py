@@ -27,6 +27,7 @@ def _full_update_payload(**overrides):
         "offering_description": "HVAC equipment and maintenance services.",
         "digest_send_time": "08:30",
         "ingestion_interval_hours": 4,
+        "max_articles_per_company_per_run": 10,
         "main_language": "en",
         "mistral_model": "mistral-large-latest",
         "mistral_triage_model": "mistral-small-latest",

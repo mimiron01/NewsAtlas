@@ -25,10 +25,17 @@ _SIGNAL_TYPES = (
 )
 
 _SYSTEM_PROMPT = (
-    "You are a sales-intelligence assistant. Given a news article about a company our "
-    "sales team is targeting, a description of our own company's offering, and optional "
-    "context about recent prior signals for the same target company, respond with a JSON "
-    "object containing exactly these keys:\n"
+    "You are a sales-intelligence assistant. Given a news article that a keyword search "
+    "matched for a company our sales team is targeting, a description of our own "
+    "company's offering, and optional context about recent prior signals for the same "
+    "target company, respond with a JSON object containing exactly these keys:\n"
+    '- "company_mentioned": boolean. The keyword search that surfaced this article can '
+    "be wrong — true only if the target company is genuinely a real subject of this "
+    "specific article (named or unambiguously referenced), not just a coincidental "
+    "keyword/name overlap. If false, still fill in the other fields below as best you "
+    "can from the article's actual content, but keep business_relevance and the "
+    "outreach fields brief and explicit that the article isn't about the target company "
+    "— don't fabricate an outreach angle for a company the article doesn't cover.\n"
     '- "summary": 2-4 plain-language sentences summarizing the article.\n'
     '- "business_relevance": why this news matters for outreach to the target company, '
     "and how it connects to our offering. If prior-signal context is given, note whether "
@@ -76,12 +83,15 @@ _RETRY_PROMPT = (
 
 _TRIAGE_SYSTEM_PROMPT = (
     "You are a fast relevance filter for a sales-intelligence pipeline. Given a news "
-    "article about a company our sales team is targeting and a description of our own "
-    "company's offering, decide whether the article is worth a full analysis. Respond "
-    "with ONLY a JSON object: "
+    "article that a keyword search matched for a company our sales team is targeting, "
+    "and a description of our own company's offering, decide whether the article is "
+    "worth a full analysis. Respond with ONLY a JSON object: "
     '{"relevant": true|false, "reason": "<max 10 words>"}. '
-    "Answer false only for articles with no plausible business/outreach angle at all "
-    "(e.g. pure sports/celebrity/local-interest noise that happened to match a keyword)."
+    "Answer false if EITHER: (a) the target company isn't actually a real subject of "
+    "this article — it only matched on a coincidental keyword/name overlap and the "
+    "company itself isn't what the story is about — or (b) it genuinely is about the "
+    "target company but has no plausible business/outreach angle at all (e.g. pure "
+    "sports/celebrity/local-interest noise)."
 )
 
 
@@ -96,6 +106,11 @@ class MistralUsage(BaseModel):
 
 
 class AISummaryResult(BaseModel):
+    # Defaults to True (fail open) so a model response that omits this key — an older
+    # prompt version, or Mistral simply not returning it — doesn't retroactively start
+    # skipping every signal; the grounding check upstream (news_query.article_mentions_company)
+    # and the triage prompt are the primary guards, this is a second-opinion backstop.
+    company_mentioned: bool = True
     summary: str
     business_relevance: str
     supporting_quote: str = ""

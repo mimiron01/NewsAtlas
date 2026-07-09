@@ -194,6 +194,7 @@ export default function SettingsTargets() {
             onChange={setKeywords}
             placeholder={t("targets.keywordsPlaceholder")}
           />
+          <span className="field-hint">{t("targets.keywordsHint")}</span>
         </label>
         <button type="submit" disabled={isSubmitting}>
           {t("targets.addTargetCompany")}
@@ -229,6 +230,7 @@ export default function SettingsTargets() {
                       onChange={setEditKeywords}
                       placeholder={t("targets.keywordsPlaceholder")}
                     />
+                    <span className="field-hint">{t("targets.keywordsHint")}</span>
                   </label>
                   <div className="actions">
                     <button type="submit" disabled={pendingId === company.id}>

@@ -9,6 +9,7 @@ from app.models.target_company import TargetCompany
 from app.services.ai_client import AIClient
 from app.services.ingestion import _process_new_articles
 from app.services.news_client import NewsClientError
+from app.services.news_query import article_mentions_company
 from app.services.news_rate_limiter import has_headroom
 from app.services.news_usage import log_rate_limited
 from app.services.news_usage import log_usage as log_news_usage
@@ -87,6 +88,17 @@ def run_backfill_for_company(
     new_articles: list[Article] = []
     seen_urls: set[str] = set()
     for item in fetched:
+        # Same grounding guard as routine ingestion (services/ingestion.py) — the
+        # archive endpoint uses the same loose OR query, so it's just as prone to
+        # returning an article that never actually mentions the company.
+        if not article_mentions_company(
+            title=item.title,
+            description=item.description,
+            full_content=getattr(item, "full_content", None),
+            name=target_company.name,
+            keywords=target_company.keywords,
+        ):
+            continue
         if item.url in seen_urls:
             continue
         if db.query(Article).filter(Article.url == item.url).first() is not None:

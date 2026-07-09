@@ -54,6 +54,15 @@ export default function SignalsFeed() {
     if (status.status === "completed") {
       return t("feed.ingestion.finishingUp");
     }
+    if (status.status === "cancelled") {
+      return t("feed.ingestion.cancelledProgress", {
+        processed: status.companies_processed,
+        total: status.companies_total,
+      });
+    }
+    if (status.cancel_requested) {
+      return t("feed.ingestion.stopping");
+    }
     const companyPosition = Math.min(status.companies_processed + 1, Math.max(status.companies_total, 1));
     const companyProgress =
       status.companies_total > 0
@@ -165,6 +174,16 @@ export default function SignalsFeed() {
     }
   }
 
+  async function handleCancelIngestion() {
+    if (!ingestionStatus) return;
+    try {
+      const result = await api.post<IngestionRunStatus>(`/ingestion/runs/${ingestionStatus.id}/cancel`);
+      setIngestionStatus(result);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("feed.ingestion.stopFailed"), "error");
+    }
+  }
+
   async function transitionSignal(id: string, status: SignalStatus) {
     try {
       const updated = await api.patch<Signal>(`/signals/${id}`, { status });
@@ -267,13 +286,38 @@ export default function SignalsFeed() {
           <div className="progress-bar">
             <div className="progress-bar-fill" style={{ width: `${ingestionStatus.progress_percent}%` }} />
           </div>
-          <p className="field-hint">{ingestionStatusText(ingestionStatus)}</p>
+          <div className="ingestion-progress-row">
+            <p className="field-hint">{ingestionStatusText(ingestionStatus)}</p>
+            {isAdmin && (
+              <button
+                type="button"
+                className="danger"
+                onClick={handleCancelIngestion}
+                disabled={ingestionStatus.cancel_requested}
+              >
+                {ingestionStatus.cancel_requested ? t("feed.ingestion.stopping") : t("feed.ingestion.stop")}
+              </button>
+            )}
+          </div>
         </div>
       )}
 
       {sawRunningRef.current && ingestionStatus && ingestionStatus.status === "failed" && (
         <div className="panel-card">
           <p className="error-text">{ingestionStatusText(ingestionStatus)}</p>
+        </div>
+      )}
+
+      {sawRunningRef.current && ingestionStatus && ingestionStatus.status === "cancelled" && (
+        <div className="panel-card">
+          <p className="subtitle">
+            {t("feed.ingestion.cancelledProgress", {
+              processed: ingestionStatus.companies_processed,
+              total: ingestionStatus.companies_total,
+            })}
+            {t("feed.ingestion.articlesFound", { count: ingestionStatus.articles_new })}
+            {t("feed.ingestion.signalsCreatedText", { count: ingestionStatus.signals_created })}.
+          </p>
         </div>
       )}
 

@@ -108,6 +108,20 @@ export default function CompanyTab() {
             />
           </label>
         </div>
+
+        <label>
+          {t("company.maxArticlesPerCompany")}
+          <input
+            type="number"
+            min={0}
+            max={1000}
+            value={settings.max_articles_per_company_per_run}
+            onChange={(e) =>
+              setSettings({ ...settings, max_articles_per_company_per_run: Number(e.target.value) })
+            }
+          />
+          <span className="field-hint">{t("company.maxArticlesPerCompanyHint")}</span>
+        </label>
       </div>
 
       <button type="submit" disabled={isSaving}>

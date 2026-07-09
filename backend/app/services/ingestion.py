@@ -15,6 +15,7 @@ from app.services.ai_client import AIClient, AIClientError, MistralUsage, cosine
 from app.services.feedback import refresh_feedback_note
 from app.services.google_news_rss_client import GoogleNewsRSSClient
 from app.services.news_client import NewsClient, NewsClientError
+from app.services.news_query import article_mentions_company
 from app.services.news_rate_limiter import has_headroom
 from app.services.news_usage import log_rate_limited
 from app.services.news_usage import log_usage as log_news_usage
@@ -45,6 +46,8 @@ class IngestionProgress(Protocol):
 
     def append_error(self, message: str) -> None: ...
 
+    def should_cancel(self) -> bool: ...
+
 
 class _NullProgress:
     def update(self, **fields: object) -> None:
@@ -52,6 +55,9 @@ class _NullProgress:
 
     def append_error(self, message: str) -> None:
         pass
+
+    def should_cancel(self) -> bool:
+        return False
 
 
 _NULL_PROGRESS = _NullProgress()
@@ -67,6 +73,10 @@ class _CompanyIngestOutcome:
     by_source: dict[str, int] = field(default_factory=dict)
     rate_limited: dict[str, int] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
+    # True if a cancellation was observed while processing this company's articles (see
+    # IngestionProgress.should_cancel) — the outer per-company loop in run_ingestion()
+    # stops after this company rather than starting the next one.
+    cancelled: bool = False
 
 
 def _record_error(errors: list[str], progress: IngestionProgress, message: str) -> None:
@@ -138,8 +148,18 @@ def run_ingestion(
     by_source: dict[str, int] = {}
     rate_limited: dict[str, int] = {}
     errors: list[str] = []
+    companies_processed = 0
+    cancelled = False
 
     for idx, target_company in enumerate(target_companies, start=1):
+        # Checked once per company (and again, more finely, inside article processing —
+        # see _process_new_articles) so an admin's "Stop" click takes effect at the next
+        # natural checkpoint rather than mid-write. Every checkpoint lands right after a
+        # commit, so stopping here never leaves partial/uncommitted work behind.
+        if progress.should_cancel():
+            cancelled = True
+            break
+
         outcome = _ingest_target_company(
             db,
             ai_client=ai_client,
@@ -159,13 +179,19 @@ def run_ingestion(
             by_source[source_name] = by_source.get(source_name, 0) + count
         for source_name, count in outcome.rate_limited.items():
             rate_limited[source_name] = rate_limited.get(source_name, 0) + count
+        companies_processed = idx
         # Updated unconditionally after every company, regardless of which early-exit
         # path _ingest_target_company took internally (no fetch results, no new
         # articles, etc.) — the progress bar's company count must never stall.
         progress.update(companies_processed=idx)
 
+        if outcome.cancelled:
+            cancelled = True
+            break
+
     return IngestionRunResult(
-        target_companies_processed=len(target_companies),
+        target_companies_processed=companies_processed,
+        cancelled=cancelled,
         articles_fetched=articles_fetched,
         articles_new=articles_new,
         signals_created=signals_created,
@@ -229,9 +255,30 @@ def _ingest_target_company(
     if not fetched_items:
         return outcome
 
-    new_articles: list[Article] = []
+    # Grounding guard: a provider's own search relevance is frequently loose/fuzzy, so
+    # matching the query doesn't guarantee the article actually mentions the company —
+    # drop anything that doesn't, before it's ever stored as this company's Article (see
+    # docs/ingestion-reliability-planning.html §5).
+    grounded_items = [
+        (source, fetched)
+        for source, fetched in fetched_items
+        if article_mentions_company(
+            title=fetched.title,
+            description=fetched.description,
+            full_content=getattr(fetched, "full_content", None),
+            name=target_company.name,
+            keywords=target_company.keywords,
+        )
+    ]
+    if not grounded_items:
+        return outcome
+
+    # Cross-source + already-ingested URL dedupe, kept on raw fetched items (not yet
+    # Article rows) so the newest-N cap below only has to sort/slice genuinely-new
+    # candidates instead of discarding constructed-then-unused ORM objects.
     seen_urls: set[str] = set()
-    for source, fetched in fetched_items:
+    deduped_items: list[tuple[ArticleSource, object]] = []
+    for source, fetched in grounded_items:
         # Guards against the same URL appearing twice across this company's combined
         # fetch results (whether from one provider or two), not just against
         # previously-ingested articles: the batched commit below means the DB query
@@ -245,6 +292,27 @@ def _ingest_target_company(
         if existing is not None:
             continue
         seen_urls.add(fetched.url)
+        deduped_items.append((source, fetched))
+
+    if not deduped_items:
+        return outcome
+
+    # Cap to the N newest (by published_at) genuinely-new articles for this company —
+    # bounds the expensive embedding/triage/summarization work below regardless of how
+    # many raw results the sources returned. 0 disables the cap (unlimited), matching
+    # the "0 = off" convention used elsewhere on workspace_settings (e.g.
+    # newsdata_backfill_days). Articles with no parseable published_at sort last, not
+    # first, so an unparsable date never displaces a genuinely newer article.
+    cap = workspace_settings.max_articles_per_company_per_run
+    if cap > 0 and len(deduped_items) > cap:
+        deduped_items.sort(
+            key=lambda item: item[1].published_at or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
+        deduped_items = deduped_items[:cap]
+
+    new_articles: list[Article] = []
+    for source, fetched in deduped_items:
         article = Article(
             target_company_id=target_company.id,
             source=source,
@@ -260,9 +328,6 @@ def _ingest_target_company(
         db.add(article)
         new_articles.append(article)
 
-    if not new_articles:
-        return outcome
-
     # A single commit (session default expire_on_commit=True) is enough — any later
     # attribute access lazily re-fetches from the DB as needed, so an eager
     # db.refresh() per article here would just be N redundant round trips.
@@ -270,18 +335,21 @@ def _ingest_target_company(
     outcome.articles_new = len(new_articles)
     progress.update(current_step="summarizing", articles_total_this_company=len(new_articles))
 
-    signals_created_here, duplicates_here, triaged_out_here, batch_errors = _process_new_articles(
-        db,
-        ai_client=ai_client,
-        workspace_settings=workspace_settings,
-        target_company=target_company,
-        new_articles=new_articles,
-        progress=progress,
+    signals_created_here, duplicates_here, triaged_out_here, batch_errors, batch_cancelled = (
+        _process_new_articles(
+            db,
+            ai_client=ai_client,
+            workspace_settings=workspace_settings,
+            target_company=target_company,
+            new_articles=new_articles,
+            progress=progress,
+        )
     )
     outcome.signals_created = signals_created_here
     outcome.duplicates_skipped = duplicates_here
     outcome.triaged_out = triaged_out_here
     outcome.errors.extend(batch_errors)
+    outcome.cancelled = batch_cancelled
     return outcome
 
 
@@ -331,12 +399,13 @@ def _process_new_articles(
     target_company: TargetCompany,
     new_articles: list[Article],
     progress: IngestionProgress | None = None,
-) -> tuple[int, int, int, list[str]]:
+) -> tuple[int, int, int, list[str], bool]:
     progress = progress or _NULL_PROGRESS
     errors: list[str] = []
     signals_created = 0
     duplicates_skipped = 0
     triaged_out = 0
+    cancelled = False
 
     # One embeddings request for every new article in this batch, instead of one call
     # per article — the main lever for keeping dedupe cheap at scale. Grounds on full
@@ -375,6 +444,14 @@ def _process_new_articles(
     recent_signal_summaries = _recent_signal_context(db, target_company.id)
 
     for position, article in enumerate(new_articles):
+        # Finer-grained checkpoint than the per-company one in run_ingestion() — a batch
+        # can be up to max_articles_per_company_per_run articles deep into potentially
+        # slow Mistral calls, so this is where a "Stop" click actually takes effect for
+        # the company currently being summarized.
+        if progress.should_cancel():
+            cancelled = True
+            break
+
         if article.embedding is not None:
             duplicate = _find_duplicate(
                 article, candidates, workspace_settings.mistral_dedupe_similarity_threshold
@@ -441,6 +518,16 @@ def _process_new_articles(
             progress.update(articles_processed_this_company=position + 1)
             continue
 
+        if not result.company_mentioned:
+            # Grounding (news_query.article_mentions_company) and triage both already
+            # try to catch this, but the model gets a final say with the full article
+            # text in front of it — trust it over fabricating a signal for a company
+            # the article doesn't actually cover (see
+            # docs/ingestion-reliability-planning.html §5, Fix 3).
+            _skip_article(db, article, "company_mismatch")
+            progress.update(articles_processed_this_company=position + 1)
+            continue
+
         signal = Signal(
             article_id=article.id,
             summary=result.summary,
@@ -464,7 +551,7 @@ def _process_new_articles(
         del recent_signal_summaries[RECENT_SIGNALS_FOR_CONTEXT:]
         progress.update(articles_processed_this_company=position + 1)
 
-    return signals_created, duplicates_skipped, triaged_out, errors
+    return signals_created, duplicates_skipped, triaged_out, errors, cancelled
 
 
 def _grounding_text(article: Article) -> str:

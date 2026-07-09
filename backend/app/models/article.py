@@ -53,6 +53,9 @@ class Article(Base, UUIDPrimaryKeyMixin):
     duplicate_of_article_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("articles.id", ondelete="SET NULL"), nullable=True
     )
-    # Why no Signal was created, when applicable: "duplicate", "triaged_out", "ai_error".
-    # NULL means a Signal was created (or the article hasn't been processed yet).
+    # Why no Signal was created, when applicable: "duplicate", "triaged_out", "ai_error",
+    # "company_mismatch" (the AI determined the article isn't actually about
+    # target_company despite matching the fetch query — see
+    # docs/ingestion-reliability-planning.html §5). NULL means a Signal was created (or
+    # the article hasn't been processed yet).
     skip_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)

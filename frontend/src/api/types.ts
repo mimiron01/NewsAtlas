@@ -36,6 +36,7 @@ export interface WorkspaceSettings {
   offering_description: string;
   digest_send_time: string;
   ingestion_interval_hours: number;
+  max_articles_per_company_per_run: number;
   main_language: SupportedLanguage;
   mistral_model: string;
   mistral_triage_model: string;
@@ -70,6 +71,7 @@ export interface WorkspaceSettingsUpdatePayload {
   offering_description: string;
   digest_send_time: string;
   ingestion_interval_hours: number;
+  max_articles_per_company_per_run: number;
   main_language: SupportedLanguage;
   mistral_model: string;
   mistral_triage_model: string;
@@ -217,13 +219,16 @@ export interface DashboardSummary {
   open_todos: SignalTodoWithContext[];
 }
 
-export type IngestionRunStatusValue = "running" | "completed" | "failed";
+export type IngestionRunStatusValue = "running" | "completed" | "failed" | "cancelled";
 export type IngestionTrigger = "manual" | "scheduled";
 export type IngestionStep = "fetching" | "summarizing";
 
 export interface IngestionRunStatus {
   id: string;
   status: IngestionRunStatusValue;
+  // True once an admin has requested cancellation but the pipeline hasn't yet reached
+  // its next checkpoint — status is still "running" in this window.
+  cancel_requested: boolean;
   trigger: IngestionTrigger;
   started_at: string;
   finished_at: string | null;
