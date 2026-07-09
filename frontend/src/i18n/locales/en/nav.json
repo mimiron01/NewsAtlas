@@ -7,13 +7,13 @@
     "targets": "My companies"
   },
   "theme": {
-    "light": "Light theme",
-    "dark": "Dark theme",
-    "system": "System theme"
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
   },
   "language": {
     "label": "Language",
-    "workspaceDefault": "Workspace default",
+    "workspaceDefault": "Default",
     "en": "English",
     "de": "Deutsch"
   },

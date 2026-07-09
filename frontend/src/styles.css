@@ -118,6 +118,7 @@ button.danger { background: var(--danger-solid); }
 .field-row {
   display: flex;
   gap: 16px;
+  max-width: 640px;
 }
 .field-row > label { flex: 1; }
 
@@ -196,21 +197,25 @@ button.danger { background: var(--danger-solid); }
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
   background: var(--bg);
   color: var(--fg);
   border: 1px solid var(--border);
+  border-radius: 6px;
   font-weight: 500;
   font-size: 0.82rem;
   padding: 6px 10px;
-  align-self: flex-start;
 }
 .language-select select {
+  flex: 1;
+  min-width: 0;
   background: transparent;
   color: inherit;
   border: none;
   font: inherit;
   font-weight: 500;
   cursor: pointer;
+  text-overflow: ellipsis;
 }
 .language-select select:focus {
   outline: none;
@@ -232,7 +237,7 @@ button.danger { background: var(--danger-solid); }
   display: none;
 }
 
-.content { flex: 1; padding: 32px; max-width: 760px; }
+.content { flex: 1; padding: 32px 40px; max-width: 1440px; width: 100%; margin: 0 auto; }
 
 @media (max-width: 720px) {
   .nav-toggle { display: flex; }
