@@ -51,6 +51,48 @@ def test_create_list_update_delete_target_company(client):
     assert list_resp_after.json() == []
 
 
+def test_follower_can_edit_name_and_keywords(client):
+    headers = _auth_headers(client)
+    company = client.post(
+        "/target-companies",
+        json={"name": "Acme Corp", "keywords": ["Acme"], "industry": "Manufacturing"},
+        headers=headers,
+    ).json()
+
+    patch_resp = client.patch(
+        f"/target-companies/{company['id']}",
+        json={"name": "Acme Corporation", "keywords": ["Acme", "acme.com"], "industry": "Industrial"},
+        headers=headers,
+    )
+    assert patch_resp.status_code == 200
+    updated = patch_resp.json()
+    assert updated["name"] == "Acme Corporation"
+    assert updated["keywords"] == ["Acme", "acme.com"]
+    assert updated["industry"] == "Industrial"
+
+
+def test_admin_can_edit_name_and_keywords_of_company_they_do_not_follow(client):
+    admin_headers, _ = _signup(client, email="admin@proair.com")
+    user_headers, _ = _signup(client, email="rep@proair.com")
+    company = client.post(
+        "/target-companies", json={"name": "Acme", "keywords": []}, headers=user_headers
+    ).json()
+
+    patch_resp = client.patch(
+        f"/target-companies/{company['id']}",
+        json={"name": "Acme Renamed", "keywords": ["Acme", "Renamed"]},
+        headers=admin_headers,
+    )
+    assert patch_resp.status_code == 200
+    updated = patch_resp.json()
+    assert updated["name"] == "Acme Renamed"
+    assert updated["keywords"] == ["Acme", "Renamed"]
+
+    # The renamed company is still visible to the following user under its new name.
+    listed = client.get("/target-companies", headers=user_headers).json()
+    assert listed[0]["name"] == "Acme Renamed"
+
+
 def test_target_companies_require_auth(client):
     resp = client.get("/target-companies")
     assert resp.status_code == 401
