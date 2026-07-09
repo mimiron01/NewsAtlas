@@ -12,6 +12,9 @@ interface AuthContextValue {
   signup: (email: string, password: string, name: string, inviteCode: string) => Promise<void>;
   logout: () => Promise<void>;
   setLanguagePreference: (language: SupportedLanguage | null) => Promise<void>;
+  // Re-fetches /auth/me so this tab picks up settings changed elsewhere (e.g. an admin
+  // saving a new workspace main_language on the Company tab) without a full page reload.
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -25,6 +28,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Once we know who's logged in, the account/workspace settings become authoritative
+  // over whatever the browser-detected language guessed pre-login (see i18n/index.ts).
+  // Callers that need the UI to have already switched language by the time they resume
+  // (e.g. showing a toast right after) should await this alongside setUser rather than
+  // relying on a reactive effect, which only runs on a later render.
+  const syncLanguage = useCallback(async (loadedUser: User) => {
+    await i18n.changeLanguage(loadedUser.preferred_language ?? loadedUser.workspace_main_language);
+  }, []);
+
   const loadCurrentUser = useCallback(async () => {
     if (!getToken()) {
       setUser(null);
@@ -34,25 +46,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const currentUser = await api.get<User>("/auth/me");
       setUser(currentUser);
+      await syncLanguage(currentUser);
     } catch {
       clearToken();
       setUser(null);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [syncLanguage]);
 
   useEffect(() => {
     loadCurrentUser();
   }, [loadCurrentUser]);
-
-  // Once we know who's logged in, the account/workspace settings become authoritative
-  // over whatever the browser-detected language guessed pre-login (see i18n/index.ts).
-  useEffect(() => {
-    if (user) {
-      i18n.changeLanguage(user.preferred_language ?? user.workspace_main_language);
-    }
-  }, [user]);
 
   const login = useCallback(async (email: string, password: string) => {
     const response = await api.post<TokenResponse>("/auth/login", { email, password });
@@ -74,10 +79,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [loadCurrentUser]
   );
 
-  const setLanguagePreference = useCallback(async (language: SupportedLanguage | null) => {
-    const updated = await api.patch<User>("/auth/me/language", { preferred_language: language });
-    setUser(updated);
-  }, []);
+  const setLanguagePreference = useCallback(
+    async (language: SupportedLanguage | null) => {
+      const updated = await api.patch<User>("/auth/me/language", { preferred_language: language });
+      setUser(updated);
+      await syncLanguage(updated);
+    },
+    [syncLanguage]
+  );
 
   const logout = useCallback(async () => {
     try {
@@ -92,8 +101,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ user, isLoading, login, signup, logout, setLanguagePreference }),
-    [user, isLoading, login, signup, logout, setLanguagePreference]
+    () => ({
+      user,
+      isLoading,
+      login,
+      signup,
+      logout,
+      setLanguagePreference,
+      refreshUser: loadCurrentUser,
+    }),
+    [user, isLoading, login, signup, logout, setLanguagePreference, loadCurrentUser]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

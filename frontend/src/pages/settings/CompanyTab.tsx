@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../../api/client";
 import type { WorkspaceSettings } from "../../api/types";
 import Skeleton from "../../components/Skeleton";
+import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
 import { useSettingsContext } from "./SettingsLayout";
 import { buildSettingsPayload } from "./settingsPayload";
@@ -11,6 +12,7 @@ import { buildSettingsPayload } from "./settingsPayload";
 export default function CompanyTab() {
   const { t } = useTranslation("settings");
   const { showToast } = useToast();
+  const { refreshUser } = useAuth();
   const { settings, setSettings, loadError } = useSettingsContext();
   const [isSaving, setIsSaving] = useState(false);
 
@@ -21,6 +23,10 @@ export default function CompanyTab() {
     try {
       const updated = await api.put<WorkspaceSettings>("/settings", buildSettingsPayload(settings));
       setSettings(updated);
+      // main_language may have just changed; re-fetch /auth/me so the saving admin's own
+      // UI (which follows preferred_language ?? workspace_main_language) updates instantly
+      // instead of only after their next reload/login.
+      await refreshUser();
       showToast(t("saved"), "success");
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : t("saveFailed"), "error");
