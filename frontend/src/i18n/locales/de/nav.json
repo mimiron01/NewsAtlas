@@ -7,13 +7,13 @@
     "targets": "Meine Unternehmen"
   },
   "theme": {
-    "light": "Helles Design",
-    "dark": "Dunkles Design",
-    "system": "Systemdesign"
+    "light": "Hell",
+    "dark": "Dunkel",
+    "system": "System"
   },
   "language": {
     "label": "Sprache",
-    "workspaceDefault": "Standard des Arbeitsbereichs",
+    "workspaceDefault": "Standard",
     "en": "English",
     "de": "Deutsch"
   },
