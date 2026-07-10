@@ -291,6 +291,7 @@ def test_ingestion_skips_triaged_out_article_without_summarizing(db_session):
 
     article = db_session.query(Article).first()
     assert article.skip_reason == "triaged_out"
+    assert article.triage_reason == "test"
 
 
 def test_ingestion_passes_industry_and_recent_signal_context(db_session):

@@ -56,8 +56,22 @@ export default function ProfileMenu({
 
   return (
     <div className="profile-menu" ref={containerRef}>
+      <button
+        type="button"
+        className="profile-trigger"
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((open) => !open)}
+      >
+        <span className="profile-avatar">{initialsFor(user.name)}</span>
+        <ChevronUpDownIcon />
+      </button>
       {isOpen && (
         <div className="profile-popover" role="menu">
+          <div className="profile-info">
+            <strong>{user.name}</strong>
+            <span>{user.email}</span>
+          </div>
           {isAdmin && (
             <button type="button" role="menuitem" onClick={goToSettings}>
               <GearIcon /> {t("profile.settings")}
@@ -68,20 +82,6 @@ export default function ProfileMenu({
           </button>
         </div>
       )}
-      <button
-        type="button"
-        className="profile-trigger"
-        aria-haspopup="true"
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen((open) => !open)}
-      >
-        <span className="profile-avatar">{initialsFor(user.name)}</span>
-        <span className="profile-info">
-          <strong>{user.name}</strong>
-          <span>{user.email}</span>
-        </span>
-        <ChevronUpDownIcon />
-      </button>
     </div>
   );
 }

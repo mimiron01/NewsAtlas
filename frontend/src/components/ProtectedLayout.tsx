@@ -31,20 +31,18 @@ export default function ProtectedLayout() {
 
   return (
     <div className="app-shell">
-      <button
-        type="button"
-        className="nav-toggle"
-        aria-label={t("nav:toggleNav")}
-        onClick={() => setIsNavOpen((open) => !open)}
-      >
-        <MenuIcon />
-      </button>
-      {isNavOpen && (
-        <div className="nav-backdrop" onClick={() => setIsNavOpen(false)} aria-hidden="true" />
-      )}
-      <aside className={`sidebar ${isNavOpen ? "open" : ""}`}>
+      <header className="navbar">
         <h1 className="brand">{t("nav:brand")}</h1>
-        <nav>
+        <button
+          type="button"
+          className="nav-toggle"
+          aria-label={t("nav:toggleNav")}
+          aria-expanded={isNavOpen}
+          onClick={() => setIsNavOpen((open) => !open)}
+        >
+          <MenuIcon />
+        </button>
+        <nav className={`navbar-links ${isNavOpen ? "open" : ""}`}>
           <NavLink to="/" end>
             <HomeIcon /> {t("nav:links.dashboard")}
           </NavLink>
@@ -54,16 +52,22 @@ export default function ProtectedLayout() {
           <NavLink to="/settings/targets">
             <TargetsIcon /> {t("nav:links.targets")}
           </NavLink>
+          <div className="navbar-links-mobile-extra">
+            <button type="button" className="theme-toggle" onClick={cycleTheme}>
+              {theme === "dark" ? <MoonIcon /> : <SunIcon />}
+              {t(`nav:theme.${theme}`)}
+            </button>
+            <LanguageSwitcher />
+          </div>
         </nav>
-        <div className="sidebar-footer">
-          <button type="button" className="theme-toggle" onClick={cycleTheme}>
+        <div className="navbar-actions">
+          <button type="button" className="theme-toggle" onClick={cycleTheme} title={t(`nav:theme.${theme}`)}>
             {theme === "dark" ? <MoonIcon /> : <SunIcon />}
-            {t(`nav:theme.${theme}`)}
           </button>
           <LanguageSwitcher />
           <ProfileMenu user={user} isAdmin={isAdmin} onLogout={logout} />
         </div>
-      </aside>
+      </header>
       <main className="content">
         <Outlet />
       </main>

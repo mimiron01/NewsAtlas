@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import AITab from "./pages/settings/AITab";
 import CompanyTab from "./pages/settings/CompanyTab";
 import LogsTab from "./pages/settings/LogsTab";
+import ReviewTab from "./pages/settings/ReviewTab";
 import SettingsLayout from "./pages/settings/SettingsLayout";
 import SourcesTab from "./pages/settings/SourcesTab";
 import UsageTab from "./pages/settings/UsageTab";
@@ -36,6 +37,7 @@ export default function App() {
             <Route path="company" element={<CompanyTab />} />
             <Route path="sources" element={<SourcesTab />} />
             <Route path="ai" element={<AITab />} />
+            <Route path="review" element={<ReviewTab />} />
             <Route path="usage" element={<UsageTab />} />
             <Route path="users" element={<UsersTab />} />
             <Route path="logs" element={<LogsTab />} />

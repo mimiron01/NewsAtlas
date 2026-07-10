@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
@@ -44,6 +44,21 @@ export default function SignalsFeed() {
   // just happened the moment you land here.
   const sawRunningRef = useRef(false);
   const isRunningIngestion = ingestionStatus?.status === "running";
+  // A high fraction of triaged-out articles isn't necessarily a bug, but an admin should
+  // be able to notice and investigate rather than only ever seeing an aggregate count —
+  // computed from the non-duplicate new articles (the ones that actually reached the
+  // triage gate), not the raw fetch count, so a run dominated by duplicates doesn't also
+  // read as a relevance problem.
+  const nonDuplicateNewCount = ingestionStatus
+    ? ingestionStatus.articles_new - ingestionStatus.duplicates_skipped
+    : 0;
+  const triageSkipRate =
+    ingestionStatus && nonDuplicateNewCount > 0 ? ingestionStatus.triaged_out / nonDuplicateNewCount : 0;
+  const showHighSkipRateWarning =
+    isAdmin &&
+    ingestionStatus?.status === "completed" &&
+    nonDuplicateNewCount >= 3 &&
+    triageSkipRate >= 0.7;
 
   function ingestionStatusText(status: IngestionRunStatus): string {
     if (status.status === "failed") {
@@ -342,6 +357,12 @@ export default function SignalsFeed() {
             )}
             .
           </p>
+          {showHighSkipRateWarning && (
+            <p className="field-hint error-text">
+              {t("feed.ingestion.highSkipRateWarning", { percent: Math.round(triageSkipRate * 100) })}{" "}
+              <Link to="/settings/review">{t("feed.ingestion.reviewSkippedArticles")}</Link>
+            </p>
+          )}
           {Object.keys(ingestionStatus.by_source).length > 0 && (
             <p className="field-hint">
               {t("feed.bySource")}{" "}

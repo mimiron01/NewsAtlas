@@ -124,7 +124,9 @@
       "lowRelevanceSkipped_other": "{{count}} low-relevance articles",
       "skippedSuffix": "({{duplicates}} and {{lowRelevance}} skipped without a full AI call)",
       "companiesRateLimited_one": "{{count}} company",
-      "companiesRateLimited_other": "{{count}} companies"
+      "companiesRateLimited_other": "{{count}} companies",
+      "highSkipRateWarning": "Unusually high share of articles judged low-relevance this run ({{percent}}%).",
+      "reviewSkippedArticles": "Review skipped articles →"
     }
   }
 }

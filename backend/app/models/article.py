@@ -59,3 +59,8 @@ class Article(Base, UUIDPrimaryKeyMixin):
     # docs/ingestion-reliability-planning.html §5). NULL means a Signal was created (or
     # the article hasn't been processed yet).
     skip_reason: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # The triage LLM's own short justification for skip_reason == "triaged_out" (see
+    # TriageResult.reason in ai_client.py) — persisted so an admin can actually see *why*
+    # an article was filtered out instead of only an aggregate count. NULL for every other
+    # skip_reason (or when triage was disabled/failed) and for non-skipped articles.
+    triage_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)

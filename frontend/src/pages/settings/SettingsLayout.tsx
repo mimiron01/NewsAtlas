@@ -29,6 +29,7 @@ export default function SettingsLayout() {
     { to: "/settings/company", label: t("tabs.company") },
     { to: "/settings/sources", label: t("tabs.sources") },
     { to: "/settings/ai", label: t("tabs.ai") },
+    { to: "/settings/review", label: t("tabs.review") },
     { to: "/settings/usage", label: t("tabs.usage") },
     { to: "/settings/users", label: t("tabs.users") },
     { to: "/settings/logs", label: t("tabs.logs") },
