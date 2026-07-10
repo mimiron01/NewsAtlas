@@ -489,7 +489,7 @@ def _process_new_articles(
                 )
                 triage = None
             if triage is not None and not triage.relevant:
-                _skip_article(db, article, "triaged_out")
+                _skip_article(db, article, "triaged_out", triage_reason=triage.reason)
                 triaged_out += 1
                 progress.update(articles_processed_this_company=position + 1)
                 continue
@@ -554,6 +554,78 @@ def _process_new_articles(
     return signals_created, duplicates_skipped, triaged_out, errors, cancelled
 
 
+class ArticleNotEligibleError(Exception):
+    """Raised when promote_skipped_article is asked to process an article outside the
+    one state a manual override applies to."""
+
+
+def promote_skipped_article(db: Session, article: Article) -> Signal:
+    """Admin override for an article the cheap triage pre-filter marked irrelevant (see
+    TriageResult in ai_client.py): forces the full summarization call the triage gate
+    would otherwise have skipped, and creates a Signal from the result. Only valid for
+    skip_reason == "triaged_out" — duplicates and ai_errors have their own remediation
+    paths, and an article that already has a Signal has nothing left to promote."""
+    if article.skip_reason != "triaged_out":
+        raise ArticleNotEligibleError(
+            f"Article is not in the triaged-out state (skip_reason={article.skip_reason!r})"
+        )
+
+    app_settings = get_settings()
+    workspace_settings = get_or_create_workspace_settings(db)
+    ai_client = AIClient(
+        api_key=resolve_mistral_api_key(workspace_settings, app_settings),
+        model=workspace_settings.mistral_model,
+        triage_model=workspace_settings.mistral_triage_model,
+        embed_model=workspace_settings.mistral_embed_model,
+        max_requests_per_second=app_settings.mistral_max_requests_per_second,
+        max_retries=app_settings.mistral_max_retries,
+    )
+    target_company = db.get(TargetCompany, article.target_company_id)
+    recent_signal_summaries = _recent_signal_context(db, target_company.id)
+
+    result, usage = ai_client.summarize_article(
+        company_name=workspace_settings.company_name,
+        offering_description=workspace_settings.offering_description,
+        target_company_name=target_company.name,
+        article_title=article.title,
+        article_description=_grounding_text(article),
+        industry=target_company.industry,
+        recent_signals=recent_signal_summaries,
+        feedback_note=workspace_settings.ai_feedback_note,
+        output_language=workspace_settings.main_language,
+    )
+    _log_usage(db, "summarize", ai_client.model, usage, target_company.id, commit=False)
+
+    if not result.company_mentioned:
+        _skip_article(db, article, "company_mismatch")
+        raise ArticleNotEligibleError(
+            "The AI determined this article isn't actually about the target company"
+        )
+
+    signal = Signal(
+        article_id=article.id,
+        summary=result.summary,
+        business_relevance=result.business_relevance,
+        supporting_quote=result.supporting_quote,
+        outreach_snippet_email=result.outreach_snippet_email,
+        outreach_snippet_linkedin=result.outreach_snippet_linkedin,
+        outreach_call_opener=result.outreach_call_opener,
+        relevance_score=result.relevance_score,
+        signal_type=result.signal_type,
+        confidence=result.confidence,
+        entities=result.entities,
+        prompt_tokens=usage.prompt_tokens,
+        completion_tokens=usage.completion_tokens,
+        total_tokens=usage.total_tokens,
+    )
+    article.skip_reason = None
+    article.triage_reason = None
+    db.add(signal)
+    db.commit()
+    db.refresh(signal)
+    return signal
+
+
 def _grounding_text(article: Article) -> str:
     """Full article body when NewsData.io's full-content option provided one (a genuine
     quality upgrade over a snippet — a supporting quote pulled from a full article is far
@@ -566,10 +638,13 @@ def _grounding_text(article: Article) -> str:
     return text
 
 
-def _skip_article(db: Session, article: Article, reason: str) -> None:
+def _skip_article(
+    db: Session, article: Article, reason: str, *, triage_reason: str | None = None
+) -> None:
     """Commits the skip_reason together with any pending (not-yet-committed) usage-log
     rows added earlier for this article, instead of a separate commit per write."""
     article.skip_reason = reason
+    article.triage_reason = triage_reason
     db.commit()
 
 

@@ -9,6 +9,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.api import (
     admin,
     ai_usage,
+    articles,
     auth,
     dashboard,
     digest,
@@ -78,6 +79,7 @@ app.include_router(settings.router)
 app.include_router(target_companies.router)
 app.include_router(ingestion.router)
 app.include_router(signals.router)
+app.include_router(articles.router)
 app.include_router(signal_todos.router)
 app.include_router(dashboard.router)
 app.include_router(digest.router)

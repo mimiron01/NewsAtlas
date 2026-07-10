@@ -252,6 +252,20 @@ export interface IngestionRunStatus {
   fatal_error: string | null;
 }
 
+export interface SkippedArticle {
+  id: string;
+  title: string;
+  url: string;
+  source_name: string;
+  source: ArticleSource;
+  published_at: string | null;
+  fetched_at: string;
+  skip_reason: string;
+  triage_reason: string | null;
+  target_company_id: string;
+  target_company_name: string;
+}
+
 export interface AIUsageByCallType {
   call_type: string;
   call_count: number;

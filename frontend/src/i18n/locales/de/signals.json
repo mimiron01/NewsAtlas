@@ -124,7 +124,9 @@
       "lowRelevanceSkipped_other": "{{count}} Artikel mit geringer Relevanz",
       "skippedSuffix": "({{duplicates}} und {{lowRelevance}} ohne vollständigen KI-Aufruf übersprungen)",
       "companiesRateLimited_one": "{{count}} Unternehmen",
-      "companiesRateLimited_other": "{{count}} Unternehmen"
+      "companiesRateLimited_other": "{{count}} Unternehmen",
+      "highSkipRateWarning": "Ungewöhnlich hoher Anteil an Artikeln mit geringer Relevanz in diesem Lauf ({{percent}} %).",
+      "reviewSkippedArticles": "Übersprungene Artikel prüfen →"
     }
   }
 }

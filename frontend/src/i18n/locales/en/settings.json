@@ -4,6 +4,7 @@
     "company": "Company",
     "sources": "News sources",
     "ai": "AI configuration",
+    "review": "Skipped articles",
     "usage": "AI usage",
     "users": "Users",
     "logs": "Logs"
@@ -168,6 +169,18 @@
     "companyAssigned": "Company assigned.",
     "assignFailed": "Failed to assign company",
     "assignButton": "Assign company"
+  },
+
+  "review": {
+    "title": "Skipped articles",
+    "subtitle": "Articles the ingestion pipeline fetched but did not turn into a signal because the triage pre-filter judged them low-relevance, along with its stated reason. Create a signal anyway if it got one wrong.",
+    "empty": "No low-relevance articles are currently sitting in the review queue.",
+    "reason": "Triage reason: {{reason}}",
+    "promote": "Create signal anyway",
+    "promoting": "Creating...",
+    "promoted": "Created a signal for \"{{title}}\".",
+    "promoteFailed": "Failed to create signal",
+    "loadFailed": "Failed to load skipped articles"
   },
 
   "logs": {

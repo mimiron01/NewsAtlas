@@ -4,6 +4,7 @@
     "company": "Unternehmen",
     "sources": "Nachrichtenquellen",
     "ai": "KI-Konfiguration",
+    "review": "Übersprungene Artikel",
     "usage": "KI-Nutzung",
     "users": "Benutzer",
     "logs": "Protokolle"
@@ -168,6 +169,18 @@
     "companyAssigned": "Unternehmen zugewiesen.",
     "assignFailed": "Unternehmen konnte nicht zugewiesen werden",
     "assignButton": "Unternehmen zuweisen"
+  },
+
+  "review": {
+    "title": "Übersprungene Artikel",
+    "subtitle": "Artikel, die der Abruf gefunden, aber nicht in ein Signal umgewandelt hat, weil der Triage-Vorfilter sie als wenig relevant eingestuft hat — inklusive der genannten Begründung. Erstellen Sie trotzdem ein Signal, falls die Einschätzung daneben lag.",
+    "empty": "Aktuell liegen keine Artikel mit geringer Relevanz in der Prüfliste.",
+    "reason": "Triage-Begründung: {{reason}}",
+    "promote": "Signal trotzdem erstellen",
+    "promoting": "Wird erstellt...",
+    "promoted": "Signal für „{{title}}“ erstellt.",
+    "promoteFailed": "Signal konnte nicht erstellt werden",
+    "loadFailed": "Übersprungene Artikel konnten nicht geladen werden"
   },
 
   "logs": {
