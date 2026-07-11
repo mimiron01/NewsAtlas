@@ -8,6 +8,7 @@ from app.services.ingestion import run_ingestion
 from app.services.news_client import NewsArticle, NewsClientError
 from app.services.workspace_settings import get_or_create_workspace_settings
 from tests.test_ingestion import USAGE, FakeAIClient, FakeNewsClient, _article, _make_target_company
+from tests.test_ingestion_progress import _RecordingProgress
 
 
 class FakeGoogleClient:
@@ -133,6 +134,99 @@ def test_ingestion_skips_source_once_its_rate_limit_is_reached(db_session):
         .all()
     )
     assert len(rate_limited_logs) == 1
+
+
+def test_ingestion_waits_out_a_per_minute_rate_limit_instead_of_skipping_the_company(
+    db_session, monkeypatch
+):
+    """A per-minute ceiling (unlike a per-day one) frees up on its own within 60s, so
+    the company should still get its Google News coverage this run instead of being
+    permanently dropped from that source (see services/news_rate_limiter.py)."""
+    tc = _make_target_company(db_session)
+    _enable_sources(
+        db_session, google_news_rss_enabled=True, google_news_rss_max_requests_per_minute=1
+    )
+    db_session.add(
+        NewsSourceUsageLog(source=ArticleSource.GOOGLE_NEWS_RSS, requests_used=1, target_company_id=tc.id)
+    )
+    db_session.commit()
+
+    monkeypatch.setattr(
+        "app.services.ingestion.wait_for_minute_headroom", lambda *args, **kwargs: True
+    )
+
+    news = FakeNewsClient({})
+    google = FakeGoogleClient({"Acme Corp": [_article("Acme Google story", "https://example.com/google")]})
+
+    result = run_ingestion(
+        db_session, news_client=news, ai_client=FakeAIClient(), google_news_client=google
+    )
+
+    assert google.calls == ["Acme Corp"]
+    assert result.rate_limited == {}
+    assert result.articles_new == 1
+
+
+def test_ingestion_still_skips_source_if_the_wait_times_out(db_session, monkeypatch):
+    """Falls back to the old skip-and-log behavior on the rare case the wait itself
+    gives up (its own safety cap, not a cancellation) — see
+    wait_for_minute_headroom's max_wait_seconds."""
+    tc = _make_target_company(db_session)
+    _enable_sources(
+        db_session, google_news_rss_enabled=True, google_news_rss_max_requests_per_minute=1
+    )
+    db_session.add(
+        NewsSourceUsageLog(source=ArticleSource.GOOGLE_NEWS_RSS, requests_used=1, target_company_id=tc.id)
+    )
+    db_session.commit()
+
+    monkeypatch.setattr(
+        "app.services.ingestion.wait_for_minute_headroom", lambda *args, **kwargs: False
+    )
+
+    news = FakeNewsClient({})
+    google = FakeGoogleClient({"Acme Corp": [_article("Acme Google story", "https://example.com/google")]})
+
+    result = run_ingestion(
+        db_session, news_client=news, ai_client=FakeAIClient(), google_news_client=google
+    )
+
+    assert google.calls == []
+    assert result.rate_limited == {"google_news_rss": 1}
+
+
+def test_ingestion_stops_cleanly_if_cancelled_while_waiting_for_rate_limit(db_session, monkeypatch):
+    tc = _make_target_company(db_session)
+    _enable_sources(
+        db_session, google_news_rss_enabled=True, google_news_rss_max_requests_per_minute=1
+    )
+    db_session.add(
+        NewsSourceUsageLog(source=ArticleSource.GOOGLE_NEWS_RSS, requests_used=1, target_company_id=tc.id)
+    )
+    db_session.commit()
+
+    # Simulates should_cancel() firing while wait_for_minute_headroom is blocked —
+    # the wait gives up (returns False) and the pipeline notices the cancellation right
+    # after, rather than logging a rate-limited skip for a run that's stopping anyway.
+    monkeypatch.setattr(
+        "app.services.ingestion.wait_for_minute_headroom", lambda *args, **kwargs: False
+    )
+    progress = _RecordingProgress(cancel_after=1)
+
+    news = FakeNewsClient({})
+    google = FakeGoogleClient({"Acme Corp": [_article("Acme Google story", "https://example.com/google")]})
+
+    result = run_ingestion(
+        db_session,
+        news_client=news,
+        ai_client=FakeAIClient(),
+        google_news_client=google,
+        progress=progress,
+    )
+
+    assert google.calls == []
+    assert result.cancelled is True
+    assert result.rate_limited == {}
 
 
 def test_ingestion_logs_news_source_usage_per_call(db_session):

@@ -224,7 +224,7 @@ export interface DashboardSummary {
 
 export type IngestionRunStatusValue = "running" | "completed" | "failed" | "cancelled";
 export type IngestionTrigger = "manual" | "scheduled";
-export type IngestionStep = "fetching" | "summarizing";
+export type IngestionStep = "fetching" | "summarizing" | "waiting";
 
 export interface IngestionRunStatus {
   id: string;
