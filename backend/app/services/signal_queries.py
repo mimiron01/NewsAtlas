@@ -81,6 +81,7 @@ def signal_row_to_response(
         article_source=article.source,
         article_external_sentiment=article.external_sentiment,
         article_external_tags=article.external_tags,
+        headline_only=article.is_headline_only,
         target_company_id=target_company.id,
         target_company_name=target_company.name,
         is_favorited=bool(is_favorited),

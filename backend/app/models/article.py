@@ -64,3 +64,12 @@ class Article(Base, UUIDPrimaryKeyMixin):
     # an article was filtered out instead of only an aggregate count. NULL for every other
     # skip_reason (or when triage was disabled/failed) and for non-skipped articles.
     triage_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    @property
+    def is_headline_only(self) -> bool:
+        """True for Google News RSS articles: that feed's description field is always a
+        mechanical repeat of the title, never real snippet/body text, unlike NewsAPI.org
+        (real snippet) or NewsData.io (optional full_content). Used to tell the AI
+        triage/summarize prompts not to expect body content, and to label these signals
+        as lower-confidence in the UI."""
+        return self.source == ArticleSource.GOOGLE_NEWS_RSS

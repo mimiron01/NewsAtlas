@@ -34,6 +34,11 @@ class SignalResponse(BaseModel):
     article_source: ArticleSource
     article_external_sentiment: str | None
     article_external_tags: list[str] | None
+    # True when the underlying article came from a source (Google News RSS) whose
+    # description field is never real content, only a repeat of the title — shown to
+    # end users as a "Limited detail" badge so they know to click through before trusting
+    # supporting_quote/business_relevance the same way they would for a full-snippet source.
+    headline_only: bool
     target_company_id: uuid.UUID
     target_company_name: str
     is_favorited: bool

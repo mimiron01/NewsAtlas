@@ -81,6 +81,27 @@ _RETRY_PROMPT = (
     "with ONLY a JSON object containing exactly the required keys."
 )
 
+# Google News RSS's "description" field is never real article content — it's a mechanical
+# repeat of the title (a known limitation of that feed, not a bug in our parsing). Without
+# this note, the model either penalizes these articles for "lacking elaboration" or
+# fabricates a supporting_quote that looks verbatim but isn't grounded in anything.
+_HEADLINE_ONLY_DIRECTIVE = (
+    "\n\nContent note: this article's description field is not real body text — it is "
+    "just a repeat of the title (a known limitation of its source feed, which never "
+    "provides a snippet or full article text). Judge company_mentioned and "
+    "business_relevance from the headline and the target-company/offering context alone; "
+    "don't treat the lack of elaboration as a reason to mark it not relevant or not "
+    "grounded. Always return supporting_quote as an empty string for this article — there "
+    "is no body text to quote from, so never fabricate one."
+)
+
+_TRIAGE_HEADLINE_ONLY_DIRECTIVE = (
+    "\n\nContent note: this article's description field is not real content — it merely "
+    "repeats the title (a known limitation of its source feed). Base your relevance "
+    "judgment on the headline and the target-company/offering context alone; don't treat "
+    "the lack of elaboration as a reason to answer false."
+)
+
 _TRIAGE_SYSTEM_PROMPT = (
     "You are a fast relevance filter for a sales-intelligence pipeline. Given a news "
     "article that a keyword search matched for a company our sales team is targeting, "
@@ -237,6 +258,7 @@ class AIClient:
         recent_signals: list[str] | None = None,
         feedback_note: str | None = None,
         output_language: str = "en",
+        headline_only: bool = False,
     ) -> tuple[AISummaryResult, MistralUsage]:
         if not self.api_key:
             raise AIClientError("MISTRAL_API_KEY is not configured")
@@ -261,8 +283,11 @@ class AIClient:
             context_lines.append("")
             context_lines.append(f"Steering note from user feedback: {feedback_note}")
 
+        system_content = _SYSTEM_PROMPT + _language_directive(output_language)
+        if headline_only:
+            system_content += _HEADLINE_ONLY_DIRECTIVE
         messages = [
-            {"role": "system", "content": _SYSTEM_PROMPT + _language_directive(output_language)},
+            {"role": "system", "content": system_content},
             {"role": "user", "content": "\n".join(context_lines)},
         ]
 
@@ -300,6 +325,7 @@ class AIClient:
         target_company_name: str,
         article_title: str,
         article_description: str | None,
+        headline_only: bool = False,
     ) -> tuple[TriageResult, MistralUsage]:
         """Cheap pre-filter using the small model. Failures fail open (treat as relevant)
         so a triage-model hiccup never silently drops a potentially valuable signal —
@@ -307,8 +333,11 @@ class AIClient:
         if not self.api_key:
             raise AIClientError("MISTRAL_API_KEY is not configured")
 
+        system_content = _TRIAGE_SYSTEM_PROMPT
+        if headline_only:
+            system_content += _TRIAGE_HEADLINE_ONLY_DIRECTIVE
         messages = [
-            {"role": "system", "content": _TRIAGE_SYSTEM_PROMPT},
+            {"role": "system", "content": system_content},
             {
                 "role": "user",
                 "content": (

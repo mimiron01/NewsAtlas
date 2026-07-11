@@ -190,6 +190,9 @@ export interface Signal {
   article_source: ArticleSource;
   article_external_sentiment: string | null;
   article_external_tags: string[] | null;
+  // True when the article came from a source (Google News RSS) whose description field
+  // is never real content, only a repeat of the title — surfaced as a "Limited detail" badge.
+  headline_only: boolean;
   target_company_id: string;
   target_company_name: string;
   is_favorited: boolean;
@@ -262,6 +265,7 @@ export interface SkippedArticle {
   fetched_at: string;
   skip_reason: string;
   triage_reason: string | null;
+  headline_only: boolean;
   target_company_id: string;
   target_company_name: string;
 }

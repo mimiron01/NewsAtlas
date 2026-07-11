@@ -180,7 +180,9 @@
     "promoting": "Wird erstellt...",
     "promoted": "Signal für „{{title}}“ erstellt.",
     "promoteFailed": "Signal konnte nicht erstellt werden",
-    "loadFailed": "Übersprungene Artikel konnten nicht geladen werden"
+    "loadFailed": "Übersprungene Artikel konnten nicht geladen werden",
+    "limitedDetail": "Eingeschränkte Details",
+    "limitedDetailTitle": "Diese Quelle liefert nur eine Überschrift, keinen Artikelausschnitt oder Fließtext — die obige Triage-Einschätzung basiert allein auf der Überschrift."
   },
 
   "logs": {

@@ -476,6 +476,7 @@ def _process_new_articles(
                     target_company_name=target_company.name,
                     article_title=article.title,
                     article_description=_grounding_text(article),
+                    headline_only=article.is_headline_only,
                 )
                 _log_usage(
                     db, "triage", ai_client.triage_model, triage_usage, target_company.id, commit=False
@@ -508,6 +509,7 @@ def _process_new_articles(
                 recent_signals=list(recent_signal_summaries),
                 feedback_note=workspace_settings.ai_feedback_note,
                 output_language=workspace_settings.main_language,
+                headline_only=article.is_headline_only,
             )
             _log_usage(db, "summarize", ai_client.model, usage, target_company.id, commit=False)
         except AIClientError as exc:
@@ -593,6 +595,7 @@ def promote_skipped_article(db: Session, article: Article) -> Signal:
         recent_signals=recent_signal_summaries,
         feedback_note=workspace_settings.ai_feedback_note,
         output_language=workspace_settings.main_language,
+        headline_only=article.is_headline_only,
     )
     _log_usage(db, "summarize", ai_client.model, usage, target_company.id, commit=False)
 

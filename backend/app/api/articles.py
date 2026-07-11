@@ -48,6 +48,7 @@ def list_skipped_articles(
             fetched_at=article.fetched_at,
             skip_reason=article.skip_reason,
             triage_reason=article.triage_reason,
+            headline_only=article.is_headline_only,
             target_company_id=company.id,
             target_company_name=company.name,
         )

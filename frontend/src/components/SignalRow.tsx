@@ -38,6 +38,11 @@ export default function SignalRow({ signal, onFavoriteToggle, selection, onTrans
               </span>
             )}
             <span className="source-badge">{ARTICLE_SOURCE_LABELS[signal.article_source]}</span>
+            {signal.headline_only && (
+              <span className="limited-detail-badge" title={t("limitedDetailTitle")}>
+                {t("limitedDetail")}
+              </span>
+            )}
             {signal.open_todo_count > 0 && (
               <span className="todo-pill">{t("openTasks", { count: signal.open_todo_count })}</span>
             )}

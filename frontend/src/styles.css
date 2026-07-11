@@ -446,7 +446,8 @@ button.danger { background: var(--danger-solid); }
 
 .score-badge,
 .signal-type-badge,
-.confidence-badge {
+.confidence-badge,
+.limited-detail-badge {
   display: inline-block;
   font-size: 0.68rem;
   font-weight: 700;
@@ -462,6 +463,7 @@ button.danger { background: var(--danger-solid); }
 .score-badge.score-1, .score-badge.score-2 { background: var(--bg); color: var(--muted); }
 .signal-type-badge { background: var(--accent-soft-bg); color: var(--accent); border-color: transparent; }
 .confidence-badge { background: #fdf4e3; color: #a15c00; border-color: transparent; }
+.limited-detail-badge { background: #fdf4e3; color: #a15c00; border-color: transparent; }
 
 .supporting-quote {
   margin: 8px 0 16px;
