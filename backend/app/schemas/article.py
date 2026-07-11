@@ -20,5 +20,9 @@ class SkippedArticleResponse(BaseModel):
     fetched_at: datetime
     skip_reason: str
     triage_reason: str | None
+    # True for Google News RSS articles: that feed's description field is never real
+    # content, only a repeat of the title, so a skip on one of these is judged from the
+    # headline alone (see services/ingestion.py's _is_headline_only).
+    headline_only: bool
     target_company_id: uuid.UUID
     target_company_name: str

@@ -48,11 +48,17 @@ def _render_digest_html(rows: list[tuple[Signal, Article, TargetCompany]], front
             if signal.relevance_score is not None
             else ""
         )
+        limited_detail_badge = (
+            '<span style="background:#faf1d8;color:#8a6216;font-size:11px;font-weight:600;'
+            'padding:2px 8px;border-radius:10px;margin-left:8px;">limited detail</span>'
+            if article.is_headline_only
+            else ""
+        )
         items_html.append(
             f"""
             <div style="margin-bottom:24px;padding:16px;border:1px solid #e2e5ea;border-radius:8px;">
               <div style="font-size:12px;color:#5b6270;text-transform:uppercase;">
-                {html.escape(target_company.name)}{score_badge}
+                {html.escape(target_company.name)}{score_badge}{limited_detail_badge}
               </div>
               <h3 style="margin:4px 0;">
                 <a href="{html.escape(article.url)}">{html.escape(article.title)}</a>
@@ -88,9 +94,10 @@ def _render_digest_text(rows: list[tuple[Signal, Article, TargetCompany]], front
     lines = ["Your daily NewsAtlas signals", ""]
     for signal, article, target_company in rows:
         score_suffix = f" (score {signal.relevance_score}/5)" if signal.relevance_score is not None else ""
+        limited_detail_suffix = " [limited detail]" if article.is_headline_only else ""
         lines.extend(
             [
-                f"{target_company.name}{score_suffix}",
+                f"{target_company.name}{score_suffix}{limited_detail_suffix}",
                 f"{article.title} ({article.url})",
                 signal.summary,
                 f"Why it matters: {signal.business_relevance}",

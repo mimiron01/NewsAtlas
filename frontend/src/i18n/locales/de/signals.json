@@ -50,6 +50,8 @@
     "medium": "mittel",
     "high": "hoch"
   },
+  "limitedDetail": "Eingeschränkte Details",
+  "limitedDetailTitle": "Diese Quelle liefert nur eine Überschrift, keinen Artikelausschnitt oder Fließtext — Zusammenfassung und Zitat mit besonderer Vorsicht behandeln und mit dem Originalartikel abgleichen.",
   "viewOriginalArticle": "Originalartikel ansehen ↗",
   "summary": "Zusammenfassung",
   "whyItMatters": "Warum das wichtig ist",

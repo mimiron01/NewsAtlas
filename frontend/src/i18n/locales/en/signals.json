@@ -50,6 +50,8 @@
     "medium": "medium",
     "high": "high"
   },
+  "limitedDetail": "Limited detail",
+  "limitedDetailTitle": "This source only ever provides a headline, no article snippet or body text — treat the summary and any quote with extra caution and verify against the original article.",
   "viewOriginalArticle": "View original article ↗",
   "summary": "Summary",
   "whyItMatters": "Why it matters",

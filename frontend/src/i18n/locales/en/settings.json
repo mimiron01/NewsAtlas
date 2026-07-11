@@ -180,7 +180,9 @@
     "promoting": "Creating...",
     "promoted": "Created a signal for \"{{title}}\".",
     "promoteFailed": "Failed to create signal",
-    "loadFailed": "Failed to load skipped articles"
+    "loadFailed": "Failed to load skipped articles",
+    "limitedDetail": "Limited detail",
+    "limitedDetailTitle": "This source only ever provides a headline, no article snippet or body text — the triage judgment above was made from the headline alone."
   },
 
   "logs": {

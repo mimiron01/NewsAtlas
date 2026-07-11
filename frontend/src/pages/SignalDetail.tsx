@@ -171,6 +171,11 @@ export default function SignalDetail() {
             </span>
           )}
           <span className="source-badge">{ARTICLE_SOURCE_LABELS[signal.article_source]}</span>
+          {signal.headline_only && (
+            <span className="limited-detail-badge" title={t("limitedDetailTitle")}>
+              {t("limitedDetail")}
+            </span>
+          )}
         </div>
         <h2>{signal.article_title}</h2>
         <p className="subtitle">

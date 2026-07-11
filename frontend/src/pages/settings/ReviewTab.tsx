@@ -68,6 +68,11 @@ export default function ReviewTab() {
               {article.published_at && (
                 <span className="tag">{formatDate(article.published_at, { dateStyle: "short" })}</span>
               )}
+              {article.headline_only && (
+                <span className="tag" title={t("review.limitedDetailTitle")}>
+                  {t("review.limitedDetail")}
+                </span>
+              )}
               {article.triage_reason && (
                 <p className="field-hint">{t("review.reason", { reason: article.triage_reason })}</p>
               )}
