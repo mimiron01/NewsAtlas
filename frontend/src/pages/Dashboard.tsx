@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
-import type { DashboardSummary, Signal, TargetCompany, WorkspaceSettings } from "../api/types";
+import type { DashboardSummary, IngestionRunStatus, Signal, TargetCompany, WorkspaceSettings } from "../api/types";
 import Skeleton from "../components/Skeleton";
 import SetupChecklist from "../components/SetupChecklist";
 import SignalRow from "../components/SignalRow";
@@ -12,8 +12,10 @@ import { useToast } from "../context/ToastContext";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { usePageTitle } from "../hooks/usePageTitle";
 
+const POLL_INTERVAL_MS = 1500;
+
 export default function Dashboard() {
-  const { t } = useTranslation("dashboard");
+  const { t } = useTranslation(["dashboard", "signals"]);
   usePageTitle(t("title"));
   const { showToast } = useToast();
   const isAdmin = useIsAdmin();
@@ -22,6 +24,12 @@ export default function Dashboard() {
   const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [ingestionStatus, setIngestionStatus] = useState<IngestionRunStatus | null>(null);
+  // Tracks whether *this page load* actually watched a run go through "running" — so a
+  // long-finished run from before the page was opened doesn't make it look like a fetch
+  // just happened the moment you land here.
+  const sawRunningRef = useRef(false);
+  const isRunningIngestion = ingestionStatus?.status === "running";
 
   function loadDashboard() {
     setIsLoading(true);
@@ -44,6 +52,46 @@ export default function Dashboard() {
       api.get<WorkspaceSettings>("/settings").then(setSettings).catch(() => undefined);
     }
   }, [isAdmin]);
+
+  async function pollIngestionStatus() {
+    try {
+      const result = await api.get<IngestionRunStatus | null>("/ingestion/status");
+      if (result?.status === "running") {
+        sawRunningRef.current = true;
+      }
+      setIngestionStatus(result);
+      if (sawRunningRef.current && result && result.status !== "running") {
+        loadDashboard();
+      }
+    } catch {
+      // Transient poll failure — the next tick (or the next page load) will pick it back up.
+    }
+  }
+
+  // Resumes tracking a run already in flight (e.g. the page was reloaded mid-fetch, or a
+  // scheduled run happens to be running) instead of only ever reacting to this browser's
+  // own button click.
+  useEffect(() => {
+    pollIngestionStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!isRunningIngestion) return;
+    const interval = window.setInterval(pollIngestionStatus, POLL_INTERVAL_MS);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRunningIngestion]);
+
+  async function handleRunIngestion() {
+    try {
+      const result = await api.post<IngestionRunStatus>("/ingestion/run-now");
+      sawRunningRef.current = true;
+      setIngestionStatus(result);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("feed.ingestionStartFailed", { ns: "signals" }), "error");
+    }
+  }
 
   function patchSignalInLists(id: string, updated: Signal) {
     setSummary((prev) =>
@@ -128,7 +176,25 @@ export default function Dashboard() {
           <h2>{t("title")}</h2>
           <p className="subtitle">{t("subtitle")}</p>
         </div>
+        <button
+          type="button"
+          onClick={handleRunIngestion}
+          disabled={isRunningIngestion || !hasTargetCompany}
+          title={hasTargetCompany ? undefined : t("feed.addTargetCompanyFirst", { ns: "signals" })}
+        >
+          {isRunningIngestion
+            ? t("feed.fetching", { ns: "signals", percent: ingestionStatus?.progress_percent ?? 0 })
+            : t("feed.fetchNewSignals", { ns: "signals" })}
+        </button>
       </div>
+
+      {isRunningIngestion && ingestionStatus && (
+        <div className="panel-card">
+          <div className="progress-bar">
+            <div className="progress-bar-fill" style={{ width: `${ingestionStatus.progress_percent}%` }} />
+          </div>
+        </div>
+      )}
 
       <div className="dashboard-stats">
         <Link to="/signals?status=new" className="dashboard-stat">

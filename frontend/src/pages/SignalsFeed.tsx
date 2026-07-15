@@ -95,6 +95,12 @@ export default function SignalsFeed() {
         companyProgress,
       });
     }
+    if (status.current_step === "waiting") {
+      return t("feed.ingestion.waitingForRateLimit", {
+        company: status.current_company_name ?? t("feed.ingestion.defaultCompanyName"),
+        companyProgress,
+      });
+    }
     if (status.current_company_name) {
       return t("feed.ingestion.fetching", { company: status.current_company_name, companyProgress });
     }

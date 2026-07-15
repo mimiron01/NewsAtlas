@@ -113,6 +113,7 @@
       "companyProgress": " (Unternehmen {{position}} von {{total}})",
       "summarizing": "Artikel für {{company}} werden zusammengefasst — Artikel {{article}} von {{total}}{{companyProgress}}",
       "fetching": "Artikel für {{company}} werden abgerufen{{companyProgress}}",
+      "waitingForRateLimit": "Warte, bis das Ratenlimit wieder Kapazität freigibt, um mit {{company}} fortzufahren{{companyProgress}}",
       "defaultCompanyName": "Zielunternehmen",
       "companiesChecked_one": "{{count}} Zielunternehmen geprüft",
       "companiesChecked_other": "{{count}} Zielunternehmen geprüft",

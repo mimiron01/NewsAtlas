@@ -16,7 +16,7 @@ from app.services.feedback import refresh_feedback_note
 from app.services.google_news_rss_client import GoogleNewsRSSClient
 from app.services.news_client import NewsClient, NewsClientError
 from app.services.news_query import article_mentions_company
-from app.services.news_rate_limiter import has_headroom
+from app.services.news_rate_limiter import HeadroomStatus, check_headroom, wait_for_minute_headroom
 from app.services.news_usage import log_rate_limited
 from app.services.news_usage import log_usage as log_news_usage
 from app.services.newsdata_client import NewsDataClient
@@ -225,7 +225,24 @@ def _ingest_target_company(
 
     for source, client in providers:
         per_minute_limit, per_day_limit = _rate_limit_config(workspace_settings, source)
-        if not has_headroom(db, source, per_minute_limit=per_minute_limit, per_day_limit=per_day_limit):
+        status = check_headroom(db, source, per_minute_limit=per_minute_limit, per_day_limit=per_day_limit)
+
+        if status is HeadroomStatus.MINUTE_LIMITED:
+            # A per-minute ceiling frees up on its own within the next 60s, so it's
+            # worth waiting out rather than permanently dropping this company's
+            # coverage from this source — a per-day ceiling (handled below) won't free
+            # up for hours, so that case still falls straight through to the skip.
+            progress.update(current_step="waiting", current_company_name=target_company.name)
+            if wait_for_minute_headroom(
+                db, source, per_minute_limit=per_minute_limit, should_cancel=progress.should_cancel
+            ):
+                status = HeadroomStatus.OK
+            progress.update(current_step="fetching")
+            if progress.should_cancel():
+                outcome.cancelled = True
+                return outcome
+
+        if status is not HeadroomStatus.OK:
             outcome.rate_limited[source.value] = outcome.rate_limited.get(source.value, 0) + 1
             log_rate_limited(db, source=source, target_company_id=target_company.id)
             continue

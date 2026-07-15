@@ -113,6 +113,7 @@
       "companyProgress": " (company {{position}} of {{total}})",
       "summarizing": "Summarizing articles for {{company}} — article {{article}} of {{total}}{{companyProgress}}",
       "fetching": "Fetching articles for {{company}}{{companyProgress}}",
+      "waitingForRateLimit": "Waiting for the rate limit to free up before continuing with {{company}}{{companyProgress}}",
       "defaultCompanyName": "target company",
       "companiesChecked_one": "Checked {{count}} target company",
       "companiesChecked_other": "Checked {{count}} target companies",
