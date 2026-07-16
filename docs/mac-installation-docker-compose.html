@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NewsAtlas — Installation auf dem Mac mit Docker Compose (Self-Hosting)</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6270;
+    --accent: #2757c7;
+    --accent-bg: #eef2fc;
+    --border: #e2e5ea;
+    --code-bg: #f5f6f8;
+    --ok: #1a7f4e;
+    --ok-bg: #e9f7f0;
+    --warn: #a15c00;
+    --warn-bg: #fdf4e3;
+    --danger: #b3261e;
+    --danger-bg: #fdecec;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+    line-height: 1.6;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 52px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.1rem; margin-top: 24px; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  .meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 12px 0 32px;
+    padding: 12px 16px;
+    background: var(--accent-bg);
+    border-radius: 8px;
+  }
+  .meta strong { color: var(--fg); }
+  nav.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin: 24px 0 40px;
+  }
+  nav.toc h2 { margin-top: 0; border: none; font-size: 1.05rem; padding-bottom: 4px; }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.92rem; }
+  nav.toc a:hover { text-decoration: underline; }
+
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre {
+    background: #1a1d23;
+    color: #e8eaed;
+    padding: 16px 18px;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre code { background: none; padding: 0; color: inherit; }
+  .comment { color: #8a919e; }
+
+  .step {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 20px 0;
+    position: relative;
+  }
+  .step > h3:first-child { margin-top: 0; }
+  .step-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.95rem;
+    margin-right: 10px;
+    flex-shrink: 0;
+  }
+  .step h3 { display: flex; align-items: center; gap: 4px; }
+
+  .callout {
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 14px 0;
+    font-size: 0.92rem;
+  }
+  .callout.info { background: var(--accent-bg); border-left: 4px solid var(--accent); }
+  .callout.tip { background: var(--ok-bg); border-left: 4px solid var(--ok); }
+  .callout.warn { background: var(--warn-bg); border-left: 4px solid var(--warn); }
+  .callout.danger { background: var(--danger-bg); border-left: 4px solid var(--danger); }
+  .callout strong { display: block; margin-bottom: 2px; }
+
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.9rem; }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--code-bg); font-weight: 600; }
+
+  ul, ol { padding-left: 22px; }
+  li { margin-bottom: 6px; }
+
+  a { color: var(--accent); }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>NewsAtlas lokal auf dem Mac installieren</h1>
+<p class="subtitle">Self-Hosting mit Docker Compose — Schritt-für-Schritt-Anleitung für Einsteiger</p>
+
+<div class="meta">
+  <span><strong>Zielgruppe:</strong> keine Vorkenntnisse nötig</span>
+  <span><strong>Voraussetzung:</strong> macOS (Apple Silicon oder Intel)</span>
+  <span><strong>Dauer:</strong> ca. 20–30 Minuten</span>
+  <span><strong>Ergebnis:</strong> NewsAtlas läuft unter <code>https://localhost</code></span>
+</div>
+
+<nav class="toc">
+  <h2>Inhalt</h2>
+  <ol>
+    <li><a href="#ueberblick">Überblick</a></li>
+    <li><a href="#schritt1">1. Docker Desktop installieren</a></li>
+    <li><a href="#schritt2">2. Terminal öffnen</a></li>
+    <li><a href="#schritt3">3. NewsAtlas herunterladen</a></li>
+    <li><a href="#schritt4">4. Konfigurationsdatei anlegen</a></li>
+    <li><a href="#schritt5">5. Geheime Schlüssel erzeugen</a></li>
+    <li><a href="#schritt6">6. Konfigurationsdatei ausfüllen</a></li>
+    <li><a href="#schritt7">7. API-Schlüssel besorgen</a></li>
+    <li><a href="#schritt8">8. NewsAtlas starten</a></li>
+    <li><a href="#schritt9">9. Erste Anmeldung im Browser</a></li>
+    <li><a href="#alltag">Im Alltag: stoppen, neu starten, aktualisieren</a></li>
+    <li><a href="#fehler">Fehlerbehebung</a></li>
+    <li><a href="#sicherheit">Wichtiger Sicherheitshinweis</a></li>
+  </ol>
+</nav>
+
+<h2 id="ueberblick">Überblick</h2>
+<p>
+  NewsAtlas kann komplett auf dem eigenen Mac laufen — ohne Server, ohne Cloud-Abo.
+  Dafür wird <strong>Docker Compose</strong> verwendet: Ein einziger Befehl startet
+  vier Bausteine gleichzeitig in isolierten Containern:
+</p>
+<table>
+  <tr><th>Baustein</th><th>Aufgabe</th></tr>
+  <tr><td><code>db</code></td><td>PostgreSQL-Datenbank — speichert alle Daten</td></tr>
+  <tr><td><code>backend</code></td><td>Die eigentliche NewsAtlas-Anwendung (API, News-Verarbeitung, KI-Zusammenfassung)</td></tr>
+  <tr><td><code>frontend</code></td><td>Das Web-Dashboard, das im Browser angezeigt wird</td></tr>
+  <tr><td><code>caddy</code></td><td>Reverse-Proxy — stellt alles gebündelt unter einer einzigen Adresse bereit</td></tr>
+</table>
+<p>
+  Diese Anleitung führt jeden einzelnen Schritt im Terminal vor. Jeder Befehl kann
+  einfach kopiert und eingefügt werden — es ist kein Programmierwissen nötig.
+</p>
+
+<h2 id="schritt1">Schritt 1 — Docker Desktop installieren</h2>
+<div class="step">
+  <h3><span class="step-num">1</span>Docker Desktop herunterladen und installieren</h3>
+  <p>
+    Docker Desktop ist die Software, die die Container auf dem Mac ausführt. Sie ist
+    kostenlos für den privaten Gebrauch bzw. für kleine Firmen.
+  </p>
+  <ol>
+    <li>Offizielle Download-Seite öffnen: <a href="https://www.docker.com/products/docker-desktop/" target="_blank" rel="noopener">https://www.docker.com/products/docker-desktop/</a></li>
+    <li>Die passende Version herunterladen: <strong>Mac mit Apple-Chip (M1/M2/M3/M4)</strong> oder <strong>Mac mit Intel-Chip</strong>
+      — welcher Chip verbaut ist, steht unter <code>Apple-Menü → Über diesen Mac</code>.</li>
+    <li>Die heruntergeladene <code>Docker.dmg</code>-Datei öffnen und Docker in den Programme-Ordner ziehen.</li>
+    <li>Docker Desktop aus dem Programme-Ordner starten. Beim ersten Start werden Berechtigungen
+      abgefragt (Systemeinstellungen) — diese bestätigen.</li>
+    <li>Warten, bis das Wal-Symbol oben in der Menüleiste ruhig steht (kein Animations-Icon mehr) —
+      das bedeutet, Docker läuft.</li>
+  </ol>
+  <div class="callout tip">
+    <strong>Prüfen, ob es funktioniert hat</strong>
+    Terminal öffnen (siehe Schritt 2) und <code>docker --version</code> eingeben. Erscheint eine
+    Versionsnummer statt einer Fehlermeldung, ist alles bereit.
+  </div>
+</div>
+
+<h2 id="schritt2">Schritt 2 — Terminal öffnen</h2>
+<div class="step">
+  <h3><span class="step-num">2</span>Terminal-App öffnen</h3>
+  <p>
+    Alle folgenden Befehle werden in der <strong>Terminal</strong>-App eingegeben, die auf jedem
+    Mac vorinstalliert ist.
+  </p>
+  <ol>
+    <li><kbd>Cmd</kbd> + <kbd>Leertaste</kbd> drücken (Spotlight-Suche öffnet sich)</li>
+    <li><code>Terminal</code> eintippen und <kbd>Enter</kbd> drücken</li>
+  </ol>
+  <p>Ein Fenster mit einer Befehlszeile öffnet sich — hier werden die Befehle aus dieser Anleitung eingefügt.</p>
+</div>
+
+<h2 id="schritt3">Schritt 3 — NewsAtlas herunterladen</h2>
+<div class="step">
+  <h3><span class="step-num">3</span>Projektordner auf den Mac holen</h3>
+  <p>Im Terminal an eine Stelle wechseln, an der der Ordner abgelegt werden soll (z. B. der eigene Benutzerordner), und das Projekt herunterladen:</p>
+  <pre><code><span class="comment"># In den eigenen Benutzerordner wechseln</span>
+cd ~
+
+<span class="comment"># NewsAtlas herunterladen</span>
+git clone https://github.com/mimiron01/newsatlas.git
+
+<span class="comment"># In den neuen Ordner wechseln</span>
+cd newsatlas</code></pre>
+  <div class="callout info">
+    <strong>Falls <code>git</code> noch fehlt</strong>
+    macOS fragt beim ersten Ausführen von <code>git</code> automatisch, ob die "Command Line
+    Developer Tools" installiert werden sollen. Einfach auf "Installieren" klicken und
+    das Ende abwarten (wenige Minuten), danach den <code>git clone</code>-Befehl erneut ausführen.
+  </div>
+</div>
+
+<h2 id="schritt4">Schritt 4 — Konfigurationsdatei anlegen</h2>
+<div class="step">
+  <h3><span class="step-num">4</span><code>.env</code>-Datei aus der Vorlage erstellen</h3>
+  <p>
+    NewsAtlas wird über eine Datei namens <code>.env</code> konfiguriert (Zugangsdaten,
+    Passwörter, API-Schlüssel). Sie wird aus einer mitgelieferten Vorlage erzeugt:
+  </p>
+  <pre><code>cp .env.example .env
+chmod 600 .env</code></pre>
+  <p>
+    Der zweite Befehl sorgt dafür, dass nur der eigene Benutzer die Datei lesen kann —
+    sie enthält gleich echte Passwörter.
+  </p>
+</div>
+
+<h2 id="schritt5">Schritt 5 — Geheime Schlüssel erzeugen</h2>
+<div class="step">
+  <h3><span class="step-num">5</span>Zwei zufällige Passwörter generieren</h3>
+  <p>
+    Zwei Werte in der <code>.env</code>-Datei müssen durch zufällige, sichere Zeichenketten ersetzt
+    werden. Der Mac kann diese direkt erzeugen:
+  </p>
+  <pre><code><span class="comment"># Datenbank-Passwort erzeugen</span>
+openssl rand -hex 24
+
+<span class="comment"># Anmelde-Schlüssel (JWT_SECRET) erzeugen</span>
+openssl rand -hex 32</code></pre>
+  <p>
+    Beide Befehle geben je eine lange Zeichenkette aus (z. B. <code>7f3a9c...</code>). Diese
+    einfach mit der Maus markieren und kopieren (<kbd>Cmd</kbd> + <kbd>C</kbd>) — sie werden im
+    nächsten Schritt gebraucht.
+  </p>
+  <div class="callout warn">
+    <strong>Beide Befehle einzeln ausführen</strong>
+    Für <code>POSTGRES_PASSWORD</code> und <code>JWT_SECRET</code> jeweils eine <em>eigene</em>,
+    unterschiedliche Zeichenkette verwenden — nicht denselben Wert zweimal einsetzen.
+  </div>
+</div>
+
+<h2 id="schritt6">Schritt 6 — Konfigurationsdatei ausfüllen</h2>
+<div class="step">
+  <h3><span class="step-num">6</span><code>.env</code> im Texteditor öffnen und Werte eintragen</h3>
+  <p>Die Datei lässt sich mit TextEdit direkt aus dem Terminal öffnen:</p>
+  <pre><code>open -e .env</code></pre>
+  <p>In der Datei folgende Zeilen suchen und die Werte anpassen (der Rest kann unverändert bleiben):</p>
+  <table>
+    <tr><th>Zeile</th><th>Wert eintragen</th></tr>
+    <tr><td><code>DOMAIN=</code></td><td>so lassen wie sie ist: <code>localhost</code> (nur für lokale Nutzung auf dem eigenen Mac)</td></tr>
+    <tr><td><code>POSTGRES_PASSWORD=</code></td><td>die erste in Schritt 5 erzeugte Zeichenkette einfügen</td></tr>
+    <tr><td><code>JWT_SECRET=</code></td><td>die zweite in Schritt 5 erzeugte Zeichenkette einfügen</td></tr>
+    <tr><td><code>SIGNUP_INVITE_CODE=</code></td><td>ein selbst ausgedachtes Codewort, z. B. <code>proair2026</code> — wird gleich zur Registrierung gebraucht</td></tr>
+    <tr><td><code>NEWSAPI_API_KEY=</code></td><td>Schlüssel aus Schritt 7</td></tr>
+    <tr><td><code>MISTRAL_API_KEY=</code></td><td>Schlüssel aus Schritt 7</td></tr>
+  </table>
+  <p>Datei speichern (<kbd>Cmd</kbd> + <kbd>S</kbd>) und TextEdit schließen.</p>
+  <div class="callout info">
+    <strong>Optional, aber nicht zwingend für den Start</strong>
+    <code>NEWSDATA_API_KEY</code> (zusätzliche Nachrichtenquelle) und die <code>SMTP_*</code>-Zeilen
+    (für den täglichen E-Mail-Digest) können leer bleiben und später über die Einstellungen
+    in der Web-Oberfläche nachgetragen werden.
+  </div>
+</div>
+
+<h2 id="schritt7">Schritt 7 — API-Schlüssel besorgen</h2>
+<div class="step">
+  <h3><span class="step-num">7</span>Kostenlose/kostenpflichtige Zugänge bei den News- und KI-Anbietern anlegen</h3>
+  <p>NewsAtlas benötigt zwei externe Dienste, um Nachrichten zu laden und mit KI zusammenzufassen:</p>
+  <ul>
+    <li>
+      <strong>NewsAPI.org</strong> (Nachrichtenquelle) — Konto anlegen auf
+      <a href="https://newsapi.org/register" target="_blank" rel="noopener">newsapi.org/register</a>,
+      danach den angezeigten API-Key kopieren.
+    </li>
+    <li>
+      <strong>Mistral AI</strong> (KI-Zusammenfassung) — Konto anlegen auf
+      <a href="https://console.mistral.ai/" target="_blank" rel="noopener">console.mistral.ai</a>,
+      dort unter "API Keys" einen neuen Schlüssel erzeugen und kopieren.
+    </li>
+  </ul>
+  <p>Beide Schlüssel wie in Schritt 6 beschrieben in die <code>.env</code>-Datei eintragen.</p>
+</div>
+
+<h2 id="schritt8">Schritt 8 — NewsAtlas starten</h2>
+<div class="step">
+  <h3><span class="step-num">8</span>Alle Container bauen und starten</h3>
+  <p>Zurück im Terminal (im <code>newsatlas</code>-Ordner) folgenden Befehl ausführen:</p>
+  <pre><code>docker compose up --build -d</code></pre>
+  <p>
+    Beim ersten Mal dauert das einige Minuten, da die Software heruntergeladen und
+    zusammengebaut wird. Der Fortschritt wird im Terminal angezeigt.
+  </p>
+  <p>Wenn der Befehl fertig ist, prüfen, ob alles läuft:</p>
+  <pre><code>docker compose ps</code></pre>
+  <p>Alle vier Dienste (<code>db</code>, <code>backend</code>, <code>frontend</code>, <code>caddy</code>) sollten als <code>running</code> bzw. <code>healthy</code> angezeigt werden.</p>
+</div>
+
+<h2 id="schritt9">Schritt 9 — Erste Anmeldung im Browser</h2>
+<div class="step">
+  <h3><span class="step-num">9</span>NewsAtlas im Browser öffnen</h3>
+  <ol>
+    <li>Einen Browser öffnen (z. B. Safari oder Chrome) und <code>https://localhost</code> aufrufen.</li>
+    <li>
+      Der Browser zeigt eine Warnung wie "Diese Verbindung ist nicht privat" oder
+      "Zertifikat nicht vertrauenswürdig" — das ist bei lokaler Nutzung ohne echte
+      Domain <strong>normal und unbedenklich</strong>. Auf "Erweitert" bzw. "Details
+      einblenden" klicken und danach "Trotzdem fortfahren" wählen.
+    </li>
+    <li>Auf der Anmeldeseite "Registrieren" wählen.</li>
+    <li>E-Mail-Adresse, ein selbstgewähltes Passwort sowie den in Schritt 6 vergebenen
+      <code>SIGNUP_INVITE_CODE</code> eingeben.</li>
+    <li>Nach der Registrierung ist man direkt im Dashboard und kann Zielunternehmen anlegen.</li>
+  </ol>
+</div>
+
+<h2 id="alltag">Im Alltag: stoppen, neu starten, aktualisieren</h2>
+<table>
+  <tr><th>Aktion</th><th>Befehl (im <code>newsatlas</code>-Ordner ausführen)</th></tr>
+  <tr><td>NewsAtlas anhalten</td><td><code>docker compose down</code></td></tr>
+  <tr><td>NewsAtlas wieder starten</td><td><code>docker compose up -d</code></td></tr>
+  <tr><td>Live-Protokoll ansehen</td><td><code>docker compose logs -f</code></td></tr>
+  <tr><td>Nur das Backend-Protokoll ansehen</td><td><code>docker compose logs -f backend</code></td></tr>
+  <tr><td>Auf eine neue Version aktualisieren</td><td><code>git pull</code> gefolgt von <code>docker compose up --build -d</code></td></tr>
+</table>
+<div class="callout danger">
+  <strong>Achtung — Datenverlust</strong>
+  <code>docker compose down -v</code> löscht zusätzlich <em>alle gespeicherten Daten</em>
+  (Datenbank-Inhalt, Konten, Zielunternehmen, gesammelte Artikel) unwiderruflich. Für ein
+  normales Stoppen immer <code>docker compose down</code> <strong>ohne</strong> <code>-v</code> verwenden.
+</div>
+
+<h2 id="fehler">Fehlerbehebung</h2>
+<div class="callout warn">
+  <strong>"Cannot connect to the Docker daemon"</strong>
+  Docker Desktop läuft nicht. Die App aus dem Programme-Ordner starten und warten, bis
+  das Wal-Symbol in der Menüleiste ruhig steht, dann den Befehl erneut ausführen.
+</div>
+<div class="callout warn">
+  <strong>Fehlermeldung "POSTGRES_PASSWORD must be set"</strong>
+  Die <code>.env</code>-Datei wurde nicht korrekt ausgefüllt oder es wurde vergessen,
+  sie aus der Vorlage zu kopieren (Schritt 4). Schritt 4 und 6 erneut prüfen.
+</div>
+<div class="callout warn">
+  <strong>Backend startet nicht, Protokoll zeigt "Refusing to start ... insecure configuration"</strong>
+  <code>JWT_SECRET</code> oder <code>SIGNUP_INVITE_CODE</code> in der <code>.env</code>-Datei sind
+  noch leer oder zu kurz. Schritt 5 und 6 erneut durchgehen, Datei speichern und
+  <code>docker compose up --build -d</code> erneut ausführen.
+</div>
+<div class="callout warn">
+  <strong>Port 80/443 bereits belegt</strong>
+  Meldungen wie "port is already allocated" bedeuten, dass ein anderes Programm auf dem
+  Mac bereits diese Ports verwendet (z. B. ein anderer lokaler Webserver). Das andere
+  Programm beenden und <code>docker compose up --build -d</code> erneut ausführen.
+</div>
+<div class="callout warn">
+  <strong>"Ungültiger Einladungscode" bei der Registrierung</strong>
+  Der eingegebene Code muss exakt (Groß-/Kleinschreibung beachten) mit dem Wert von
+  <code>SIGNUP_INVITE_CODE</code> in der <code>.env</code>-Datei übereinstimmen.
+</div>
+
+<h2 id="sicherheit">Wichtiger Sicherheitshinweis</h2>
+<div class="callout danger">
+  <strong>Nur für die lokale Nutzung auf dem eigenen Mac gedacht</strong>
+  Diese Anleitung richtet <code>DOMAIN=localhost</code> ein und ist ausschließlich für den
+  persönlichen Gebrauch auf dem eigenen Rechner bestimmt (z. B. für eine Präsentation
+  oder zum Ausprobieren). Der Rechner sollte dabei nicht direkt aus dem Internet
+  erreichbar gemacht werden (z. B. über Portweiterleitung im Router). Für einen
+  öffentlich erreichbaren Betrieb mit echter Domain und automatischem HTTPS-Zertifikat
+  siehe den Abschnitt "Deploying with Docker Compose" in der Haupt-<code>README.md</code>
+  sowie <code>docs/security-review.html</code>.
+</div>
+
+<footer>
+  NewsAtlas — Installationsanleitung für macOS (Docker Compose / Self-Hosting).
+</footer>
+
+</body>
+</html>

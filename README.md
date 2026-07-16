@@ -16,7 +16,9 @@ of the current Mistral AI integration and a phased roadmap for deepening it, and
 [`docs/news-source-expansion-planning.html`](docs/news-source-expansion-planning.html)
 for the plan (now implemented) to add Google News RSS and NewsData.io as additional
 news sources alongside NewsAPI.org, each with its own enforced rate limit and inline
-usage view in Settings.
+usage view in Settings. For a beginner-friendly, German-language walkthrough of
+installing NewsAtlas locally on a Mac via Docker Compose, see
+[`docs/mac-installation-docker-compose.html`](docs/mac-installation-docker-compose.html).
 
 ## Project layout
 
