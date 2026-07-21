@@ -189,6 +189,34 @@ def test_mistral_api_key_empty_string_clears_override(client, monkeypatch):
     get_settings.cache_clear()
 
 
+def test_mistral_api_key_stored_encrypted_at_rest(client, db_session):
+    headers = _admin_headers(client)
+    client.put(
+        "/settings",
+        json=_full_update_payload(mistral_api_key="sk-super-secret-plaintext-value"),
+        headers=headers,
+    )
+    from app.models.workspace_settings import WorkspaceSettings
+
+    row = db_session.query(WorkspaceSettings).first()
+    assert row.mistral_api_key != "sk-super-secret-plaintext-value"
+    assert "sk-super-secret-plaintext-value" not in row.mistral_api_key
+
+
+def test_newsdata_api_key_stored_encrypted_at_rest(client, db_session):
+    headers = _admin_headers(client)
+    client.put(
+        "/settings",
+        json=_full_update_payload(newsdata_enabled=True, newsdata_api_key="nd-super-secret-plaintext"),
+        headers=headers,
+    )
+    from app.models.workspace_settings import WorkspaceSettings
+
+    row = db_session.query(WorkspaceSettings).first()
+    assert row.newsdata_api_key != "nd-super-secret-plaintext"
+    assert "nd-super-secret-plaintext" not in row.newsdata_api_key
+
+
 def test_settings_require_auth(client):
     resp = client.get("/settings")
     assert resp.status_code == 401

@@ -24,6 +24,12 @@ class Settings(BaseSettings):
 
     signup_invite_code: str = ""
 
+    # Encrypts WorkspaceSettings.mistral_api_key/.newsdata_api_key at rest (see
+    # app/core/crypto.py) — same hard-fail-in-production convention as jwt_secret above,
+    # rather than auto-generating one, so a key isn't silently lost on restart before
+    # anything's been persisted with it.
+    app_secret_key: str = ""
+
     newsapi_api_key: str = ""
     # Env-var fallback only, mirroring mistral_api_key — the in-app workspace_settings
     # override (see services/workspace_settings.py) always wins once an admin sets one.
@@ -93,6 +99,11 @@ def assert_secure_for_production(settings: Settings) -> None:
     if not settings.signup_invite_code:
         problems.append(
             "SIGNUP_INVITE_CODE must be set — signup is disabled entirely without it"
+        )
+    if len(settings.app_secret_key) < 32:
+        problems.append(
+            "APP_SECRET_KEY must be set to a random string of at least 32 characters "
+            "(e.g. `openssl rand -hex 32`) — it encrypts stored Mistral/NewsData API keys"
         )
 
     if problems:

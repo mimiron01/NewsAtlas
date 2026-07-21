@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import require_admin
 from app.core.audit import log_event
 from app.core.config import get_settings
+from app.core.crypto import encrypt_secret
 from app.db.session import get_db
 from app.models.user import User
 from app.models.workspace_settings import WorkspaceSettings
@@ -100,7 +101,9 @@ def update_settings(
     settings.newsdata_max_requests_per_minute = payload.newsdata_max_requests_per_minute
 
     if payload.mistral_api_key is not None:
-        settings.mistral_api_key = payload.mistral_api_key
+        # Stored encrypted (see app/core/crypto.py) — the "" clear-override sentinel
+        # round-trips fine since encrypt_secret("") is itself "".
+        settings.mistral_api_key = encrypt_secret(payload.mistral_api_key)
         # Never log the key itself — only whether this save set, cleared, or left it.
         log_event(
             "mistral_api_key_override_changed",
@@ -110,7 +113,7 @@ def update_settings(
         )
 
     if payload.newsdata_api_key is not None:
-        settings.newsdata_api_key = payload.newsdata_api_key
+        settings.newsdata_api_key = encrypt_secret(payload.newsdata_api_key)
         log_event(
             "newsdata_api_key_override_changed",
             request=request,

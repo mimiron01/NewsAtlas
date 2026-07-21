@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+from app.core.crypto import decrypt_secret
 from app.models.workspace_settings import WorkspaceSettings
 
 
@@ -21,17 +22,19 @@ ApiKeyStatus = MistralApiKeyStatus
 
 
 def resolve_mistral_api_key(workspace_settings: WorkspaceSettings, app_settings: Settings) -> str:
-    """The in-app override (set by an admin via /settings) always wins when present;
-    otherwise falls back to the MISTRAL_API_KEY env var so existing .env-based
-    deployments keep working without requiring an admin to re-enter anything."""
-    return workspace_settings.mistral_api_key or app_settings.mistral_api_key
+    """The in-app override (set by an admin via /settings, stored encrypted — see
+    app/core/crypto.py) always wins when present; otherwise falls back to the
+    MISTRAL_API_KEY env var so existing .env-based deployments keep working without
+    requiring an admin to re-enter anything."""
+    return decrypt_secret(workspace_settings.mistral_api_key) or app_settings.mistral_api_key
 
 
 def get_mistral_api_key_status(
     workspace_settings: WorkspaceSettings, app_settings: Settings
 ) -> MistralApiKeyStatus:
-    if workspace_settings.mistral_api_key:
-        key, source = workspace_settings.mistral_api_key, "workspace"
+    stored = decrypt_secret(workspace_settings.mistral_api_key)
+    if stored:
+        key, source = stored, "workspace"
     elif app_settings.mistral_api_key:
         key, source = app_settings.mistral_api_key, "environment"
     else:
@@ -41,14 +44,15 @@ def get_mistral_api_key_status(
 
 def resolve_newsdata_api_key(workspace_settings: WorkspaceSettings, app_settings: Settings) -> str:
     """Same in-app-override-wins-over-env-var resolution as resolve_mistral_api_key."""
-    return workspace_settings.newsdata_api_key or app_settings.newsdata_api_key
+    return decrypt_secret(workspace_settings.newsdata_api_key) or app_settings.newsdata_api_key
 
 
 def get_newsdata_api_key_status(
     workspace_settings: WorkspaceSettings, app_settings: Settings
 ) -> ApiKeyStatus:
-    if workspace_settings.newsdata_api_key:
-        key, source = workspace_settings.newsdata_api_key, "workspace"
+    stored = decrypt_secret(workspace_settings.newsdata_api_key)
+    if stored:
+        key, source = stored, "workspace"
     elif app_settings.newsdata_api_key:
         key, source = app_settings.newsdata_api_key, "environment"
     else:
