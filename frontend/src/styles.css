@@ -413,6 +413,21 @@ button.danger { background: var(--danger-solid); }
 .signal-row-actions button { font-size: 0.78rem; padding: 5px 10px; white-space: nowrap; }
 .signal-title { font-weight: 600; margin: 2px 0; }
 
+@media (max-width: 640px) {
+  /* Below this width, the fixed-width actions column has less room than its buttons'
+     natural (nowrap) width, which visually overlapped the signal title instead of
+     just shrinking (see docs/v1-release-roadmap.html §5 stabilization item). Wrapping
+     the row moves actions onto their own line below the title instead. */
+  .signal-row { flex-wrap: wrap; }
+  .signal-row-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    flex-basis: 100%;
+    padding-top: 8px;
+    padding-left: 34px; /* aligns with signal-row-link's content, past the favorite button */
+  }
+}
+
 .feed-select-all {
   display: flex;
   align-items: center;
