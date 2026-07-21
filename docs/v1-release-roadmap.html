@@ -419,9 +419,54 @@ Neither system has an undo affordance at the moment of action — <code>ToastCon
 <div class="phase">
 <h3><span class="phase-badge">Phase 4</span> What actually gates v1</h3>
 
-<div class="ok-box"><strong>Already done:</strong> <a href="security-review.html">security-review.html</a> found and remediated 17 issues (TLS, exposed Postgres, open signup, JWT defaults, rate limiting, container hardening, URL-scheme validation, password policy, etc.) as of 2026-07-03, verified via the full test suite plus live checks. Don't re-audit those from scratch — re-verify they're still true (nothing since has touched auth/docker-compose) and move on.</div>
+<div class="ok-box"><strong>Already done:</strong> <a href="security-review.html">security-review.html</a> found and remediated 17 issues (TLS, exposed Postgres, open signup, JWT defaults, rate limiting, container hardening, URL-scheme validation, password policy, etc.) as of 2026-07-03. A 2026-07-21 spot-check confirmed these are still true and one item improved further: <code>config.py</code> still refuses to boot in production on a default/short <code>JWT_SECRET</code> or missing invite code; <code>/auth/login</code> (10/min) and <code>/auth/signup</code> (5/hour) still carry rate limits; <code>is_safe_article_url</code>'s scheme guard is applied uniformly across all three news clients; and the review's own L2 finding ("aging <code>python-jose</code>/<code>passlib</code>") is now fully resolved — the backend has since migrated to <code>pyjwt==2.13.0</code>/<code>bcrypt==5.0.0</code>.</div>
 
-<div class="gap"><strong>New gap found in this session, not covered by that review:</strong> <code>WorkspaceSettings.mistral_api_key</code> and <code>.newsdata_api_key</code> (<code>backend/app/models/workspace_settings.py:51,77</code>) are stored as plaintext <code>Text</code> columns in Postgres — an admin-set override of the env-var key, readable by anything with DB access (including a DB backup, a support person running a query, or a future read-only reporting integration). The prior security review focused on infra/auth/transport, not secret-at-rest storage for these specific admin-configurable fields.</div>
+<h4>Deeper audit (2026-07-21) — authorization, injection, secrets, dependencies</h4>
+<p>The 2026-07-03 review was scoped to infrastructure/transport/basic-auth. This pass targeted everything it didn't touch: per-endpoint authorization (IDOR), injection surfaces, secrets handling end-to-end (not just at rest), and dependency currency, across both backend and frontend. Ranked by severity:</p>
+
+<table>
+<tr><th>Sev.</th><th>Finding</th><th>Fix</th></tr>
+<tr><td><span class="tag" style="background:#fdecec;border-color:#b23b3b;color:#b23b3b;">HIGH</span></td>
+    <td><strong>Missing admin check on the AI usage endpoint.</strong> <code>backend/app/api/ai_usage.py:26</code> (<code>get_usage_summary</code>) depends only on <code>get_current_user</code>, not <code>require_admin</code> — unlike the sibling <code>backend/app/api/news_usage.py:15</code>, which correctly requires admin. Any authenticated non-admin user can call <code>GET /ai-usage/summary</code> directly (bypassing the frontend's <code>&lt;RequireAdmin&gt;</code> guard in <code>App.tsx:34</code>, which is client-side only) and read workspace-wide Mistral token/cost data broken down by <em>every</em> target company — including companies that user doesn't even follow, since the query has no follow-scoping at all.</td>
+    <td>Add <code>Depends(require_admin)</code> to <code>get_usage_summary</code>, matching <code>news_usage.py</code>'s existing pattern.</td>
+</tr>
+<tr><td><span class="tag" style="background:#fdf4e3;border-color:#a15c00;color:#a15c00;">MEDIUM</span></td>
+    <td><strong>Unbounded <code>keywords</code>/<code>industry</code> length.</strong> <code>backend/app/schemas/target_company.py:9,15</code> — <code>keywords: list[str]</code> has no max item count or per-item <code>max_length</code> (same for <code>industry</code>). Any user can submit a huge array of huge strings on a shared <code>TargetCompany</code>; it's persisted verbatim and then feeds every future ingestion query (<code>build_or_query</code>) and every AI prompt for that company — a cost/DB-bloat vector, not just a cosmetic one, and it compounds with §2.1's plan to also feed keywords into the AI triage prompt.</td>
+    <td>Add a reasonable per-item <code>max_length</code> and a max array size (e.g. 20 keywords × 100 chars) to <code>TargetCompanyCreate</code>/<code>Update</code>.</td>
+</tr>
+<tr><td><span class="tag" style="background:#fdf4e3;border-color:#a15c00;color:#a15c00;">MEDIUM/LOW</span></td>
+    <td><strong>No rate limit on the AI-forcing "promote" endpoint.</strong> <code>backend/app/api/articles.py:59-81</code> (<code>create_signal_from_skipped_article</code>, used by <code>ReviewTab.tsx</code>'s promote button — see §2.4) is admin-gated but has no <code>@limiter.limit</code> or cooldown, unlike <code>/ingestion/run-now</code> and <code>/digest/send-now</code> (both rate-limited <em>and</em> backed by a workspace cooldown via <code>enforce_manual_trigger_cooldown</code>). Its own docstring notes it forces a full, paid Mistral summarization call — nothing stops looping it over the entire skipped-articles queue.</td>
+    <td>Apply the same <code>@limiter.limit</code> + cooldown pattern already used on the other two manual-trigger endpoints.</td>
+</tr>
+<tr><td><span class="tag">LOW</span></td>
+    <td><strong>CSP header still missing.</strong> <code>Caddyfile:17-24</code> adds HSTS/X-Content-Type-Options/X-Frame-Options/Referrer-Policy/Permissions-Policy, but the prior review's L1 finding explicitly named CSP and marked it "Fixed" — no <code>Content-Security-Policy</code> header actually exists. Low urgency today since no injection path exists (confirmed below), but it's a defense-in-depth gap and a documentation inaccuracy worth closing together.</td>
+    <td>Add e.g. <code>Content-Security-Policy: default-src 'self'</code> to the Caddyfile.</td>
+</tr>
+<tr><td><span class="tag">LOW</span></td>
+    <td><strong>No extra container hardening flags.</strong> <code>docker-compose.yml</code> has no <code>security_opt: [no-new-privileges:true]</code>, <code>read_only: true</code>, or <code>cap_drop</code> on any service. The prior review's non-root-user fix is in place; these are incremental, not a live gap.</td>
+    <td>Optional hardening, not release-blocking.</td>
+</tr>
+<tr><td><span class="tag">DEFERRED</span></td>
+    <td><strong>Any follower can rewrite a shared <code>TargetCompany</code>.</strong> <code>backend/app/api/target_companies.py:111-129</code> (<code>update_target_company</code>) lets any follower — not just the creator or an admin — change <code>name</code>/<code>keywords</code>/<code>industry</code>/<code>is_active</code> on a company shared by other followers. Might be intentional shared-resource design (matches the existing "unfollow vs. delete" distinction already in <code>SettingsTargets.tsx</code>'s confirm-copy logic) rather than a bug — needs a product-intent call, not a code fix by default.</td>
+    <td>Confirm intended behavior before deciding whether to restrict edits to creator/admin.</td>
+</tr>
+</table>
+
+<div class="ok-box"><strong>Checked and confirmed clean</strong> — no action needed, but recorded so a future pass doesn't re-check these from scratch:
+<ul>
+  <li>Every other endpoint in <code>signals.py</code>, <code>signal_todos.py</code>, <code>dashboard.py</code>, <code>admin.py</code>, <code>settings.py</code>, <code>ingestion.py</code>, <code>digest.py</code> correctly uses <code>scope_to_follows</code>/<code>accessible_signal_row</code>/<code>get_accessible_signal</code> or <code>require_admin</code> as appropriate.</li>
+  <li>No raw-SQL/string-formatted query construction anywhere in the backend — the ORM is used consistently. No log statement anywhere logs a JWT, request body, or the Mistral/NewsData API keys.</li>
+  <li><code>GET /settings</code> is admin-gated <em>and</em> the response schema (<code>schemas/settings.py</code>) only ever returns <code>*_configured</code>/<code>*_source</code>/<code>*_last4</code> for the two secret fields — the raw key never round-trips to any browser. This confirms the plaintext-at-rest gap below is a DB-access-only exposure, not also an API-level one.</li>
+  <li>CORS is configured with explicit origins (not wildcard) alongside credentials — correct combination.</li>
+  <li>No XSS path in the frontend: no <code>dangerouslySetInnerHTML</code>/<code>innerHTML</code>/markdown renderer anywhere; AI-generated signal text and article titles are all plain JSX interpolation, which React escapes by default.</li>
+  <li>Both <code>target="_blank"</code> links in the whole frontend (article links in <code>SignalDetail.tsx:186</code> and <code>ReviewTab.tsx:63</code>) already carry <code>rel="noreferrer"</code> — no reverse-tabnabbing gap.</li>
+  <li>No sensitive data in client-side storage beyond the already-known/accepted JWT; the only other <code>localStorage</code> use is a non-sensitive theme preference.</li>
+  <li>No committed secrets anywhere in git history — only <code>.env.example</code> was ever committed, never a real <code>.env</code>.</li>
+  <li>Dependencies are current-generation on both sides: backend on <code>pyjwt</code>/<code>bcrypt</code> (see above); frontend on React 18.3, Vite 5.4, React Router 6.26, TypeScript 5.5 — nothing abandoned or notably outdated.</li>
+</ul>
+</div>
+
+<div class="gap"><strong>Still open — plaintext secrets at rest:</strong> <code>WorkspaceSettings.mistral_api_key</code> and <code>.newsdata_api_key</code> (<code>backend/app/models/workspace_settings.py:51,77</code>) are stored as plaintext <code>Text</code> columns in Postgres — readable by anything with DB access (a backup, a support person running a query, a future read-only reporting integration), even though the API layer correctly never exposes them (see above).</div>
 <p><strong>Change:</strong> encrypt these two columns at rest (application-level encryption with a key from the environment — e.g. Fernet via a new <code>APP_SECRET_KEY</code> env var, encrypt on write in <code>api/settings.py</code>, decrypt on read where the key is actually used in <code>ai_client</code>/<code>newsdata_client</code> construction) rather than plaintext. Never log the decrypted value; the existing "empty string = fall back to env var" convention stays unchanged, just applied to the decrypted value.</p>
 
 <h4>New attack surface introduced by this roadmap's own features</h4>
@@ -435,10 +480,10 @@ Neither system has an undo affordance at the moment of action — <code>ToastCon
 <h4>Stabilization</h4>
 <ul>
   <li>Carry over the one known-and-left-open bug from <code>dashboard-favorites-todos-planning.html</code>: <code>.signal-row-actions</code> action buttons overlapping the title on narrow screens — flagged there as needing "its own redesign decision," which v1 is exactly the right point to make.</li>
-  <li>Re-run <code>pip-audit</code>/<code>npm audit</code> (or equivalent) for dependency CVEs before release — the prior review's L2 finding (aging <code>python-jose</code>/<code>passlib</code>) was categorized "longer-term," worth resolving as part of the v1 gate rather than deferring again.</li>
+  <li>Run <code>pip-audit</code>/<code>npm audit</code> (or equivalent) once before tagging v1 to catch anything newly disclosed — the prior review's L2 finding (aging <code>python-jose</code>/<code>passlib</code>) is already resolved (migrated to <code>pyjwt</code>/<code>bcrypt</code>), this is just a final currency check, not new remediation work.</li>
   <li>General regression pass across ingestion, digest email delivery, and auth flows after Phases 1-3 land — not a fixed list of bugs, but a scheduled QA pass before tagging v1.</li>
 </ul>
-<p><strong>Acceptance criteria:</strong> secrets-at-rest fix shipped with a migration for existing plaintext values (re-encrypt in place); dependency audit run with zero known-critical/high CVEs outstanding; the carried-over mobile layout bug either fixed or explicitly re-deferred with a reason; new endpoints from Phases 2-3 covered by the same rate-limiting/size-cap conventions as existing ones.</p>
+<p><strong>Acceptance criteria:</strong> <code>ai_usage.py</code>'s <code>require_admin</code> gap closed and covered by a regression test (a non-admin request must 403); <code>keywords</code>/<code>industry</code> length caps added to the target-company schemas; <code>create_signal_from_skipped_article</code> rate-limited to match the other manual-trigger endpoints; CSP header added to the Caddyfile; the shared-<code>TargetCompany</code>-edit question resolved with the user (fix or explicitly accept as intended); secrets-at-rest fix shipped with a migration for existing plaintext values (re-encrypt in place); dependency audit run with zero known-critical/high CVEs outstanding; the carried-over mobile layout bug either fixed or explicitly re-deferred with a reason; new endpoints from Phases 2-3 covered by the same rate-limiting/size-cap conventions as existing ones.</p>
 </div>
 </div>
 
@@ -468,6 +513,11 @@ Neither system has an undo affordance at the moment of action — <code>ToastCon
   <li>2.4 — Consolidated skipped/dismissed view + undo toast shipped</li>
   <li>3 — CSV import (Salesforce) shipped, admin-only, duplicate-skip behavior verified</li>
   <li>4 — Theme-search planning doc written and reviewed; feature scoped for post-v1 or v1 depending on capacity</li>
+  <li>5 — <code>ai_usage.py</code> admin-check gap closed (HIGH)</li>
+  <li>5 — Target-company keyword/industry length caps added (MEDIUM)</li>
+  <li>5 — Rate limit added to <code>create_signal_from_skipped_article</code> (MEDIUM/LOW)</li>
+  <li>5 — CSP header added to Caddyfile (LOW)</li>
+  <li>5 — Shared-<code>TargetCompany</code>-edit product question resolved</li>
   <li>5 — Mistral/NewsData API keys encrypted at rest</li>
   <li>5 — New endpoints (CSV import, theme search) covered by size caps + rate limiting</li>
   <li>5 — Dependency audit clean; known mobile layout bug resolved or explicitly re-deferred</li>
