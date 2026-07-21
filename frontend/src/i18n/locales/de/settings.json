@@ -79,7 +79,24 @@
     "confirmDeleteAdmin": "Dadurch werden „{{name}}“ und alle zugehörigen Signale für alle Benutzer dauerhaft gelöscht. Fortfahren?",
     "confirmUnfollowOnly": "Sie sind der einzige Follower — wenn Sie „{{name}}“ nicht mehr folgen, wird es (mit allen Signalen) für alle entfernt. Fortfahren?",
     "confirmUnfollowShared": "„{{name}}“ nicht mehr folgen? Andere Benutzer, die es verfolgen, sehen es weiterhin.",
-    "removeTag": "{{tag}} entfernen"
+    "removeTag": "{{tag}} entfernen",
+    "import": {
+      "openButton": "CSV importieren",
+      "title": "Zielunternehmen aus CSV importieren",
+      "subtitle": "Importieren Sie eine aus Salesforce exportierte Unternehmensliste (oder eine beliebige CSV mit einer Namensspalte). Doppelte Namen werden übersprungen, nicht zusammengeführt.",
+      "chooseFile": "CSV-Datei auswählen",
+      "previewHint": "Vorschau von {{filename}} — bestätigen Sie die zu verwendenden Spalten und importieren Sie dann.",
+      "nameColumn": "Spalte für Firmenname",
+      "industryColumn": "Spalte für Branche (optional)",
+      "noIndustryColumn": "(keine)",
+      "importButton": "Importieren",
+      "importing": "Wird importiert...",
+      "importFailed": "CSV-Import fehlgeschlagen",
+      "done": "Fertig",
+      "resultSummary": "{{created}} erstellt, {{skipped}} als Duplikate übersprungen, {{errors}} fehlerhaft.",
+      "skippedRow": "Zeile {{row}}: „{{name}}“ übersprungen ({{reason}})",
+      "errorRow": "Zeile {{row}}: {{reason}}"
+    }
   },
 
   "sources": {

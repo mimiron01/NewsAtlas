@@ -79,7 +79,24 @@
     "confirmDeleteAdmin": "This permanently deletes \"{{name}}\" and all its signals for every user. Continue?",
     "confirmUnfollowOnly": "You're the only follower — unfollowing \"{{name}}\" removes it (and its signals) for everyone. Continue?",
     "confirmUnfollowShared": "Unfollow \"{{name}}\"? Other users tracking it keep seeing it.",
-    "removeTag": "Remove {{tag}}"
+    "removeTag": "Remove {{tag}}",
+    "import": {
+      "openButton": "Import CSV",
+      "title": "Import target companies from CSV",
+      "subtitle": "Import a company list exported from Salesforce (or any CSV with a name column). Duplicate names are skipped, not merged.",
+      "chooseFile": "Choose a CSV file",
+      "previewHint": "Previewing {{filename}} — confirm which columns to use, then import.",
+      "nameColumn": "Company name column",
+      "industryColumn": "Industry column (optional)",
+      "noIndustryColumn": "(none)",
+      "importButton": "Import",
+      "importing": "Importing...",
+      "importFailed": "Failed to import CSV",
+      "done": "Done",
+      "resultSummary": "{{created}} created, {{skipped}} skipped as duplicates, {{errors}} errored.",
+      "skippedRow": "Row {{row}}: \"{{name}}\" skipped ({{reason}})",
+      "errorRow": "Row {{row}}: {{reason}}"
+    }
   },
 
   "sources": {

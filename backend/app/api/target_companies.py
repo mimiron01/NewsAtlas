@@ -1,6 +1,17 @@
 import uuid
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_admin
@@ -14,6 +25,7 @@ from app.schemas.news_usage import BackfillTriggerResult
 from app.schemas.target_company import (
     CompanyFollowerResponse,
     TargetCompanyCreate,
+    TargetCompanyImportResult,
     TargetCompanyResponse,
     TargetCompanyUpdate,
 )
@@ -25,6 +37,11 @@ from app.services.company_follows import (
     to_response,
 )
 from app.services.newsdata_backfill import run_backfill_for_company
+from app.services.target_company_import import (
+    CsvImportError,
+    import_target_companies,
+    parse_target_company_csv,
+)
 from app.services.workspace_settings import get_or_create_workspace_settings
 
 router = APIRouter(prefix="/target-companies", tags=["target-companies"])
@@ -107,6 +124,79 @@ def create_target_company(
         background_tasks.add_task(_run_backfill_in_background, company.id)
 
     return to_response(db, company, follow)
+
+
+# Defense-in-depth on top of the global MaxBodySizeMiddleware: a CSV of legitimate
+# target-company rows is tiny, so this catches an oversized upload before it's even
+# read into memory for parsing, independent of whatever the global body-size cap is
+# configured to.
+_MAX_CSV_BYTES = 1_000_000
+
+
+@router.post("/import", response_model=TargetCompanyImportResult)
+async def import_target_companies_csv(
+    file: UploadFile = File(...),
+    name_column: str = Form(...),
+    industry_column: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(require_admin),
+) -> TargetCompanyImportResult:
+    """Admin-only bulk import (e.g. a Salesforce Account list export) — see
+    docs/v1-release-roadmap.html §3. name_column/industry_column are the CSV header
+    names to use, resolved by the frontend's column-mapping preview step rather than
+    guessed here, since real-world exports vary in their exact header names."""
+    if not (file.filename or "").lower().endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File must be a .csv file"
+        )
+
+    content = await file.read()
+    if len(content) > _MAX_CSV_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"CSV file exceeds the {_MAX_CSV_BYTES // 1_000_000}MB import limit",
+        )
+
+    try:
+        rows = parse_target_company_csv(
+            content, name_column=name_column, industry_column=industry_column
+        )
+    except CsvImportError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    created, skipped, errors = import_target_companies(
+        db,
+        rows=rows,
+        name_column=name_column,
+        industry_column=industry_column,
+        created_by=current_admin.id,
+    )
+    # Auto-follow the importing admin for each newly created company, same as the
+    # single-add form — otherwise a successful import leaves nothing visible in "My
+    # companies" for the admin who just ran it, which reads as if nothing happened.
+    follows = {
+        company.id: ensure_follow(
+            db, user_id=current_admin.id, target_company_id=company.id, assigned_by=current_admin.id
+        )
+        for company in created
+    }
+    db.commit()
+    for company in created:
+        db.refresh(company)
+
+    log_event(
+        "target_companies_csv_imported",
+        actor_id=str(current_admin.id),
+        created=len(created),
+        skipped=len(skipped),
+        errors=len(errors),
+    )
+
+    return TargetCompanyImportResult(
+        created=[to_response(db, company, follows[company.id]) for company in created],
+        skipped=skipped,
+        errors=errors,
+    )
 
 
 @router.patch("/{target_company_id}", response_model=TargetCompanyResponse)

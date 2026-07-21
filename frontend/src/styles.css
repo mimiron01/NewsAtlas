@@ -789,6 +789,8 @@ button.secondary {
 }
 .profile-popover button:hover { background: var(--bg); transform: none; }
 
+.table-scroll { overflow-x: auto; }
+
 .settings-heading { margin: 0 0 16px; }
 .settings-tabs {
   display: flex;

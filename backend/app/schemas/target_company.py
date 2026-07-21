@@ -96,3 +96,20 @@ class CompanyFollowerResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class TargetCompanyImportSkipped(BaseModel):
+    row: int
+    name: str
+    reason: str
+
+
+class TargetCompanyImportError(BaseModel):
+    row: int
+    reason: str
+
+
+class TargetCompanyImportResult(BaseModel):
+    created: list[TargetCompanyResponse]
+    skipped: list[TargetCompanyImportSkipped]
+    errors: list[TargetCompanyImportError]

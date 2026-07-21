@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import type { BackfillTriggerResult, TargetCompany, WorkspaceSettings } from "../api/types";
 import TagInput from "../components/TagInput";
+import TargetCompanyCsvImport from "../components/TargetCompanyCsvImport";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useIsAdmin } from "../hooks/useIsAdmin";
@@ -221,6 +222,8 @@ export default function SettingsTargets() {
           {t("targets.addTargetCompany")}
         </button>
       </form>
+
+      {isAdmin && <TargetCompanyCsvImport onImported={loadCompanies} />}
 
       <div className="panel-card">
         <h3>{t("targets.trackedCompanies", { count: companies.length })}</h3>

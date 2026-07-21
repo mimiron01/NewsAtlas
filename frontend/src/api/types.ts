@@ -138,6 +138,23 @@ export interface BackfillTriggerResult {
   target_company_id: string;
 }
 
+export interface TargetCompanyImportSkipped {
+  row: number;
+  name: string;
+  reason: string;
+}
+
+export interface TargetCompanyImportError {
+  row: number;
+  reason: string;
+}
+
+export interface TargetCompanyImportResult {
+  created: TargetCompany[];
+  skipped: TargetCompanyImportSkipped[];
+  errors: TargetCompanyImportError[];
+}
+
 export interface TargetCompany {
   id: string;
   name: string;
