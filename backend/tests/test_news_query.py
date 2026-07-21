@@ -1,4 +1,10 @@
-from app.services.news_query import article_mentions_company, build_or_query, is_safe_article_url
+from app.services.news_query import (
+    article_mentions_company,
+    build_google_news_query,
+    build_or_query,
+    is_safe_article_url,
+    is_valid_source_hostname,
+)
 
 
 def test_build_or_query_dedupes_and_quotes_multiword_terms():
@@ -73,3 +79,45 @@ def test_article_mentions_company_ignores_blank_keywords():
         title="Some other story", description=None, full_content=None,
         name="Acme Corp", keywords=["", "   "],
     )
+
+
+def test_build_google_news_query_falls_back_to_name_only_with_no_keywords():
+    assert build_google_news_query("Acme", []) == "Acme"
+
+
+def test_build_google_news_query_requires_name_and_any_keyword():
+    assert (
+        build_google_news_query("Acme Corp", ["acme.com", "Acme Widgets"])
+        == '"Acme Corp" AND (acme.com OR "Acme Widgets")'
+    )
+
+
+def test_build_google_news_query_adds_site_clause_when_sources_given():
+    assert (
+        build_google_news_query("Acme", ["acme.com"], ["reuters.com", "techcrunch.com"])
+        == "(Acme AND (acme.com)) (site:reuters.com OR site:techcrunch.com)"
+    )
+
+
+def test_build_google_news_query_no_sources_omits_site_clause():
+    assert build_google_news_query("Acme", ["acme.com"], []) == "Acme AND (acme.com)"
+
+
+def test_build_google_news_query_dedupes_keywords_case_insensitively():
+    assert (
+        build_google_news_query("Acme", ["Widgets", "widgets", "Widgets"])
+        == "Acme AND (Widgets)"
+    )
+
+
+def test_is_valid_source_hostname_accepts_bare_domains():
+    assert is_valid_source_hostname("reuters.com")
+    assert is_valid_source_hostname("news.example.co.uk")
+
+
+def test_is_valid_source_hostname_rejects_scheme_and_path():
+    assert not is_valid_source_hostname("https://reuters.com")
+    assert not is_valid_source_hostname("reuters.com/world")
+    assert not is_valid_source_hostname("reuters.com ")
+    assert not is_valid_source_hostname("not a domain")
+    assert not is_valid_source_hostname("justaword")

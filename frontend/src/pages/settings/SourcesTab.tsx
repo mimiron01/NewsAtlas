@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../../api/client";
 import type { ArticleSource, NewsSourceUsageStat, WorkspaceSettings } from "../../api/types";
 import Skeleton from "../../components/Skeleton";
+import TagInput from "../../components/TagInput";
 import { useToast } from "../../context/ToastContext";
 import { useLocaleFormat } from "../../hooks/useLocaleFormat";
 import { useSettingsContext } from "./SettingsLayout";
@@ -220,6 +221,15 @@ export default function SourcesTab() {
                     })
                   }
                 />
+              </label>
+              <label>
+                {t("sources.googleNewsRss.sourceAllowlist")}
+                <TagInput
+                  tags={settings.google_news_source_allowlist}
+                  onChange={(tags) => setSettings({ ...settings, google_news_source_allowlist: tags })}
+                  placeholder={t("sources.googleNewsRss.sourceAllowlistPlaceholder")}
+                />
+                <span className="field-hint">{t("sources.googleNewsRss.sourceAllowlistHint")}</span>
               </label>
             </div>
           )}

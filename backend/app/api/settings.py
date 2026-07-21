@@ -44,6 +44,7 @@ def _to_response(settings: WorkspaceSettings) -> WorkspaceSettingsResponse:
         google_news_rss_country=settings.google_news_rss_country,
         google_news_rss_language=settings.google_news_rss_language,
         google_news_rss_max_requests_per_minute=settings.google_news_rss_max_requests_per_minute,
+        google_news_source_allowlist=settings.google_news_source_allowlist,
         newsdata_enabled=settings.newsdata_enabled,
         newsdata_api_key_configured=newsdata_key_status.configured,
         newsdata_api_key_source=newsdata_key_status.source,
@@ -90,6 +91,7 @@ def update_settings(
     settings.google_news_rss_country = payload.google_news_rss_country
     settings.google_news_rss_language = payload.google_news_rss_language
     settings.google_news_rss_max_requests_per_minute = payload.google_news_rss_max_requests_per_minute
+    settings.google_news_source_allowlist = payload.google_news_source_allowlist
     settings.newsdata_enabled = payload.newsdata_enabled
     settings.newsdata_full_content_enabled = payload.newsdata_full_content_enabled
     settings.newsdata_use_native_dedupe = payload.newsdata_use_native_dedupe

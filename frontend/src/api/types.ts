@@ -54,6 +54,7 @@ export interface WorkspaceSettings {
   google_news_rss_country: string;
   google_news_rss_language: string;
   google_news_rss_max_requests_per_minute: number;
+  google_news_source_allowlist: string[];
 
   newsdata_enabled: boolean;
   newsdata_api_key_configured: boolean;
@@ -88,6 +89,7 @@ export interface WorkspaceSettingsUpdatePayload {
   google_news_rss_country: string;
   google_news_rss_language: string;
   google_news_rss_max_requests_per_minute: number;
+  google_news_source_allowlist: string[];
 
   newsdata_enabled: boolean;
   // Omit to leave the current key unchanged; "" clears the in-app override.
@@ -142,6 +144,8 @@ export interface TargetCompany {
   keywords: string[];
   industry: string | null;
   is_active: boolean;
+  google_news_source_allowlist: string[];
+  created_by: string | null;
   is_muted: boolean | null;
   follower_count: number;
   backfilled_at: string | null;

@@ -22,6 +22,7 @@ export function buildSettingsPayload(settings: WorkspaceSettings): WorkspaceSett
     google_news_rss_country: settings.google_news_rss_country,
     google_news_rss_language: settings.google_news_rss_language,
     google_news_rss_max_requests_per_minute: settings.google_news_rss_max_requests_per_minute,
+    google_news_source_allowlist: settings.google_news_source_allowlist,
     newsdata_enabled: settings.newsdata_enabled,
     newsdata_full_content_enabled: settings.newsdata_full_content_enabled,
     newsdata_use_native_dedupe: settings.newsdata_use_native_dedupe,

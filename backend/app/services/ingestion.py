@@ -404,6 +404,23 @@ def _fetch_from_source(
             full_content=workspace_settings.newsdata_full_content_enabled,
             use_native_dedupe=workspace_settings.newsdata_use_native_dedupe,
         )
+    if source == ArticleSource.GOOGLE_NEWS_RSS:
+        # Union, not override: the workspace-wide defaults always apply, and a
+        # company's own list only ever adds more trusted sources (see
+        # docs/v1-release-roadmap.html §2.3 and the "Open questions" section there).
+        sources = list(
+            dict.fromkeys(
+                [*(workspace_settings.google_news_source_allowlist or []),
+                 *(target_company.google_news_source_allowlist or [])]
+            )
+        )
+        articles = client.fetch_articles(
+            name=target_company.name,
+            keywords=target_company.keywords,
+            since=since,
+            sources=sources,
+        )
+        return articles, 1
     articles = client.fetch_articles(name=target_company.name, keywords=target_company.keywords, since=since)
     return articles, 1
 
@@ -493,6 +510,8 @@ def _process_new_articles(
                     target_company_name=target_company.name,
                     article_title=article.title,
                     article_description=_grounding_text(article),
+                    industry=target_company.industry,
+                    keywords=target_company.keywords,
                     headline_only=article.is_headline_only,
                 )
                 _log_usage(
@@ -520,6 +539,7 @@ def _process_new_articles(
                 article_title=article.title,
                 article_description=_grounding_text(article),
                 industry=target_company.industry,
+                keywords=target_company.keywords,
                 # A copy, not the live list: it's mutated below as new signals are
                 # created, and the callee must see the state as of *this* call, not
                 # whatever the list looks like by the time it's inspected later.
@@ -609,6 +629,7 @@ def promote_skipped_article(db: Session, article: Article) -> Signal:
         article_title=article.title,
         article_description=_grounding_text(article),
         industry=target_company.industry,
+        keywords=target_company.keywords,
         recent_signals=recent_signal_summaries,
         feedback_note=workspace_settings.ai_feedback_note,
         output_language=workspace_settings.main_language,

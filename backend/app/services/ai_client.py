@@ -255,6 +255,7 @@ class AIClient:
         article_title: str,
         article_description: str | None,
         industry: str | None = None,
+        keywords: list[str] | None = None,
         recent_signals: list[str] | None = None,
         feedback_note: str | None = None,
         output_language: str = "en",
@@ -271,6 +272,8 @@ class AIClient:
         ]
         if industry:
             context_lines.append(f"Target industry: {industry}")
+        if keywords:
+            context_lines.append(f"Target company keywords/context: {', '.join(keywords)}")
         context_lines.append(f"Article title: {article_title}")
         context_lines.append(
             f"Article description: {article_description or '(no description available)'}"
@@ -325,6 +328,8 @@ class AIClient:
         target_company_name: str,
         article_title: str,
         article_description: str | None,
+        industry: str | None = None,
+        keywords: list[str] | None = None,
         headline_only: bool = False,
     ) -> tuple[TriageResult, MistralUsage]:
         """Cheap pre-filter using the small model. Failures fail open (treat as relevant)
@@ -336,17 +341,20 @@ class AIClient:
         system_content = _TRIAGE_SYSTEM_PROMPT
         if headline_only:
             system_content += _TRIAGE_HEADLINE_ONLY_DIRECTIVE
+
+        context_lines = [f"Our offering: {offering_description or '(not provided)'}",
+                          f"Target company: {target_company_name}"]
+        if industry:
+            context_lines.append(f"Target industry: {industry}")
+        if keywords:
+            context_lines.append(f"Target company keywords/context: {', '.join(keywords)}")
+        context_lines.append(f"Article title: {article_title}")
+        context_lines.append(
+            f"Article description: {article_description or '(no description available)'}"
+        )
         messages = [
             {"role": "system", "content": system_content},
-            {
-                "role": "user",
-                "content": (
-                    f"Our offering: {offering_description or '(not provided)'}\n"
-                    f"Target company: {target_company_name}\n"
-                    f"Article title: {article_title}\n"
-                    f"Article description: {article_description or '(no description available)'}"
-                ),
-            },
+            {"role": "user", "content": "\n".join(context_lines)},
         ]
         try:
             content, usage = self._chat(

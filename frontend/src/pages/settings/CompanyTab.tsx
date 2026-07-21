@@ -47,6 +47,10 @@ export default function CompanyTab() {
     );
   }
 
+  const offeringWordCount = settings.offering_description.trim()
+    ? settings.offering_description.trim().split(/\s+/).length
+    : 0;
+
   return (
     <form onSubmit={handleSubmit}>
       <div className="panel-card">
@@ -64,12 +68,25 @@ export default function CompanyTab() {
 
         <label>
           {t("company.offeringDescription")}
+          <p className="field-hint">{t("company.offeringHelp.explainer")}</p>
           <textarea
             rows={8}
             value={settings.offering_description}
             onChange={(e) => setSettings({ ...settings, offering_description: e.target.value })}
             placeholder={t("company.offeringPlaceholder")}
           />
+          {offeringWordCount > 0 && offeringWordCount < 30 && (
+            <span className="field-hint">{t("company.offeringHelp.tooShort")}</span>
+          )}
+          <details>
+            <summary className="field-hint">{t("company.offeringHelp.showExample")}</summary>
+            <p className="field-hint">
+              <strong>{t("company.offeringHelp.goodExampleLabel")}</strong> {t("company.offeringHelp.goodExample")}
+            </p>
+            <p className="field-hint">
+              <strong>{t("company.offeringHelp.vagueExampleLabel")}</strong> {t("company.offeringHelp.vagueExample")}
+            </p>
+          </details>
         </label>
 
         <label>

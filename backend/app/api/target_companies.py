@@ -89,6 +89,7 @@ def create_target_company(
         keywords=payload.keywords,
         industry=payload.industry,
         created_by=current_user.id,
+        google_news_source_allowlist=payload.google_news_source_allowlist,
     )
     follow = ensure_follow(
         db, user_id=current_user.id, target_company_id=company.id, assigned_by=current_user.id
@@ -120,6 +121,14 @@ def update_target_company(
     if current_user.role != UserRole.ADMIN and follow is None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not following this company"
+        )
+    # A shared TargetCompany's identity/config fields can be edited by its creator or an
+    # admin only — other followers can still follow/mute/unfollow it, just not rewrite
+    # what everyone else sees (see docs/v1-release-roadmap.html §5, DEFERRED finding).
+    if current_user.role != UserRole.ADMIN and company.created_by != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only this company's creator or an admin can edit it",
         )
     updates = payload.model_dump(exclude_unset=True)
     for field, value in updates.items():

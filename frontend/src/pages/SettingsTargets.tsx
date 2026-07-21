@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import type { BackfillTriggerResult, TargetCompany, WorkspaceSettings } from "../api/types";
 import TagInput from "../components/TagInput";
+import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { usePageTitle } from "../hooks/usePageTitle";
@@ -12,11 +13,13 @@ export default function SettingsTargets() {
   const { t } = useTranslation("settings");
   usePageTitle(t("targets.title"));
   const { showToast } = useToast();
+  const { user } = useAuth();
   const isAdmin = useIsAdmin();
   const [companies, setCompanies] = useState<TargetCompany[]>([]);
   const [name, setName] = useState("");
   const [keywords, setKeywords] = useState<string[]>([]);
   const [industry, setIndustry] = useState("");
+  const [sourceAllowlist, setSourceAllowlist] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -25,6 +28,11 @@ export default function SettingsTargets() {
   const [editName, setEditName] = useState("");
   const [editKeywords, setEditKeywords] = useState<string[]>([]);
   const [editIndustry, setEditIndustry] = useState("");
+  const [editSourceAllowlist, setEditSourceAllowlist] = useState<string[]>([]);
+
+  function canEdit(company: TargetCompany): boolean {
+    return isAdmin || (user !== null && company.created_by === user.id);
+  }
   // Only admins can read /settings, so backfill-related UI (the "backfilling..."
   // indicator and the manual trigger button) is admin-only — a regular user has no way
   // to know whether NewsData.io backfill is configured, and asking would just 403.
@@ -55,10 +63,12 @@ export default function SettingsTargets() {
         name,
         keywords,
         industry: industry || null,
+        google_news_source_allowlist: sourceAllowlist,
       });
       setName("");
       setKeywords([]);
       setIndustry("");
+      setSourceAllowlist([]);
       showToast(t("targets.addedToast"), "success");
       if (backfillEnabled && created.backfilled_at === null) {
         setJustCreatedId(created.id);
@@ -77,6 +87,7 @@ export default function SettingsTargets() {
     setEditName(company.name);
     setEditKeywords(company.keywords);
     setEditIndustry(company.industry ?? "");
+    setEditSourceAllowlist(company.google_news_source_allowlist);
   }
 
   function cancelEdit() {
@@ -91,6 +102,7 @@ export default function SettingsTargets() {
         name: editName,
         keywords: editKeywords,
         industry: editIndustry || null,
+        google_news_source_allowlist: editSourceAllowlist,
       });
       setEditingId(null);
       showToast(t("targets.updatedToast", { name: editName }), "success");
@@ -196,6 +208,15 @@ export default function SettingsTargets() {
           />
           <span className="field-hint">{t("targets.keywordsHint")}</span>
         </label>
+        <label>
+          {t("targets.sourceAllowlist")}
+          <TagInput
+            tags={sourceAllowlist}
+            onChange={setSourceAllowlist}
+            placeholder={t("targets.sourceAllowlistPlaceholder")}
+          />
+          <span className="field-hint">{t("targets.sourceAllowlistHint")}</span>
+        </label>
         <button type="submit" disabled={isSubmitting}>
           {t("targets.addTargetCompany")}
         </button>
@@ -232,6 +253,15 @@ export default function SettingsTargets() {
                     />
                     <span className="field-hint">{t("targets.keywordsHint")}</span>
                   </label>
+                  <label>
+                    {t("targets.sourceAllowlist")}
+                    <TagInput
+                      tags={editSourceAllowlist}
+                      onChange={setEditSourceAllowlist}
+                      placeholder={t("targets.sourceAllowlistPlaceholder")}
+                    />
+                    <span className="field-hint">{t("targets.sourceAllowlistHint")}</span>
+                  </label>
                   <div className="actions">
                     <button type="submit" disabled={pendingId === company.id}>
                       {t("targets.save")}
@@ -266,13 +296,15 @@ export default function SettingsTargets() {
                       {t("targets.backfillHistory")}
                     </button>
                   )}
-                  <button
-                    type="button"
-                    disabled={pendingId === company.id}
-                    onClick={() => startEdit(company)}
-                  >
-                    {t("targets.edit")}
-                  </button>
+                  {canEdit(company) && (
+                    <button
+                      type="button"
+                      disabled={pendingId === company.id}
+                      onClick={() => startEdit(company)}
+                    >
+                      {t("targets.edit")}
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={pendingId === company.id}
@@ -280,13 +312,15 @@ export default function SettingsTargets() {
                   >
                     {company.is_muted ? t("targets.unmute") : t("targets.mute")}
                   </button>
-                  <button
-                    type="button"
-                    disabled={pendingId === company.id}
-                    onClick={() => toggleActive(company)}
-                  >
-                    {company.is_active ? t("targets.pause") : t("targets.resume")}
-                  </button>
+                  {canEdit(company) && (
+                    <button
+                      type="button"
+                      disabled={pendingId === company.id}
+                      onClick={() => toggleActive(company)}
+                    >
+                      {company.is_active ? t("targets.pause") : t("targets.resume")}
+                    </button>
+                  )}
                   {confirmingId === company.id ? (
                     <>
                       <button

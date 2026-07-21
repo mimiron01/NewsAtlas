@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, func
+from sqlalchemy import ARRAY, Boolean, DateTime, Float, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -69,6 +69,12 @@ class WorkspaceSettings(Base, UUIDPrimaryKeyMixin):
     # ceiling to avoid being rate-limited/blocked, not a mapping to a real plan tier.
     google_news_rss_max_requests_per_minute: Mapped[int] = mapped_column(
         Integer, nullable=False, default=20
+    )
+    # Workspace-wide default trusted domains for Google News RSS, unioned with each
+    # target company's own google_news_source_allowlist (see TargetCompany) — a
+    # company's list only ever adds sources, never removes these defaults.
+    google_news_source_allowlist: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, default=list
     )
 
     newsdata_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

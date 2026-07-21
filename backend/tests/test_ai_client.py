@@ -225,13 +225,38 @@ def test_summarize_article_includes_industry_and_context_in_prompt(monkeypatch):
         article_title="Acme raises funding",
         article_description="Acme raised $10M",
         industry="Manufacturing",
+        keywords=["Tier 1 supplier", "EV battery"],
         recent_signals=["Acme hired a new VP of Sales last month."],
         feedback_note="Deprioritize: layoffs",
     )
     user_content = captured_messages[0][1]["content"]
     assert "Manufacturing" in user_content
+    assert "Tier 1 supplier" in user_content
+    assert "EV battery" in user_content
     assert "Acme hired a new VP of Sales" in user_content
     assert "Deprioritize: layoffs" in user_content
+
+
+def test_summarize_article_omits_keywords_line_when_not_provided(monkeypatch):
+    import json
+
+    client = _client()
+    captured_messages = []
+
+    def fake_chat(model, messages, **kw):
+        captured_messages.append(messages)
+        return json.dumps(_full_response()), _usage()
+
+    monkeypatch.setattr(client, "_chat", fake_chat)
+    client.summarize_article(
+        company_name="ProAir",
+        offering_description="HVAC services",
+        target_company_name="Acme",
+        article_title="Acme raises funding",
+        article_description="Acme raised $10M",
+    )
+    user_content = captured_messages[0][1]["content"]
+    assert "keywords/context" not in user_content
 
 
 def test_triage_article_relevant(monkeypatch):
@@ -297,6 +322,55 @@ def test_triage_article_uses_small_model(monkeypatch):
     )
     assert captured["model"] == "mistral-small-latest"
     assert captured["max_tokens"] is not None and captured["max_tokens"] <= 100
+
+
+def test_triage_article_includes_industry_and_keywords_in_prompt(monkeypatch):
+    import json
+
+    client = _client()
+    captured_messages = []
+
+    def fake_chat(model, messages, **kw):
+        captured_messages.append(messages)
+        return json.dumps({"relevant": True, "reason": "ok"}), _usage()
+
+    monkeypatch.setattr(client, "_chat", fake_chat)
+    client.triage_article(
+        company_name="ProAir",
+        offering_description="HVAC services",
+        target_company_name="Acme",
+        article_title="Acme raises funding",
+        article_description="Acme raised $10M",
+        industry="Manufacturing",
+        keywords=["Tier 1 supplier", "EV battery"],
+    )
+    user_content = captured_messages[0][1]["content"]
+    assert "Manufacturing" in user_content
+    assert "Tier 1 supplier" in user_content
+    assert "EV battery" in user_content
+
+
+def test_triage_article_omits_industry_and_keywords_when_not_provided(monkeypatch):
+    import json
+
+    client = _client()
+    captured_messages = []
+
+    def fake_chat(model, messages, **kw):
+        captured_messages.append(messages)
+        return json.dumps({"relevant": True, "reason": "ok"}), _usage()
+
+    monkeypatch.setattr(client, "_chat", fake_chat)
+    client.triage_article(
+        company_name="ProAir",
+        offering_description="HVAC services",
+        target_company_name="Acme",
+        article_title="Acme raises funding",
+        article_description="Acme raised $10M",
+    )
+    user_content = captured_messages[0][1]["content"]
+    assert "Target industry" not in user_content
+    assert "keywords/context" not in user_content
 
 
 def test_embed_texts_requires_api_key():

@@ -1,7 +1,9 @@
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.services.news_query import is_valid_source_hostname
 
 
 class WorkspaceSettingsResponse(BaseModel):
@@ -34,6 +36,9 @@ class WorkspaceSettingsResponse(BaseModel):
     google_news_rss_country: str
     google_news_rss_language: str
     google_news_rss_max_requests_per_minute: int
+    # Workspace-wide default trusted domains for Google News RSS (see TargetCompany's
+    # own per-company list, which unions with this rather than overriding it).
+    google_news_source_allowlist: list[str]
 
     newsdata_enabled: bool
     newsdata_api_key_configured: bool
@@ -75,6 +80,7 @@ class WorkspaceSettingsUpdate(BaseModel):
     google_news_rss_country: str = Field(min_length=2, max_length=8)
     google_news_rss_language: str = Field(min_length=2, max_length=8)
     google_news_rss_max_requests_per_minute: int = Field(ge=1, le=1000)
+    google_news_source_allowlist: list[str] = Field(default_factory=list, max_length=50)
 
     newsdata_enabled: bool = False
     # Same set/clear/leave-unchanged convention as mistral_api_key.
@@ -84,3 +90,14 @@ class WorkspaceSettingsUpdate(BaseModel):
     newsdata_backfill_days: int = Field(ge=0, le=1825)
     newsdata_max_requests_per_day: int = Field(ge=1, le=100_000)
     newsdata_max_requests_per_minute: int = Field(ge=1, le=1000)
+
+    @field_validator("google_news_source_allowlist")
+    @classmethod
+    def _validate_source_allowlist(cls, value: list[str]) -> list[str]:
+        cleaned = [domain.strip().lower() for domain in value]
+        for domain in cleaned:
+            if not is_valid_source_hostname(domain):
+                raise ValueError(
+                    f"{domain!r} is not a valid bare hostname (no scheme, no path)"
+                )
+        return cleaned

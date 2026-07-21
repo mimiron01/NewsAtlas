@@ -23,6 +23,15 @@
     "companyName": "Company name",
     "offeringDescription": "Offering description",
     "offeringPlaceholder": "Describe what your company sells, who it's for, and the problems it solves...",
+    "offeringHelp": {
+      "explainer": "This text is sent to the AI on every incoming article to score relevance and draft outreach copy. Describe what you sell, who buys it, and what problem it solves, in plain language — not marketing copy.",
+      "tooShort": "This is quite short — adding more detail (what you sell, who buys it, what problem it solves) improves how accurately the AI can judge relevance.",
+      "showExample": "Show example",
+      "goodExampleLabel": "Good example:",
+      "goodExample": "We sell a cloud-based fleet maintenance platform for mid-size trucking companies (50-500 vehicles). It predicts mechanical failures before they happen using telematics data, so fleets avoid costly roadside breakdowns and unplanned downtime. Our buyers are fleet managers and operations directors who are currently relying on manual inspection schedules or paper logs. We differentiate on our low sensor-install cost and same-day setup.",
+      "vagueExampleLabel": "Too vague:",
+      "vagueExample": "We offer innovative software solutions that help businesses grow and succeed in today's competitive market."
+    },
     "mainLanguage": "Main language",
     "mainLanguageHint": "The standard language for the interface and AI-generated signal summaries. Users can still override it for themselves in their own profile.",
     "ingestionInterval": "Ingestion interval (hours)",
@@ -39,6 +48,9 @@
     "keywords": "Keywords / aliases",
     "keywordsPlaceholder": "Type a keyword and press Enter",
     "keywordsHint": "Prefer specific names/domains over generic single words or abbreviations — an overly broad keyword can pull in unrelated articles that don't actually mention this company.",
+    "sourceAllowlist": "Trusted sources for this company (optional)",
+    "sourceAllowlistPlaceholder": "Type a domain (e.g. techcrunch.com) and press Enter",
+    "sourceAllowlistHint": "Adds to (never replaces) the workspace-wide trusted-source list for Google News RSS.",
     "addTargetCompany": "Add target company",
     "trackedCompanies": "Tracked companies ({{count}})",
     "noCompaniesYet": "No target companies yet.",
@@ -91,7 +103,10 @@
     "googleNewsRss": {
       "hint": "Free, keyless public feed. Google publishes no official quota for it, so the limit below is a self-imposed politeness ceiling, not a real plan tier.",
       "country": "Country",
-      "language": "Language"
+      "language": "Language",
+      "sourceAllowlist": "Trusted sources (workspace default)",
+      "sourceAllowlistPlaceholder": "Type a domain (e.g. reuters.com) and press Enter",
+      "sourceAllowlistHint": "Optional. When set, Google News RSS results for every company are restricted to these domains, plus any domains a company adds for itself. Leave empty to search all of Google News."
     },
     "newsdata": {
       "hint": "Paid API — leans on full-article-content grounding, native duplicate removal, native sentiment/tags, and a one-time historical backfill when a company is added.",

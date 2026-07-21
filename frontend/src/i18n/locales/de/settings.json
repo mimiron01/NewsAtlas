@@ -23,6 +23,15 @@
     "companyName": "Firmenname",
     "offeringDescription": "Angebotsbeschreibung",
     "offeringPlaceholder": "Beschreiben Sie, was Ihr Unternehmen verkauft, für wen und welche Probleme es löst...",
+    "offeringHelp": {
+      "explainer": "Dieser Text wird der KI bei jedem eingehenden Artikel übergeben, um die Relevanz zu bewerten und Kontaktvorschläge zu entwerfen. Beschreiben Sie in einfacher Sprache — nicht als Marketingtext —, was Sie verkaufen, wer es kauft und welches Problem es löst.",
+      "tooShort": "Das ist recht kurz — mehr Details (was Sie verkaufen, wer es kauft, welches Problem es löst) verbessern, wie genau die KI die Relevanz einschätzen kann.",
+      "showExample": "Beispiel anzeigen",
+      "goodExampleLabel": "Gutes Beispiel:",
+      "goodExample": "Wir verkaufen eine cloudbasierte Flottenwartungsplattform für mittelgroße Speditionen (50-500 Fahrzeuge). Sie sagt mechanische Ausfälle voraus, bevor sie auftreten, basierend auf Telematikdaten, damit Flotten teure Pannen und ungeplante Ausfallzeiten vermeiden. Unsere Käufer sind Flottenmanager und Betriebsleiter, die derzeit auf manuelle Inspektionspläne oder Papierprotokolle angewiesen sind. Wir differenzieren uns durch niedrige Sensor-Installationskosten und Einrichtung am selben Tag.",
+      "vagueExampleLabel": "Zu vage:",
+      "vagueExample": "Wir bieten innovative Softwarelösungen, die Unternehmen helfen, in der heutigen wettbewerbsintensiven Welt zu wachsen und erfolgreich zu sein."
+    },
     "mainLanguage": "Hauptsprache",
     "mainLanguageHint": "Die Standardsprache für die Oberfläche und die von der KI erstellten Signalzusammenfassungen. Benutzer können sie in ihrem eigenen Profil weiterhin überschreiben.",
     "ingestionInterval": "Abrufintervall (Stunden)",
@@ -39,6 +48,9 @@
     "keywords": "Schlüsselwörter / Aliasse",
     "keywordsPlaceholder": "Schlüsselwort eingeben und Enter drücken",
     "keywordsHint": "Bevorzugen Sie spezifische Namen/Domains statt generischer Einzelwörter oder Abkürzungen — ein zu allgemeines Schlüsselwort kann unpassende Artikel einbeziehen, die dieses Unternehmen gar nicht erwähnen.",
+    "sourceAllowlist": "Vertrauenswürdige Quellen für dieses Unternehmen (optional)",
+    "sourceAllowlistPlaceholder": "Domain eingeben (z. B. techcrunch.com) und Enter drücken",
+    "sourceAllowlistHint": "Ergänzt die workspace-weite Liste vertrauenswürdiger Quellen für Google News RSS, ersetzt sie nicht.",
     "addTargetCompany": "Zielunternehmen hinzufügen",
     "trackedCompanies": "Verfolgte Unternehmen ({{count}})",
     "noCompaniesYet": "Noch keine Zielunternehmen.",
@@ -91,7 +103,10 @@
     "googleNewsRss": {
       "hint": "Kostenloser Feed ohne API-Schlüssel. Google veröffentlicht kein offizielles Kontingent dafür, daher ist das Limit unten eine selbst auferlegte Höflichkeitsgrenze und keine echte Plan-Stufe.",
       "country": "Land",
-      "language": "Sprache"
+      "language": "Sprache",
+      "sourceAllowlist": "Vertrauenswürdige Quellen (Workspace-Standard)",
+      "sourceAllowlistPlaceholder": "Domain eingeben (z. B. reuters.com) und Enter drücken",
+      "sourceAllowlistHint": "Optional. Wenn gesetzt, werden Google-News-RSS-Ergebnisse für jedes Unternehmen auf diese Domains beschränkt, zuzüglich der Domains, die ein Unternehmen selbst hinzufügt. Leer lassen, um ganz Google News zu durchsuchen."
     },
     "newsdata": {
       "hint": "Kostenpflichtige API — nutzt vollständige Artikelinhalte als Grundlage, native Duplikaterkennung, native Stimmungs-/Tag-Analyse und einen einmaligen historischen Nachlade-Vorgang beim Hinzufügen eines Unternehmens.",

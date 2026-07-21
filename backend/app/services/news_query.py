@@ -2,6 +2,22 @@
 NewsDataClient) so the query-building and URL-safety logic lives in exactly one place
 instead of being copied per provider.
 """
+import re
+
+_HOSTNAME_RE = re.compile(
+    r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$"
+)
+
+
+def is_valid_source_hostname(value: str) -> bool:
+    """True only for a bare domain (e.g. "nytimes.com") — no scheme, no path, no
+    whitespace. Callers are expected to strip() before calling (as the settings/
+    target-company schema validators do); this function itself is strict so a
+    trailing space can't silently slip through. These values are spliced directly
+    into a Google News RSS query string (site:{domain}) rather than fetched, so this
+    guards query integrity, not SSRF — but malformed input shouldn't be allowed to
+    break the constructed URL."""
+    return bool(_HOSTNAME_RE.match(value))
 
 
 def build_or_query(name: str, keywords: list[str]) -> str:
@@ -20,6 +36,41 @@ def build_or_query(name: str, keywords: list[str]) -> str:
         seen.add(term.lower())
         quoted_terms.append(f'"{term}"' if " " in term else term)
     return " OR ".join(quoted_terms)
+
+
+def _quote_terms(terms: list[str]) -> list[str]:
+    seen: set[str] = set()
+    quoted: list[str] = []
+    for term in terms:
+        term = term.strip()
+        if not term or term.lower() in seen:
+            continue
+        seen.add(term.lower())
+        quoted.append(f'"{term}"' if " " in term else term)
+    return quoted
+
+
+def build_google_news_query(name: str, keywords: list[str], sources: list[str] | None = None) -> str:
+    """Builds a Google-News-RSS-specific query: requires the company name AND at least
+    one keyword (falling back to just the name when there are no keywords, so a
+    bare-name company is never made unsearchable), optionally further restricted to a
+    set of trusted domains via Google's site: operator.
+
+    Deliberately separate from build_or_query() above, which stays a flat OR-join for
+    NewsAPI.org/NewsData.io — those providers weren't part of the complaint that
+    motivated this tighter query and have their own relevance ranking (see
+    docs/v1-release-roadmap.html §2.3).
+    """
+    name = name.strip()
+    base = f'"{name}"' if " " in name else name
+    terms = _quote_terms(keywords)
+    if terms:
+        base = f"{base} AND ({' OR '.join(terms)})"
+    if sources:
+        site_clause = " OR ".join(f"site:{domain.strip()}" for domain in sources if domain.strip())
+        if site_clause:
+            base = f"({base}) ({site_clause})"
+    return base
 
 
 def is_safe_article_url(url: str | None) -> bool:

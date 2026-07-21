@@ -60,18 +60,22 @@ class FakeAIClient:
         return vectors, USAGE
 
     def triage_article(self, *, company_name, offering_description, target_company_name,
-                        article_title, article_description, headline_only=False):
+                        article_title, article_description, industry=None, keywords=None,
+                        headline_only=False):
         self.triage_calls.append(article_title)
+        self.last_triage_industry = industry
+        self.last_triage_keywords = keywords
         relevant = article_title not in self.not_relevant_titles
         return TriageResult(relevant=relevant, reason="test"), USAGE
 
     def summarize_article(self, *, company_name, offering_description, target_company_name,
-                           article_title, article_description, industry=None,
+                           article_title, article_description, industry=None, keywords=None,
                            recent_signals=None, feedback_note=None, output_language="en",
                            headline_only=False):
         self.summarize_calls.append(article_title)
         self.last_recent_signals = recent_signals
         self.last_industry = industry
+        self.last_keywords = keywords
         self.last_feedback_note = feedback_note
         self.last_article_description = article_description
         self.last_output_language = output_language

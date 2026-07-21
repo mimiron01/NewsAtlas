@@ -17,7 +17,7 @@ class FakeGoogleClient:
         self.error_for = error_for or set()
         self.calls: list[str] = []
 
-    def fetch_articles(self, *, name, keywords, since):
+    def fetch_articles(self, *, name, keywords, since, sources=None):
         self.calls.append(name)
         if name in self.error_for:
             raise NewsClientError("google news boom")

@@ -85,3 +85,28 @@ def test_fetch_articles_filters_entries_older_than_since(monkeypatch):
 
     articles = client.fetch_articles(name="Acme", keywords=[], since=now - timedelta(days=1))
     assert [a.title for a in articles] == ["Recent"]
+
+
+def test_fetch_articles_includes_site_restriction_in_query_url(monkeypatch):
+    client = GoogleNewsRSSClient(country="US", language="en")
+    now = datetime.now(timezone.utc)
+
+    class EmptyFeed:
+        bozo = False
+        entries: list = []
+
+        def get(self, key, default=None):
+            return getattr(self, key, default)
+
+    captured = {}
+
+    def fake_parse(url):
+        captured["url"] = url
+        return EmptyFeed()
+
+    monkeypatch.setattr("app.services.google_news_rss_client.feedparser.parse", fake_parse)
+
+    client.fetch_articles(
+        name="Acme", keywords=[], since=now - timedelta(days=1), sources=["reuters.com"]
+    )
+    assert "site%3Areuters.com" in captured["url"]
