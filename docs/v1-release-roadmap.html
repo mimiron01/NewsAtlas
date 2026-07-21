@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NewsAtlas — v1 Release Roadmap</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6270;
+    --accent: #2757c7;
+    --accent-bg: #eef2fc;
+    --border: #e2e5ea;
+    --code-bg: #f5f6f8;
+    --ok: #1a7f4e;
+    --warn: #a15c00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.1rem; margin-top: 28px; color: var(--fg); }
+  h4 { font-size: 1rem; margin-top: 20px; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  .meta {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 12px 0 32px;
+    padding: 12px 16px;
+    background: var(--accent-bg);
+    border-radius: 8px;
+  }
+  .meta strong { color: var(--fg); }
+  nav.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin: 24px 0 40px;
+  }
+  nav.toc h2 { margin-top: 0; border: none; font-size: 1.05rem; padding-bottom: 4px; }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.92rem; }
+  nav.toc a:hover { text-decoration: underline; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--code-bg); font-weight: 600; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+  .decision {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-bg);
+    padding: 10px 16px;
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .decision strong { color: var(--accent); }
+  .gap {
+    border-left: 4px solid #b23b3b;
+    background: #fdecec;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .gap strong { color: #b23b3b; }
+  .ok-box {
+    border-left: 4px solid var(--ok);
+    background: #eaf7f0;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .ok-box strong { color: var(--ok); }
+  .phase {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px 20px 16px;
+    margin: 24px 0;
+  }
+  .phase > h3:first-child { margin-top: 16px; display: flex; align-items: center; gap: 10px; }
+  .phase-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 20px;
+  }
+  .item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 18px 14px;
+    margin: 18px 0;
+    background: #fbfbfc;
+  }
+  .item h4 { display: flex; align-items: center; gap: 8px; }
+  .assumption {
+    border-left: 4px solid var(--warn);
+    background: #fdf4e3;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+  ul.checklist { list-style: none; padding-left: 4px; }
+  ul.checklist li::before { content: "☐ "; color: var(--muted); }
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    margin-left: 6px;
+  }
+  .status-table td:first-child { white-space: nowrap; font-weight: 600; }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --fg: #e7e9ee; --muted: #9aa2b1; --accent: #7fa5ff;
+      --accent-bg: #1c2436; --border: #2b3040; --code-bg: #1b1e26; --ok: #4fd190; --warn: #e0a94a;
+    }
+    .gap { background: #3a1f1f; }
+    .ok-box { background: #17301f; }
+    .item { background: #171a21; }
+    .assumption { background: #33290f; }
+  }
+</style>
+</head>
+<body>
+
+<h1>NewsAtlas — v1 Release Roadmap</h1>
+<p class="subtitle">Planning document — six requested items scoped, phased, and specified for a future Claude Code implementation session</p>
+
+<div class="meta">
+  <div><strong>Status:</strong> Planning (2026-07-20). No code has been written for this doc yet — it is the output of a planning conversation, not an implementation.</div>
+  <div><strong>Builds on:</strong>
+    <a href="security-review.html">security-review.html</a> (prior security audit, all 17 findings remediated 2026-07-03),
+    <a href="news-source-expansion-planning.html">news-source-expansion-planning.html</a> (Google News RSS provider),
+    <a href="dashboard-favorites-todos-planning.html">dashboard-favorites-todos-planning.html</a> (dashboard/count-query conventions),
+    <a href="ingestion-reliability-planning.html">ingestion-reliability-planning.html</a> (grounding/attribution rules this doc's Google News changes must not break)
+  </div>
+  <div><strong>Doc purpose:</strong> Turn six German-language backlog bullets — plus the stated v1 goals of "iron out all bugs" and "fully secure the application" — into concrete, code-grounded specs, phased by risk/dependency, with every open decision either resolved in the planning conversation (recorded as a <span class="tag">decision</span>) or explicitly flagged as <span class="tag">deferred</span> for the implementing session.</div>
+</div>
+
+<p>
+  Every section below was checked against the current codebase before being scoped — not just against the one-line backlog bullet. Where something was assumed to be a gap and turned out to already exist (or partially exist), that's called out explicitly so implementation doesn't redo working code.
+</p>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#goals">1. Goals &amp; how to read this document</a></li>
+    <li><a href="#phase1">2. Phase 1 — Quick wins</a>
+      <ol>
+        <li><a href="#p1-1">2.1 AI uses target-company industry &amp; keywords</a></li>
+        <li><a href="#p1-2">2.2 Unternehmensprofil — guidance over new fields</a></li>
+        <li><a href="#p1-3">2.3 Google News RSS query tightening &amp; source allowlists</a></li>
+        <li><a href="#p1-4">2.4 Faster access to skipped/dismissed signals</a></li>
+      </ol>
+    </li>
+    <li><a href="#phase2">3. Phase 2 — CSV import of target companies (Salesforce)</a></li>
+    <li><a href="#phase3">4. Phase 3 — Theme/topic search ("Automotive", "Series B")</a></li>
+    <li><a href="#phase4">5. Phase 4 — Security hardening &amp; stabilization (release gate)</a></li>
+    <li><a href="#data-model">6. Cross-cutting data model summary</a></li>
+    <li><a href="#open">7. Open questions deferred to implementation</a></li>
+    <li><a href="#checklist">8. v1 release checklist</a></li>
+  </ol>
+</nav>
+
+<h2 id="goals">1. Goals &amp; how to read this document</h2>
+<p>
+  v1 has three goals: ship the six requested features, fix known bugs, and make the application safe to hand to real end users.
+  Items are grouped into four phases by risk and dependency, not by the order they were listed in the original request:
+</p>
+<ul>
+  <li><strong>Phase 1</strong> — small, additive changes to existing tables/prompts/UI. No new concepts, no migrations beyond a couple of nullable columns.</li>
+  <li><strong>Phase 2</strong> — one new bulk-input surface (CSV import) built entirely on the existing <code>TargetCompany</code> model.</li>
+  <li><strong>Phase 3</strong> — the one genuinely new concept in this release (theme/topic search). Biggest, riskiest, and the only item that changes the app's mental model, so it's sequenced last and should get its own detailed planning doc (in this same <code>docs/*-planning.html</code> style) before implementation starts.</li>
+  <li><strong>Phase 4</strong> — the release gate. Security and stabilization aren't "a phase you do last instead of skip" — they gate whether v1 ships at all, regardless of which feature phases are done.</li>
+</ul>
+<div class="decision"><strong>Decision:</strong> phases are sequential for planning/estimation purposes, but Phase 4's security items can and should start in parallel with Phase 1 — nothing about hardening the app depends on the new features existing first.</div>
+
+<h2 id="phase1">2. Phase 1 — Quick wins</h2>
+
+<div class="phase">
+<h3><span class="phase-badge">Phase 1</span> Foundations</h3>
+
+<div class="item" id="p1-1">
+<h4>2.1 AI uses target-company industry &amp; keywords <span class="tag">backend only</span></h4>
+<p><strong>Original ask:</strong> "Nutzen von Branche und ggf. Schlüsselwörtern auch für die AI nutzen" — industry and keywords should feed the AI, not just ingestion.</p>
+
+<div class="ok-box"><strong>Partially done already:</strong> <code>AIClient.summarize_article()</code> (<code>backend/app/services/ai_client.py:249</code>) already accepts an <code>industry</code> parameter and includes a <code>Target industry: …</code> line in the prompt when set, and <code>ingestion.py:522</code> already passes <code>industry=target_company.industry</code> on the full-summarization call. Do not re-implement this — extend it.</div>
+
+<div class="gap"><strong>Actual gaps:</strong>
+<ul>
+  <li><code>AIClient.triage_article()</code> (<code>ai_client.py:320</code>) — the cheap first-pass relevance filter that runs <em>before</em> summarization and decides whether an article is worth analyzing at all — takes no <code>industry</code> or <code>keywords</code> parameter whatsoever. It only ever sees <code>offering_description</code> + target company name + article. This is the more consequential gap: articles get triaged out (see §2.4) using strictly less context than the model that would otherwise judge them.</li>
+  <li><code>keywords</code> is never passed to <em>either</em> AI call. It is only ever used in <code>news_query.build_or_query()</code> to build the ingestion search query (<code>ingestion.py:287</code>, <code>:402</code>). A company's keyword list (e.g. "Tier 1 supplier", "EV battery", "manufacturing") encodes exactly the kind of context that should inform relevance scoring, and today it's discarded once the article is fetched.</li>
+</ul>
+</div>
+
+<p><strong>Change:</strong></p>
+<pre><code># ai_client.py — triage_article() gains the same two params summarize_article() has
+def triage_article(
+    self, *, company_name, offering_description, target_company_name,
+    article_title, article_description,
+    industry: str | None = None,
+    keywords: list[str] | None = None,
+    headline_only: bool = False,
+) -> tuple[TriageResult, MistralUsage]:
+    ...
+    context_lines = [f"Our offering: {offering_description or '(not provided)'}",
+                      f"Target company: {target_company_name}"]
+    if industry:
+        context_lines.append(f"Target industry: {industry}")
+    if keywords:
+        context_lines.append(f"Target company keywords/context: {', '.join(keywords)}")
+    context_lines += [f"Article title: {article_title}", f"Article description: {article_description or '(no description available)'}"]
+
+# summarize_article() — add the missing keywords param next to the existing industry one
+def summarize_article(..., industry: str | None = None, keywords: list[str] | None = None, ...):
+    ...
+    if keywords:
+        context_lines.append(f"Target company keywords/context: {', '.join(keywords)}")</code></pre>
+<p>Update both call sites in <code>ingestion.py</code> (the triage call at <code>:490</code> and both <code>summarize_article</code> calls at <code>:516</code> and <code>:605</code>) to pass <code>keywords=target_company.keywords</code>, and the triage call to also pass <code>industry=target_company.industry</code>.</p>
+
+<p><strong>No schema changes</strong> — <code>industry</code> and <code>keywords</code> already exist on <code>TargetCompany</code>.</p>
+<p><strong>Acceptance criteria:</strong> both the triage and summarization prompts include industry/keywords whenever the target company has them set; existing <code>ai_client</code> unit tests updated to assert the new context lines; a company with no industry/keywords produces byte-identical prompts to today (no regression for the common case of a sparsely-configured company).</p>
+</div>
+
+<div class="item" id="p1-2">
+<h4>2.2 Unternehmensprofil (offering description) — guidance over new fields <span class="tag">frontend + i18n</span></h4>
+<p><strong>Original ask:</strong> "mehr Filter wenn möglich bzw. genauer darstellen, was darin enthalten sein muss und wie es verwendet wird" — more filters if possible, or failing that, make clearer what must be in it and how it's used.</p>
+
+<div class="decision"><strong>Decision (this conversation):</strong> keep the single free-text <code>offering_description</code> field — do not split it into structured sub-fields for v1. Instead: (a) make the "how it's used" and "what belongs in it" explicit in the UI, and (b) satisfy the "more filters" half of the ask via §2.1 (industry/keywords now reach the AI) and Phase 3 (theme search) rather than new structured profile fields. This is a scope decision worth keeping visible — don't let a later session quietly re-open "should this be structured fields" without checking here first.</div>
+
+<p><strong>Current state:</strong> <code>CompanyTab.tsx</code> (<code>frontend/src/pages/settings/CompanyTab.tsx:65-73</code>) renders one <code>&lt;textarea&gt;</code> with only a translated placeholder — no explanation of what the text is for, no examples, no quality signal.</p>
+
+<p><strong>Change (UI/copy only, no backend changes):</strong></p>
+<ul>
+  <li>Add an explainer directly above the textarea: this text is sent to the AI on every incoming article to score relevance and draft outreach copy — it should describe what you sell, who buys it, and what problem it solves, in plain language (not marketing copy).</li>
+  <li>Add a collapsible "Show example" block with one good example (~4-6 sentences: product, buyer, problem solved, differentiator) and one clearly-too-vague counterexample, so users can self-calibrate.</li>
+  <li>Add a soft word-count nudge under the textarea (not a hard validation error) — e.g. below ~30 words, show a hint that more detail improves signal accuracy.</li>
+</ul>
+<p><strong>Acceptance criteria:</strong> new <code>company.offeringHelp.*</code> i18n keys added to <code>en/settings.json</code> and <code>de/settings.json</code>; no change to <code>WorkspaceSettings</code> schema or the <code>/settings</code> API contract.</p>
+</div>
+
+<div class="item" id="p1-3">
+<h4>2.3 Google News RSS query tightening &amp; source allowlists <span class="tag">backend + frontend + migration</span></h4>
+<p><strong>Original ask:</strong> the vague final bullet ("Spezifizierung bzw. Verbesserung") was clarified in this conversation to mean: improve the Google News RSS search query for better results, optionally restricted to specific sources.</p>
+
+<div class="gap"><strong>Current state:</strong> <code>news_query.build_or_query()</code> (<code>backend/app/services/news_query.py:7</code>) builds a flat <code>name OR kw1 OR kw2 OR …</code> query, shared by <em>all three</em> providers (NewsAPI.org via <code>news_client.py</code>, Google News RSS via <code>google_news_rss_client.py</code>, NewsData.io via <code>newsdata_client.py</code>). A generic keyword can match on its own without the company name appearing anywhere in the article. There is also no way to restrict Google News RSS to a set of trusted domains — Google's RSS search supports a <code>site:</code> operator, but nothing in the codebase constructs one.</p>
+
+<div class="decision"><strong>Decisions (this conversation):</strong>
+<ul>
+  <li>Scope the query-logic change to <strong>Google News RSS only</strong> — introduce a new, separate query builder rather than changing <code>build_or_query()</code>, which stays untouched for NewsAPI.org/NewsData.io (out of scope; those providers weren't part of the complaint and have their own relevance ranking).</li>
+  <li>New logic: require the company name AND at least one keyword — <code>name AND (kw1 OR kw2 OR …)</code> — falling back to just <code>name</code> when a company has no keywords, so this never makes a bare-name company unsearchable.</li>
+  <li>Source allowlists exist at <strong>both levels</strong>: a workspace-wide default list of trusted domains, and a per-target-company list that adds to it.</li>
+</ul>
+</div>
+
+<p><strong>Change:</strong></p>
+<pre><code># news_query.py — new builder, additive; build_or_query() is untouched
+def build_google_news_query(name: str, keywords: list[str], sources: list[str]) -> str:
+    terms = _dedupe_quote([kw for kw in keywords])  # existing quoting logic, extracted/reused
+    base = f'"{name}"' if " " in name else name
+    if terms:
+        base = f"{base} AND ({' OR '.join(terms)})"
+    if sources:
+        site_clause = " OR ".join(f"site:{domain}" for domain in sources)
+        base = f"({base}) ({site_clause})"
+    return base</code></pre>
+<p><code>GoogleNewsRSSClient.fetch_articles()</code> (<code>google_news_rss_client.py:30</code>) switches from <code>build_or_query(name, keywords)</code> to this new builder, and gains a <code>sources: list[str]</code> parameter. The effective source list passed in from <code>ingestion.py</code> is <code>target_company.google_news_source_allowlist or []</code> unioned with <code>workspace_settings.google_news_source_allowlist or []</code> (union, i.e. "extend" — see deferred decision below on override vs. extend semantics).</p>
+
+<p><strong>Schema changes:</strong></p>
+<table>
+<tr><th>Table</th><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td><code>workspace_settings</code></td><td><code>google_news_source_allowlist</code></td><td><code>ARRAY(String)</code>, default <code>[]</code></td><td>Workspace-wide default domains, same pattern as existing <code>google_news_rss_country</code>/<code>_language</code>.</td></tr>
+<tr><td><code>target_companies</code></td><td><code>google_news_source_allowlist</code></td><td><code>ARRAY(String)</code>, nullable, default <code>[]</code></td><td>Per-company additions.</td></tr>
+</table>
+<p><strong>API/UI:</strong> new field on the settings PUT payload + a new tag-input in a "News Sources" area of <code>CompanyTab.tsx</code> (or its own settings tab); reuse <code>TagInput</code> (already used for company keywords in <code>SettingsTargets.tsx:192</code>) for both the workspace-level and per-company lists, with basic domain-format validation (reject anything that isn't a bare hostname — no scheme, no path — since it's spliced directly into a query string, not fetched).</p>
+<p><strong>Acceptance criteria:</strong> Alembic migration for the two columns; unit tests for <code>build_google_news_query</code> covering no-keywords, no-sources, and both-present cases; existing NewsAPI.org/NewsData.io tests unaffected (they still call <code>build_or_query</code>).</p>
+</div>
+
+<div class="item" id="p1-4">
+<h4>2.4 Faster access to skipped/dismissed signals <span class="tag">backend + frontend</span></h4>
+<p><strong>Original ask:</strong> "Möglichkeit einbauen schneller an übersprungene Signale zu kommen."</p>
+
+<div class="gap"><strong>Current state — this is actually two separate "skipped" systems today, both buried:</strong>
+<ul>
+  <li><strong>Triaged-out articles</strong> (never became a <code>Signal</code> at all): <code>Article.skip_reason</code> (<code>backend/app/models/article.py:61</code>) set to <code>"triaged_out"</code> by the AI triage step. Surfaced only via <code>GET /articles/skipped?reason=triaged_out</code>, rendered in <code>ReviewTab.tsx</code>, which lives under <strong>Settings</strong> — not the primary navbar (<code>ProtectedLayout.tsx</code> only links Dashboard/Signals/Targets). A user has to know this tab exists.</li>
+  <li><strong>Dismissed signals</strong> (a real <code>Signal</code> the user explicitly set to <code>SignalStatus.DISMISSED</code> via <code>SignalDetail.tsx:50</code>'s <code>updateStatus()</code>): reachable only through the generic status filter dropdown in <code>SignalsFeed.tsx:20</code> — one option among four, no dedicated view, no count shown anywhere.</li>
+</ul>
+Neither system has an undo affordance at the moment of action — <code>ToastContext.tsx</code> only supports a plain auto-dismissing message (<code>message</code> + <code>variant</code>, no action button) — so reverting a skip means navigating back through filters/tabs after the fact, which is exactly the friction this item is about.
+</div>
+
+<p><strong>Change:</strong></p>
+<ul>
+  <li><strong>Visibility:</strong> extend the existing dashboard counts endpoint (<code>backend/app/api/dashboard.py:24</code>, which already computes <code>new_signal_count</code>/<code>favorite_count</code>/<code>open_todo_count</code> via simple <code>.count()</code> queries) with <code>dismissed_signal_count</code> and <code>skipped_article_count</code>, using the same query pattern. Surface both as a dashboard card ("N skipped — review them") linking to a consolidated view, rather than inventing new top-level nav real estate for what's a secondary workflow.</li>
+  <li><strong>Consolidated view:</strong> a single page/tab showing both lists together (reusing the existing <code>/articles/skipped?reason=triaged_out</code> and <code>/signals?status=dismissed</code> endpoints — no new list endpoints needed), so "where did my skipped stuff go" has one answer instead of two.</li>
+  <li><strong>Undo:</strong> extend <code>ToastContext</code>'s <code>Toast</code> type with an optional <code>action: { label: string; onClick: () => void }</code>, rendered as a button inside the toast, and extend its auto-dismiss timeout when an action is present (e.g. 6-8s instead of 3s). Wire it into both dismiss points: <code>SignalDetail.updateStatus("dismissed")</code> shows "Signal dismissed — [Undo]" that calls <code>updateStatus(previousStatus)</code>; <code>ReviewTab.handlePromote</code>'s inverse (a "skip" action doesn't currently exist as a distinct UI action beyond triage itself, so this mainly applies to the signal-dismiss path).</li>
+</ul>
+<p><strong>Acceptance criteria:</strong> dashboard response schema gains the two new counts (with tests); a consolidated skipped view reachable in ≤2 clicks from the dashboard; dismissing a signal shows an undo toast that correctly reverts status.</p>
+</div>
+
+</div>
+
+<h2 id="phase2">3. Phase 2 — CSV import of target companies (Salesforce)</h2>
+<div class="phase">
+<h3><span class="phase-badge">Phase 2</span> Bulk import</h3>
+<p><strong>Original ask:</strong> "Import von zu suchenden Unternehmen via csv von Salesforce."</p>
+
+<div class="gap"><strong>Current state:</strong> no CSV/bulk-import capability exists anywhere in the codebase. Target companies are created one at a time via <code>POST /target-companies</code>, driven by the form in <code>SettingsTargets.tsx:50</code>.</div>
+
+<div class="decision"><strong>Decisions (this conversation):</strong>
+<ul>
+  <li>On a name collision with an existing target company, <strong>skip</strong> that row (don't create, don't merge, don't fail the whole batch) and report a per-row skipped count/reason in the response.</li>
+  <li>Expected scale is small — under ~100 rows per import — so this is a <strong>synchronous</strong> request/response, no background job or progress bar needed for v1.</li>
+</ul>
+</div>
+
+<p><strong>Column mapping:</strong> Salesforce Account list exports commonly include <code>Account Name</code>, <code>Industry</code>, and free-text fields that don't map cleanly to <code>keywords</code>. Rather than hard-coding Salesforce's exact default column names (which vary by org/report config), the importer should:</p>
+<ul>
+  <li>Require a <code>name</code> column (case-insensitive match against common headers: <code>Account Name</code>, <code>Company</code>, <code>Name</code>).</li>
+  <li>Optionally map an <code>Industry</code>/<code>industry</code> column to <code>TargetCompany.industry</code>.</li>
+  <li>Have no first-class keyword column from Salesforce (it doesn't have an equivalent concept) — leave <code>keywords</code> empty on import; users add them manually afterward, same as today's single-add form already requires.</li>
+  <li>Show a column-mapping preview step before committing (parse headers, let the admin confirm/adjust which CSV column maps to <code>name</code> / <code>industry</code>, rather than assuming fixed header names) — this is the one part of the flow that has to tolerate real-world export variance.</li>
+</ul>
+
+<p><strong>API:</strong> new endpoint, admin-only (matches the existing admin-gating pattern on <code>target_companies.py</code> create/delete):</p>
+<pre><code>POST /target-companies/import  (multipart/form-data, file field "csv")
+→ 200 { created: [TargetCompany...], skipped: [{row: int, name: str, reason: "duplicate"}...],
+        errors: [{row: int, reason: str}...] }</code></pre>
+<p>Reuse the existing <code>TargetCompanyCreate</code> validation (name required, keywords array, industry optional) per row rather than inventing a parallel schema. Enforce a request body size cap (ties into the Phase 4 hardening item on request size limits) and a hard row-count ceiling (e.g. 500) so an oversized file can't be used to mass-create companies and blow through news-provider rate limits on the next ingestion run.</p>
+
+<p><strong>Frontend:</strong> new "Import CSV" button/flow on <code>SettingsTargets.tsx</code> — file picker → column-mapping preview → submit → result summary (N created, N skipped as duplicates, N errored) using the existing toast pattern.</p>
+
+<p><strong>Acceptance criteria:</strong> importing a file with a mix of new/duplicate/malformed rows creates only the valid new ones, reports the rest accurately, and never partially commits a row (each row either fully succeeds or is reported, no half-created companies); CSV parsing rejects non-CSV content types and oversized files before parsing.</p>
+</div>
+
+<h2 id="phase3">4. Phase 3 — Theme/topic search ("Automotive", "Startup Series B")</h2>
+<div class="phase">
+<h3><span class="phase-badge">Phase 3</span> New concept — plan in detail before building</h3>
+<p><strong>Original ask:</strong> "Ermöglichen von Suche nach Begriffen wie 'Automotive', 'Startup Series B' etc. anstatt nur spezifische Firmensuche."</p>
+
+<div class="assumption"><strong>Scope flag:</strong> this is the one item in the roadmap that doesn't fit the existing data model at all, and it's sized differently from everything else here — it deserves its own <code>docs/theme-search-planning.html</code> with the same level of code-grounded detail as this section's siblings, written right before implementation starts (so it reflects whatever Phase 1/2 changes have landed by then). What follows is the scope and shape, not a full spec.</p>
+</div>
+
+<div class="decision"><strong>Decision (this conversation):</strong> theme search is a <strong>new parallel concept</strong>, not a fuzzier version of company keyword matching. A "Theme Watch" (e.g. "Automotive", "Startup Series B") is its own trackable thing, independent of any single named company, producing its own feed of matching articles/signals — with an optional promote-to-Target-Company flow for companies discovered inside a theme's results.</div>
+
+<p><strong>Why this doesn't fit today's model:</strong> every ingestion path (<code>ingestion.py</code>, all three provider clients) is anchored to exactly one <code>TargetCompany</code> row per fetch, and <code>article_mentions_company()</code> (<code>news_query.py:32</code>) grounds every article back to that one company's name/keywords before a <code>Signal</code> can be attributed to it (see <code>ingestion-reliability-planning.html §5</code>). A theme like "Automotive" has no single name to ground against — it's a topic, and the "target" of a resulting signal is whatever company the article turns out to be about, not known in advance.</p>
+
+<p><strong>Shape of the solution (for the follow-up planning doc to detail):</strong></p>
+<ul>
+  <li><strong>New model:</strong> <code>ThemeWatch</code> (name, query terms, optional industry/source-allowlist reusing the §2.3 pattern, owner/follow scoping mirroring <code>TargetCompany</code>/<code>CompanyFollow</code>).</li>
+  <li><strong>Ingestion:</strong> a theme-scoped fetch that queries providers on the theme's terms alone (no name-anchoring), and — critically — needs its own grounding/relevance step, since <code>article_mentions_company</code>'s single-name check doesn't apply. This likely means every theme-matched article needs an AI extraction pass to identify *which* company (if any) it's actually about, before it can become an attributable signal.</li>
+  <li><strong>Feed:</strong> a theme results view parallel to <code>SignalsFeed.tsx</code>, showing raw/AI-summarized theme matches rather than per-company signals.</li>
+  <li><strong>Promotion:</strong> reuse the exact "promote" pattern already built for triaged-out articles in <code>ReviewTab.tsx:27</code> (<code>handlePromote</code> → <code>POST /articles/{id}/create-signal</code>) — a theme match that names a real company gets a "Track this company" action that creates a <code>TargetCompany</code> from the extracted name.</li>
+  <li><strong>AI cost:</strong> theme queries are inherently broader than a named company's keyword list, so expect meaningfully higher triage/summarization volume per theme than per company — the follow-up doc should size this against <code>max_articles_per_company_per_run</code>'s existing per-company cap (<code>workspace_settings.py:23</code>) and propose an equivalent per-theme cap.</li>
+</ul>
+
+<p><strong>Acceptance criteria (for this roadmap doc, not the feature):</strong> a dedicated planning doc exists, reviewed and approved, before any theme-search code is written — this section is scope-setting, not an implementation spec.</p>
+</div>
+
+<h2 id="phase4">5. Phase 4 — Security hardening &amp; stabilization (release gate)</h2>
+<div class="phase">
+<h3><span class="phase-badge">Phase 4</span> What actually gates v1</h3>
+
+<div class="ok-box"><strong>Already done:</strong> <a href="security-review.html">security-review.html</a> found and remediated 17 issues (TLS, exposed Postgres, open signup, JWT defaults, rate limiting, container hardening, URL-scheme validation, password policy, etc.) as of 2026-07-03. A 2026-07-21 spot-check confirmed these are still true and one item improved further: <code>config.py</code> still refuses to boot in production on a default/short <code>JWT_SECRET</code> or missing invite code; <code>/auth/login</code> (10/min) and <code>/auth/signup</code> (5/hour) still carry rate limits; <code>is_safe_article_url</code>'s scheme guard is applied uniformly across all three news clients; and the review's own L2 finding ("aging <code>python-jose</code>/<code>passlib</code>") is now fully resolved — the backend has since migrated to <code>pyjwt==2.13.0</code>/<code>bcrypt==5.0.0</code>.</div>
+
+<h4>Deeper audit (2026-07-21) — authorization, injection, secrets, dependencies</h4>
+<p>The 2026-07-03 review was scoped to infrastructure/transport/basic-auth. This pass targeted everything it didn't touch: per-endpoint authorization (IDOR), injection surfaces, secrets handling end-to-end (not just at rest), and dependency currency, across both backend and frontend. Ranked by severity:</p>
+
+<table>
+<tr><th>Sev.</th><th>Finding</th><th>Fix</th></tr>
+<tr><td><span class="tag" style="background:#fdecec;border-color:#b23b3b;color:#b23b3b;">HIGH</span></td>
+    <td><strong>Missing admin check on the AI usage endpoint.</strong> <code>backend/app/api/ai_usage.py:26</code> (<code>get_usage_summary</code>) depends only on <code>get_current_user</code>, not <code>require_admin</code> — unlike the sibling <code>backend/app/api/news_usage.py:15</code>, which correctly requires admin. Any authenticated non-admin user can call <code>GET /ai-usage/summary</code> directly (bypassing the frontend's <code>&lt;RequireAdmin&gt;</code> guard in <code>App.tsx:34</code>, which is client-side only) and read workspace-wide Mistral token/cost data broken down by <em>every</em> target company — including companies that user doesn't even follow, since the query has no follow-scoping at all.</td>
+    <td>Add <code>Depends(require_admin)</code> to <code>get_usage_summary</code>, matching <code>news_usage.py</code>'s existing pattern.</td>
+</tr>
+<tr><td><span class="tag" style="background:#fdf4e3;border-color:#a15c00;color:#a15c00;">MEDIUM</span></td>
+    <td><strong>Unbounded <code>keywords</code>/<code>industry</code> length.</strong> <code>backend/app/schemas/target_company.py:9,15</code> — <code>keywords: list[str]</code> has no max item count or per-item <code>max_length</code> (same for <code>industry</code>). Any user can submit a huge array of huge strings on a shared <code>TargetCompany</code>; it's persisted verbatim and then feeds every future ingestion query (<code>build_or_query</code>) and every AI prompt for that company — a cost/DB-bloat vector, not just a cosmetic one, and it compounds with §2.1's plan to also feed keywords into the AI triage prompt.</td>
+    <td>Add a reasonable per-item <code>max_length</code> and a max array size (e.g. 20 keywords × 100 chars) to <code>TargetCompanyCreate</code>/<code>Update</code>.</td>
+</tr>
+<tr><td><span class="tag" style="background:#fdf4e3;border-color:#a15c00;color:#a15c00;">MEDIUM/LOW</span></td>
+    <td><strong>No rate limit on the AI-forcing "promote" endpoint.</strong> <code>backend/app/api/articles.py:59-81</code> (<code>create_signal_from_skipped_article</code>, used by <code>ReviewTab.tsx</code>'s promote button — see §2.4) is admin-gated but has no <code>@limiter.limit</code> or cooldown, unlike <code>/ingestion/run-now</code> and <code>/digest/send-now</code> (both rate-limited <em>and</em> backed by a workspace cooldown via <code>enforce_manual_trigger_cooldown</code>). Its own docstring notes it forces a full, paid Mistral summarization call — nothing stops looping it over the entire skipped-articles queue.</td>
+    <td>Apply the same <code>@limiter.limit</code> + cooldown pattern already used on the other two manual-trigger endpoints.</td>
+</tr>
+<tr><td><span class="tag">LOW</span></td>
+    <td><strong>CSP header still missing.</strong> <code>Caddyfile:17-24</code> adds HSTS/X-Content-Type-Options/X-Frame-Options/Referrer-Policy/Permissions-Policy, but the prior review's L1 finding explicitly named CSP and marked it "Fixed" — no <code>Content-Security-Policy</code> header actually exists. Low urgency today since no injection path exists (confirmed below), but it's a defense-in-depth gap and a documentation inaccuracy worth closing together.</td>
+    <td>Add e.g. <code>Content-Security-Policy: default-src 'self'</code> to the Caddyfile.</td>
+</tr>
+<tr><td><span class="tag">LOW</span></td>
+    <td><strong>No extra container hardening flags.</strong> <code>docker-compose.yml</code> has no <code>security_opt: [no-new-privileges:true]</code>, <code>read_only: true</code>, or <code>cap_drop</code> on any service. The prior review's non-root-user fix is in place; these are incremental, not a live gap.</td>
+    <td>Optional hardening, not release-blocking.</td>
+</tr>
+<tr><td><span class="tag">DEFERRED</span></td>
+    <td><strong>Any follower can rewrite a shared <code>TargetCompany</code>.</strong> <code>backend/app/api/target_companies.py:111-129</code> (<code>update_target_company</code>) lets any follower — not just the creator or an admin — change <code>name</code>/<code>keywords</code>/<code>industry</code>/<code>is_active</code> on a company shared by other followers. Might be intentional shared-resource design (matches the existing "unfollow vs. delete" distinction already in <code>SettingsTargets.tsx</code>'s confirm-copy logic) rather than a bug — needs a product-intent call, not a code fix by default.</td>
+    <td>Confirm intended behavior before deciding whether to restrict edits to creator/admin.</td>
+</tr>
+</table>
+
+<div class="ok-box"><strong>Checked and confirmed clean</strong> — no action needed, but recorded so a future pass doesn't re-check these from scratch:
+<ul>
+  <li>Every other endpoint in <code>signals.py</code>, <code>signal_todos.py</code>, <code>dashboard.py</code>, <code>admin.py</code>, <code>settings.py</code>, <code>ingestion.py</code>, <code>digest.py</code> correctly uses <code>scope_to_follows</code>/<code>accessible_signal_row</code>/<code>get_accessible_signal</code> or <code>require_admin</code> as appropriate.</li>
+  <li>No raw-SQL/string-formatted query construction anywhere in the backend — the ORM is used consistently. No log statement anywhere logs a JWT, request body, or the Mistral/NewsData API keys.</li>
+  <li><code>GET /settings</code> is admin-gated <em>and</em> the response schema (<code>schemas/settings.py</code>) only ever returns <code>*_configured</code>/<code>*_source</code>/<code>*_last4</code> for the two secret fields — the raw key never round-trips to any browser. This confirms the plaintext-at-rest gap below is a DB-access-only exposure, not also an API-level one.</li>
+  <li>CORS is configured with explicit origins (not wildcard) alongside credentials — correct combination.</li>
+  <li>No XSS path in the frontend: no <code>dangerouslySetInnerHTML</code>/<code>innerHTML</code>/markdown renderer anywhere; AI-generated signal text and article titles are all plain JSX interpolation, which React escapes by default.</li>
+  <li>Both <code>target="_blank"</code> links in the whole frontend (article links in <code>SignalDetail.tsx:186</code> and <code>ReviewTab.tsx:63</code>) already carry <code>rel="noreferrer"</code> — no reverse-tabnabbing gap.</li>
+  <li>No sensitive data in client-side storage beyond the already-known/accepted JWT; the only other <code>localStorage</code> use is a non-sensitive theme preference.</li>
+  <li>No committed secrets anywhere in git history — only <code>.env.example</code> was ever committed, never a real <code>.env</code>.</li>
+  <li>Dependencies are current-generation on both sides: backend on <code>pyjwt</code>/<code>bcrypt</code> (see above); frontend on React 18.3, Vite 5.4, React Router 6.26, TypeScript 5.5 — nothing abandoned or notably outdated.</li>
+</ul>
+</div>
+
+<div class="gap"><strong>Still open — plaintext secrets at rest:</strong> <code>WorkspaceSettings.mistral_api_key</code> and <code>.newsdata_api_key</code> (<code>backend/app/models/workspace_settings.py:51,77</code>) are stored as plaintext <code>Text</code> columns in Postgres — readable by anything with DB access (a backup, a support person running a query, a future read-only reporting integration), even though the API layer correctly never exposes them (see above).</div>
+<p><strong>Change:</strong> encrypt these two columns at rest (application-level encryption with a key from the environment — e.g. Fernet via a new <code>APP_SECRET_KEY</code> env var, encrypt on write in <code>api/settings.py</code>, decrypt on read where the key is actually used in <code>ai_client</code>/<code>newsdata_client</code> construction) rather than plaintext. Never log the decrypted value; the existing "empty string = fall back to env var" convention stays unchanged, just applied to the decrypted value.</p>
+
+<h4>New attack surface introduced by this roadmap's own features</h4>
+<p>Every new user-facing input surface added above needs the same scrutiny the existing ones got in the prior review:</p>
+<ul>
+  <li><strong>CSV import (Phase 2):</strong> file size cap, row-count cap, and content-type validation before parsing (already specified in §3); CSV values are never evaluated as formulas by this app, but if an exported/re-downloaded report ever opens in Excel/Sheets, values starting with <code>=</code>/<code>+</code>/<code>-</code>/<code>@</code> are a classic CSV-injection vector for whoever opens that export later — sanitize (prefix with a leading <code>'</code> or reject) on the way in, not just on the way out.</li>
+  <li><strong>Source allowlist domains (§2.3):</strong> validate as bare hostnames only (already specified) — these get spliced into a query string, not fetched directly by the server, so this is a query-integrity concern rather than SSRF, but malformed input shouldn't be allowed to break the constructed URL.</li>
+  <li><strong>Theme search (Phase 3):</strong> a new endpoint that triggers external provider calls on user-supplied free text — needs the same per-workspace rate-limit enforcement <code>news_rate_limiter.py</code> already applies to company ingestion, sized for however many active theme watches exist, not just companies.</li>
+</ul>
+
+<h4>Stabilization</h4>
+<ul>
+  <li>Carry over the one known-and-left-open bug from <code>dashboard-favorites-todos-planning.html</code>: <code>.signal-row-actions</code> action buttons overlapping the title on narrow screens — flagged there as needing "its own redesign decision," which v1 is exactly the right point to make.</li>
+  <li>Run <code>pip-audit</code>/<code>npm audit</code> (or equivalent) once before tagging v1 to catch anything newly disclosed — the prior review's L2 finding (aging <code>python-jose</code>/<code>passlib</code>) is already resolved (migrated to <code>pyjwt</code>/<code>bcrypt</code>), this is just a final currency check, not new remediation work.</li>
+  <li>General regression pass across ingestion, digest email delivery, and auth flows after Phases 1-3 land — not a fixed list of bugs, but a scheduled QA pass before tagging v1.</li>
+</ul>
+<p><strong>Acceptance criteria:</strong> <code>ai_usage.py</code>'s <code>require_admin</code> gap closed and covered by a regression test (a non-admin request must 403); <code>keywords</code>/<code>industry</code> length caps added to the target-company schemas; <code>create_signal_from_skipped_article</code> rate-limited to match the other manual-trigger endpoints; CSP header added to the Caddyfile; the shared-<code>TargetCompany</code>-edit question resolved with the user (fix or explicitly accept as intended); secrets-at-rest fix shipped with a migration for existing plaintext values (re-encrypt in place); dependency audit run with zero known-critical/high CVEs outstanding; the carried-over mobile layout bug either fixed or explicitly re-deferred with a reason; new endpoints from Phases 2-3 covered by the same rate-limiting/size-cap conventions as existing ones.</p>
+</div>
+</div>
+
+<h2 id="data-model">6. Cross-cutting data model summary</h2>
+<table>
+<tr><th>Table</th><th>New/changed column</th><th>Phase</th></tr>
+<tr><td><code>workspace_settings</code></td><td><code>google_news_source_allowlist ARRAY(String)</code></td><td>1 (§2.3)</td></tr>
+<tr><td><code>target_companies</code></td><td><code>google_news_source_allowlist ARRAY(String)</code></td><td>1 (§2.3)</td></tr>
+<tr><td><code>workspace_settings</code></td><td><code>mistral_api_key</code> / <code>newsdata_api_key</code> — encrypt existing columns in place</td><td>4</td></tr>
+<tr><td><em>(new table)</em></td><td><code>theme_watches</code> — name, query terms, owner/follow scoping, optional source allowlist</td><td>3 (scope only — detailed in follow-up doc)</td></tr>
+</table>
+<p>Everything in Phase 1 items 2.1 and 2.4, and all of Phase 2, is additive against existing tables/endpoints with no new tables required.</p>
+
+<h2 id="open">7. Open questions deferred to implementation</h2>
+<ul>
+  <li><strong>§2.3 allowlist semantics:</strong> "workspace default + per-company additions" was decided as the shape, but override-vs-union needs a final call at implementation time. This doc's working assumption is <em>union</em> (workspace defaults always apply; a company's list only adds more sources, never removes the workspace defaults) since that's the simpler mental model — flag if a full per-company override is actually wanted instead.</li>
+  <li><strong>§3 CSV column detection:</strong> the exact header-matching heuristic (case-insensitive fuzzy match against a known-header list vs. a strict user-driven mapping step every time) should be finalized against a real sample Salesforce export if one becomes available before implementation.</li>
+  <li><strong>§4 theme search:</strong> everything here is intentionally left open pending its own planning doc — see the scope flag in that section.</li>
+  <li><strong>§5 encryption key management:</strong> whether <code>APP_SECRET_KEY</code> is a new required env var (breaking existing deployments without it set) or generated-with-a-startup-warning-if-missing follows whatever convention <code>security-review.html</code>'s H1 fix (refusing to boot on default <code>JWT_SECRET</code>) already established — check that fix before designing this one so both follow the same pattern.</li>
+</ul>
+
+<h2 id="checklist">8. v1 release checklist</h2>
+<ul class="checklist">
+  <li>2.1 — Industry + keywords reach both triage and summarization prompts</li>
+  <li>2.2 — Offering-description guidance/examples shipped</li>
+  <li>2.3 — Google News RSS query tightened; workspace + per-company source allowlists shipped</li>
+  <li>2.4 — Consolidated skipped/dismissed view + undo toast shipped</li>
+  <li>3 — CSV import (Salesforce) shipped, admin-only, duplicate-skip behavior verified</li>
+  <li>4 — Theme-search planning doc written and reviewed; feature scoped for post-v1 or v1 depending on capacity</li>
+  <li>5 — <code>ai_usage.py</code> admin-check gap closed (HIGH)</li>
+  <li>5 — Target-company keyword/industry length caps added (MEDIUM)</li>
+  <li>5 — Rate limit added to <code>create_signal_from_skipped_article</code> (MEDIUM/LOW)</li>
+  <li>5 — CSP header added to Caddyfile (LOW)</li>
+  <li>5 — Shared-<code>TargetCompany</code>-edit product question resolved</li>
+  <li>5 — Mistral/NewsData API keys encrypted at rest</li>
+  <li>5 — New endpoints (CSV import, theme search) covered by size caps + rate limiting</li>
+  <li>5 — Dependency audit clean; known mobile layout bug resolved or explicitly re-deferred</li>
+  <li>5 — Full regression pass (ingestion, digest, auth) after all phases land</li>
+</ul>
+
+<footer>
+  NewsAtlas — v1 release roadmap, planned 2026-07-20. Six backlog items scoped against the codebase as of commit <code>2d9fa53</code> (branch <code>claude/v1-roadmap-planning-cwoq8b</code>), phased by risk, with decisions made in the planning conversation recorded inline rather than left implicit. Phase 3 (theme search) intentionally stops at scope-setting — implement Phases 1, 2, and 4 directly from this doc; write a dedicated planning doc for Phase 3 before starting it.
+</footer>
+
+</body>
+</html>
