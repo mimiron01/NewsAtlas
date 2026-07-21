@@ -209,6 +209,12 @@ export default function Dashboard() {
           <strong>{summary.open_todo_count}</strong>
           <span>{t("stats.openTodos")}</span>
         </a>
+        {summary.dismissed_signal_count + summary.skipped_article_count > 0 && (
+          <Link to="/skipped" className="dashboard-stat">
+            <strong>{summary.dismissed_signal_count + summary.skipped_article_count}</strong>
+            <span>{t("stats.skipped")}</span>
+          </Link>
+        )}
       </div>
 
       {showChecklist && (

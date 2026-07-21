@@ -206,9 +206,16 @@ export default function SignalsFeed() {
   }
 
   async function transitionSignal(id: string, status: SignalStatus) {
+    const previousStatus = signals.find((s) => s.id === id)?.status;
     try {
       const updated = await api.patch<Signal>(`/signals/${id}`, { status });
       setSignals((prev) => prev.map((s) => (s.id === id ? updated : s)));
+      if (status === "dismissed" && previousStatus) {
+        showToast(t("dismissedToast"), "success", {
+          label: t("undo"),
+          onClick: () => transitionSignal(id, previousStatus),
+        });
+      }
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : t("feed.signalUpdateFailed"), "error");
     }
@@ -366,7 +373,7 @@ export default function SignalsFeed() {
           {showHighSkipRateWarning && (
             <p className="field-hint error-text">
               {t("feed.ingestion.highSkipRateWarning", { percent: Math.round(triageSkipRate * 100) })}{" "}
-              <Link to="/settings/review">{t("feed.ingestion.reviewSkippedArticles")}</Link>
+              <Link to="/skipped">{t("feed.ingestion.reviewSkippedArticles")}</Link>
             </p>
           )}
           {Object.keys(ingestionStatus.by_source).length > 0 && (

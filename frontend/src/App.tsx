@@ -8,7 +8,6 @@ import Login from "./pages/Login";
 import AITab from "./pages/settings/AITab";
 import CompanyTab from "./pages/settings/CompanyTab";
 import LogsTab from "./pages/settings/LogsTab";
-import ReviewTab from "./pages/settings/ReviewTab";
 import SettingsLayout from "./pages/settings/SettingsLayout";
 import SourcesTab from "./pages/settings/SourcesTab";
 import UsageTab from "./pages/settings/UsageTab";
@@ -16,6 +15,7 @@ import UsersTab from "./pages/settings/UsersTab";
 import SettingsTargets from "./pages/SettingsTargets";
 import SignalDetail from "./pages/SignalDetail";
 import SignalsFeed from "./pages/SignalsFeed";
+import SkippedFeed from "./pages/SkippedFeed";
 
 export default function App() {
   const { user, isLoading } = useAuth();
@@ -30,6 +30,7 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/signals" element={<SignalsFeed />} />
         <Route path="/signals/:signalId" element={<SignalDetail />} />
+        <Route path="/skipped" element={<SkippedFeed />} />
         <Route path="/settings/targets" element={<SettingsTargets />} />
         <Route element={<RequireAdmin />}>
           <Route path="/settings" element={<SettingsLayout />}>
@@ -37,7 +38,6 @@ export default function App() {
             <Route path="company" element={<CompanyTab />} />
             <Route path="sources" element={<SourcesTab />} />
             <Route path="ai" element={<AITab />} />
-            <Route path="review" element={<ReviewTab />} />
             <Route path="usage" element={<UsageTab />} />
             <Route path="users" element={<UsersTab />} />
             <Route path="logs" element={<LogsTab />} />
@@ -45,6 +45,7 @@ export default function App() {
           {/* Old paths, kept working for existing bookmarks/history */}
           <Route path="/settings/profile" element={<Navigate to="/settings/company" replace />} />
           <Route path="/settings/ai-usage" element={<Navigate to="/settings/usage" replace />} />
+          <Route path="/settings/review" element={<Navigate to="/skipped" replace />} />
           <Route path="/admin/users" element={<Navigate to="/settings/users" replace />} />
         </Route>
       </Route>

@@ -224,6 +224,9 @@ export interface DashboardSummary {
   recent_favorites: Signal[];
   open_todo_count: number;
   open_todos: SignalTodoWithContext[];
+  dismissed_signal_count: number;
+  // Always 0 for non-admins — the underlying skipped-articles queue is admin-only.
+  skipped_article_count: number;
 }
 
 export type IngestionRunStatusValue = "running" | "completed" | "failed" | "cancelled";

@@ -4,7 +4,8 @@
   "stats": {
     "newSignals": "New signals",
     "favorites": "Favorites",
-    "openTodos": "Open todos"
+    "openTodos": "Open todos",
+    "skipped": "Skipped — review them"
   },
   "topSignals": "Top signals",
   "viewAllSignals": "View all signals →",

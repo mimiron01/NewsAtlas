@@ -8,7 +8,7 @@ from app.models.signal import Signal, SignalStatus
 from app.models.signal_favorite import SignalFavorite
 from app.models.signal_todo import SignalTodo
 from app.models.target_company import TargetCompany
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.dashboard import DashboardSummary
 from app.schemas.signal_todo import SignalTodoWithContext
 from app.services.signal_queries import base_signal_query, scope_to_follows, signal_row_to_response
@@ -38,6 +38,19 @@ def get_dashboard(
     top_signals = [signal_row_to_response(*row) for row in top_rows]
 
     new_signal_count = followed_query.filter(Signal.status == SignalStatus.NEW).count()
+
+    # Two separate "skipped" systems (see docs/v1-release-roadmap.html §2.4), surfaced
+    # here so "where did my skipped stuff go" has one visible answer instead of being
+    # buried in a filter dropdown / an admin-only settings tab a user has to know exists.
+    dismissed_signal_count = followed_query.filter(Signal.status == SignalStatus.DISMISSED).count()
+    # Triaged-out articles never became a Signal, so they can't be follow-scoped the same
+    # way — and the list endpoint that shows them (/articles/skipped) is admin-only, so a
+    # non-admin gets 0 rather than a count for a queue they have no way to open.
+    skipped_article_count = (
+        db.query(Article).filter(Article.skip_reason == "triaged_out").count()
+        if current_user.role == UserRole.ADMIN
+        else 0
+    )
 
     favorite_count = (
         db.query(SignalFavorite).filter(SignalFavorite.user_id == current_user.id).count()
@@ -92,4 +105,6 @@ def get_dashboard(
         recent_favorites=recent_favorites,
         open_todo_count=open_todo_count,
         open_todos=open_todos,
+        dismissed_signal_count=dismissed_signal_count,
+        skipped_article_count=skipped_article_count,
     )
