@@ -15,7 +15,13 @@ def _signup(client, email="admin@proair.com"):
     return {"Authorization": f"Bearer {token}"}
 
 
-def _make_skipped_article(db_session, *, skip_reason="triaged_out", triage_reason="not a buying trigger") -> Article:
+def _make_skipped_article(
+    db_session,
+    *,
+    skip_reason="triaged_out",
+    triage_reason="not a buying trigger",
+    url="https://example.com/acme-softball",
+) -> Article:
     target_company = TargetCompany(name="Acme Corp", keywords=[])
     db_session.add(target_company)
     db_session.commit()
@@ -25,7 +31,7 @@ def _make_skipped_article(db_session, *, skip_reason="triaged_out", triage_reaso
         target_company_id=target_company.id,
         source_name="Reuters",
         title="Acme's softball team wins local league",
-        url="https://example.com/acme-softball",
+        url=url,
         description="desc",
         published_at=datetime.now(timezone.utc),
         skip_reason=skip_reason,
@@ -120,3 +126,33 @@ def test_create_signal_from_skipped_article_404_for_unknown_article(client, db_s
         "/articles/00000000-0000-0000-0000-000000000000/create-signal", headers=admin_headers
     )
     assert resp.status_code == 404
+
+
+def test_create_signal_from_skipped_article_enforces_cooldown(client, db_session, monkeypatch):
+    admin_headers = _signup(client, email="admin@proair.com")
+    article_one = _make_skipped_article(db_session)
+    article_two = _make_skipped_article(db_session, url="https://example.com/acme-softball-2")
+
+    def fake_promote(db, promoted_article):
+        signal = Signal(
+            article_id=promoted_article.id,
+            summary="Promoted summary",
+            business_relevance="Promoted relevance",
+            outreach_snippet_email="Promoted outreach",
+        )
+        db.add(signal)
+        promoted_article.skip_reason = None
+        db.commit()
+        db.refresh(signal)
+        return signal
+
+    monkeypatch.setattr("app.api.articles.promote_skipped_article", fake_promote)
+
+    first = client.post(f"/articles/{article_one.id}/create-signal", headers=admin_headers)
+    assert first.status_code == 201
+
+    # A second promote within the cooldown window is rejected, even for a different
+    # article — the cooldown is global (see enforce_manual_trigger_cooldown), guarding
+    # against looping this over the entire skipped-articles queue.
+    second = client.post(f"/articles/{article_two.id}/create-signal", headers=admin_headers)
+    assert second.status_code == 429

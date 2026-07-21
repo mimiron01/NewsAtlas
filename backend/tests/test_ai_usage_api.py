@@ -81,3 +81,12 @@ def test_usage_summary_aggregates_by_call_type_and_company(client, db_session):
 def test_usage_summary_requires_auth(client):
     resp = client.get("/ai-usage/summary")
     assert resp.status_code == 401
+
+
+def test_usage_summary_is_admin_only(client):
+    # The first signup in a fresh workspace is auto-promoted to admin, so a non-admin
+    # requires a second signup.
+    _auth_headers(client, email="admin@proair.com")
+    user_headers = _auth_headers(client, email="rep@proair.com")
+    resp = client.get("/ai-usage/summary", headers=user_headers)
+    assert resp.status_code == 403

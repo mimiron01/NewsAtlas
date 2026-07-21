@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import require_admin
 from app.db.session import get_db
 from app.models.ai_usage_log import AIUsageLog
 from app.models.target_company import TargetCompany
@@ -26,7 +26,7 @@ def _usage_sum_columns():
 def get_usage_summary(
     days: int = Query(default=30, ge=1, le=365),
     db: Session = Depends(get_db),
-    _current_user: User = Depends(get_current_user),
+    _current_admin: User = Depends(require_admin),
 ) -> AIUsageSummary:
     since = datetime.now(timezone.utc) - timedelta(days=days)
 

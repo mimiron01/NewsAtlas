@@ -1,9 +1,11 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_admin
+from app.core.config import get_settings
+from app.core.limiter import limiter
 from app.db.session import get_db
 from app.models.article import Article
 from app.models.target_company import TargetCompany
@@ -13,6 +15,10 @@ from app.schemas.signal import SignalResponse
 from app.services.ai_client import AIClientError
 from app.services.ingestion import ArticleNotEligibleError, promote_skipped_article
 from app.services.signal_queries import signal_row_to_response
+from app.services.workspace_settings import (
+    enforce_manual_trigger_cooldown,
+    get_or_create_workspace_settings,
+)
 
 router = APIRouter(prefix="/articles", tags=["articles"])
 
@@ -61,13 +67,25 @@ def list_skipped_articles(
     response_model=SignalResponse,
     status_code=status.HTTP_201_CREATED,
 )
+@limiter.limit("10/hour")
 def create_signal_from_skipped_article(
+    request: Request,
     article_id: uuid.UUID,
     db: Session = Depends(get_db),
     _current_admin: User = Depends(require_admin),
 ) -> SignalResponse:
     """Manual override for an article the triage pre-filter marked irrelevant: forces the
-    full summarization call that filter would otherwise have skipped."""
+    full summarization call that filter would otherwise have skipped. Rate-limited and
+    cooldown-gated the same way as the other manual-trigger endpoints (/ingestion/run-now,
+    /digest/send-now) since each call forces a full, paid Mistral summarization call —
+    without this, an admin could loop it over the entire skipped-articles queue."""
+    workspace_settings = get_or_create_workspace_settings(db)
+    enforce_manual_trigger_cooldown(
+        db,
+        workspace_settings,
+        "last_manual_signal_promotion_at",
+        get_settings().manual_trigger_cooldown_seconds,
+    )
     article = db.get(Article, article_id)
     if article is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Article not found")

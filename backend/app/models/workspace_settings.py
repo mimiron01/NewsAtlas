@@ -33,6 +33,13 @@ class WorkspaceSettings(Base, UUIDPrimaryKeyMixin):
     last_manual_digest_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # Same cooldown pattern for the "create signal anyway" override on a triaged-out
+    # article (see api/articles.py) — that endpoint forces a full, paid Mistral
+    # summarization call per click, so it needs the same anti-looping guard as the
+    # other two manual triggers above.
+    last_manual_signal_promotion_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     # Short, rule-based steering note derived from dismissed-signal patterns (no LLM call
     # involved in computing it — see services/feedback.py) and injected into future
     # summarization prompts to bias away from categories users keep dismissing.
