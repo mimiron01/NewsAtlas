@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NewsAtlas — Theme/Topic Search Planning</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6270;
+    --accent: #2757c7;
+    --accent-bg: #eef2fc;
+    --border: #e2e5ea;
+    --code-bg: #f5f6f8;
+    --ok: #1a7f4e;
+    --warn: #a15c00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.1rem; margin-top: 28px; color: var(--fg); }
+  h4 { font-size: 1rem; margin-top: 20px; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  .meta {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 12px 0 32px;
+    padding: 12px 16px;
+    background: var(--accent-bg);
+    border-radius: 8px;
+  }
+  .meta strong { color: var(--fg); }
+  nav.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin: 24px 0 40px;
+  }
+  nav.toc h2 { margin-top: 0; border: none; font-size: 1.05rem; padding-bottom: 4px; }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.92rem; }
+  nav.toc a:hover { text-decoration: underline; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--code-bg); font-weight: 600; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+  .decision {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-bg);
+    padding: 10px 16px;
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .decision strong { color: var(--accent); }
+  .gap {
+    border-left: 4px solid #b23b3b;
+    background: #fdecec;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .gap strong { color: #b23b3b; }
+  .ok-box {
+    border-left: 4px solid var(--ok);
+    background: #eaf7f0;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .ok-box strong { color: var(--ok); }
+  .phase {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px 20px 16px;
+    margin: 24px 0;
+  }
+  .phase > h3:first-child { margin-top: 16px; display: flex; align-items: center; gap: 10px; }
+  .phase-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 20px;
+  }
+  .item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 18px 14px;
+    margin: 18px 0;
+    background: #fbfbfc;
+  }
+  .item h4 { display: flex; align-items: center; gap: 8px; }
+  .assumption {
+    border-left: 4px solid var(--warn);
+    background: #fdf4e3;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+  ul.checklist { list-style: none; padding-left: 4px; }
+  ul.checklist li::before { content: "☐ "; color: var(--muted); }
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    margin-left: 6px;
+  }
+  .status-table td:first-child { white-space: nowrap; font-weight: 600; }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --fg: #e7e9ee; --muted: #9aa2b1; --accent: #7fa5ff;
+      --accent-bg: #1c2436; --border: #2b3040; --code-bg: #1b1e26; --ok: #4fd190; --warn: #e0a94a;
+    }
+    .gap { background: #3a1f1f; }
+    .ok-box { background: #17301f; }
+    .item { background: #171a21; }
+    .assumption { background: #33290f; }
+  }
+</style>
+</head>
+<body>
+
+<h1>NewsAtlas — Theme/Topic Search Planning</h1>
+<p class="subtitle">Detailed design for Phase 3 of the v1 roadmap: "Theme Watch" — search by topic ("Automotive", "Startup Series B") instead of only by named company</p>
+
+<div class="meta">
+  <div><strong>Status:</strong> Planning (2026-07-22). No code has been written for this doc yet.</div>
+  <div><strong>Builds on:</strong>
+    <a href="v1-release-roadmap.html">v1-release-roadmap.html §4</a> (the original scope-setting section — this doc fills in everything that section deferred),
+    <a href="ingestion-reliability-planning.html">ingestion-reliability-planning.html §5</a> (grounding/attribution rules a theme's lack of a single company name breaks, and must replace),
+    <a href="news-source-expansion-planning.html">news-source-expansion-planning.html</a> (multi-source ingestion, rate limiting conventions this reuses)
+  </div>
+  <div><strong>Codebase grounded against:</strong> commit <code>9e47c6e</code> (branch <code>claude/session-kx2u8a</code>) — i.e. after v1 roadmap Phases 1, 2, and 4 landed. Google News source allowlists, the encrypted-secrets settings, the consolidated <code>/skipped</code> page, and CSV import all already exist and are referenced below as current state, not as future work.</div>
+  <div><strong>Doc purpose:</strong> Turn the roadmap's scope-setting section into a concrete, code-grounded spec an implementation session can work from directly — every architectural fork already discussed with the user is recorded as a <span class="tag">decision</span>; everything still open is either a <span class="tag">proposed default</span> (stated plainly, flag if wrong) or explicitly <span class="tag">deferred to implementation</span>.</div>
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#recap">1. Decisions already made</a></li>
+    <li><a href="#data-model">2. Data model</a></li>
+    <li><a href="#query">3. Query building &amp; provider scope</a></li>
+    <li><a href="#ai">4. AI extraction &amp; relevance</a></li>
+    <li><a href="#ingestion">5. Ingestion pipeline integration</a></li>
+    <li><a href="#dedup">6. Cross-path deduplication</a></li>
+    <li><a href="#api">7. API endpoints</a></li>
+    <li><a href="#frontend">8. Frontend</a></li>
+    <li><a href="#cost">9. Cost controls &amp; rate limiting</a></li>
+    <li><a href="#security">10. Security considerations</a></li>
+    <li><a href="#scope">11. Explicitly out of scope for v1</a></li>
+    <li><a href="#migration">12. Migration plan</a></li>
+    <li><a href="#open">13. Open questions deferred to implementation</a></li>
+    <li><a href="#checklist">14. Implementation checklist</a></li>
+  </ol>
+</nav>
+
+<h2 id="recap">1. Decisions already made</h2>
+<p>Resolved in the planning conversation on 2026-07-22, recorded here so implementation doesn't have to re-litigate them:</p>
+
+<div class="decision"><strong>Decision — parallel concept, not fuzzy company matching:</strong> a Theme Watch is its own trackable thing (a <code>ThemeWatch</code> row), independent of any single named company, producing its own feed. This was already decided in <a href="v1-release-roadmap.html#phase3">v1-release-roadmap.html §4</a> and isn't revisited here.</div>
+
+<div class="decision"><strong>Decision — new <code>ThemeMatch</code> model, not a nullable-company <code>Signal</code>.</strong> Theme matches live in their own table with their own feed endpoint, parallel to <code>Signal</code>. This keeps <code>Signal.article_id</code>/the company-join assumption baked into <code>signal_queries.py</code>, the dashboard, and the digest completely untouched — no risk to the Phase 1/2/4 work just shipped. A theme match is promoted into a real per-company pipeline only once its company is tracked (see §7's promotion endpoint), not by mutating it into a <code>Signal</code> in place.</div>
+
+<div class="decision"><strong>Decision — shared catalog, any authenticated user can create a theme.</strong> <code>ThemeWatch</code> mirrors <code>TargetCompany</code>/<code>CompanyFollow</code> exactly: case-insensitive dedupe by name (reusing the <code>get_or_create_company</code> pattern), many users can follow the same theme without duplicating ingestion for it, any user can create one (not admin-gated) exactly like adding a target company today.</div>
+
+<div class="decision"><strong>Decision — company-less matches are kept, not dropped.</strong> An article that matches a theme's query terms but where the AI extraction pass can't confidently name a specific company still appears in the theme's feed as a raw AI-summarized item with <code>extracted_company_name = NULL</code>. Industry-trend awareness (not only lead-finding) is part of what a theme watch is for.</div>
+
+<div class="decision"><strong>Decision — "Track this company" creates/follows only, no forced signal.</strong> When a match names a real, not-yet-tracked company, the promotion action creates the <code>TargetCompany</code> (case-insensitive deduped, same as CSV import/single-add) and follows it for the clicking user. It does <strong>not</strong> force a paid summarization call to retroactively turn that specific match into a <code>Signal</code> — the newly tracked company gets ordinary coverage starting from the next scheduled ingestion run. This avoids stacking a third "forces a paid Mistral call" endpoint on top of the two (<code>create_signal_from_skipped_article</code>, backfill) that already need cooldown/rate-limit protection.</div>
+
+<div class="decision"><strong>Decision — Google News RSS only for theme ingestion.</strong> NewsAPI.org and NewsData.io are not queried for themes in v1. NewsData.io's per-call credit cost and its native-dedupe/historical-backfill machinery are built around one company at a time; a broad topical query would be expensive and the backfill concept doesn't map onto a theme at all. NewsAPI.org has the same "no name to ground against" problem <a href="ingestion-reliability-planning.html">ingestion-reliability-planning.html §5</a> already fixed for companies. Google News RSS is free, keyless, and already has the exact query-tightening/site-allowlist pattern (<code>build_google_news_query</code>, §2.3 of the v1 roadmap) this doc reuses.</div>
+
+<div class="decision"><strong>Decision — dedicated cost controls, not reuse of the per-company cap.</strong> A new workspace-wide <code>max_articles_per_theme_per_run</code> setting (same shape/UI as <code>max_articles_per_company_per_run</code>) plus a hard ceiling on total active <code>ThemeWatch</code> rows per workspace (proposed default: 10, admin-configurable — see §9). A theme's query is inherently broader than a named company's keyword list, so it fans out into more candidate articles per run; uncapped concurrent themes is a materially bigger cost blast radius than uncapped companies ever was.</div>
+
+<div class="decision"><strong>Decision — cross-path dedup, not two independent dedupe pools.</strong> The existing embedding-similarity duplicate check extends across both the per-company (<code>Article</code>/<code>Signal</code>) and per-theme (<code>ThemeMatch</code>) paths rather than each maintaining its own blind pool — see §6.</div>
+
+<div class="decision"><strong>Decision — new top-level nav item.</strong> Unlike the deliberately-secondary <code>/skipped</code> page, "Themes" gets its own entry in <code>ProtectedLayout.tsx</code>'s primary nav alongside Dashboard/Signals/My companies — the roadmap describes this as a first-class parallel feed, not a corner case.</div>
+
+<div class="decision"><strong>Decision — excluded from the daily digest for v1.</strong> The digest stays company-<code>Signal</code>-only. Theme matches are in-app only until there's a reason to believe people want a themes digest too.</div>
+
+<div class="decision"><strong>Decision — naming.</strong> "Theme Watch" in code/models, "Themes" as the nav/UI label (matches "My companies" being the UI label for <code>TargetCompany</code>).</div>
+
+<h2 id="data-model">2. Data model</h2>
+
+<h3>2.1 <code>ThemeWatch</code> — mirrors <code>TargetCompany</code></h3>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td><code>id</code></td><td>UUID PK</td><td></td></tr>
+<tr><td><code>name</code></td><td>String(255)</td><td>e.g. "Automotive", "Startup Series B". Case-insensitive dedupe on create, same as <code>get_or_create_company</code>.</td></tr>
+<tr><td><code>query_terms</code></td><td>ARRAY(String)</td><td>At least 1 required (schema-level <code>min_length=1</code>) — unlike a company, a theme has no name to fall back to, so an empty term list would search nothing. Same 20-term/100-char caps as <code>TargetCompany.keywords</code> (§5 of the v1 roadmap).</td></tr>
+<tr><td><code>industry</code></td><td>String(255), nullable</td><td>Optional context fed to the AI extraction/summarization prompt, same role as <code>TargetCompany.industry</code>.</td></tr>
+<tr><td><code>google_news_source_allowlist</code></td><td>ARRAY(String)</td><td>Additive with the workspace-wide default, identical union semantics to <code>TargetCompany.google_news_source_allowlist</code> (§2.3 of the v1 roadmap).</td></tr>
+<tr><td><code>is_active</code></td><td>Boolean, default true</td><td>Pause/resume, same as <code>TargetCompany.is_active</code>.</td></tr>
+<tr><td><code>created_by</code></td><td>UUID FK users, SET NULL</td><td>Same creator-or-admin edit-permission gate as <code>TargetCompany</code> (v1 roadmap §5 DEFERRED finding, now resolved for companies — apply the same rule here from day one rather than shipping the gap again).</td></tr>
+<tr><td><code>created_at</code> / <code>updated_at</code></td><td>timestamptz</td><td><code>TimestampMixin</code>, same as <code>TargetCompany</code>.</td></tr>
+</table>
+
+<h3>2.2 <code>ThemeFollow</code> — mirrors <code>CompanyFollow</code></h3>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td><code>id</code></td><td>UUID PK</td><td></td></tr>
+<tr><td><code>user_id</code></td><td>UUID FK users, CASCADE</td><td></td></tr>
+<tr><td><code>theme_watch_id</code></td><td>UUID FK theme_watches, CASCADE</td><td></td></tr>
+<tr><td><code>is_muted</code></td><td>Boolean, default false</td><td>Same per-follow mute as <code>CompanyFollow</code>.</td></tr>
+<tr><td><code>assigned_by</code></td><td>UUID FK users, SET NULL</td><td></td></tr>
+<tr><td><code>created_at</code></td><td>timestamptz</td><td></td></tr>
+</table>
+<p>Unique constraint on <code>(user_id, theme_watch_id)</code>, identical to <code>CompanyFollow</code>. <code>remove_follow</code>'s "hard-delete the parent when follower count hits zero" behavior also carries over verbatim.</p>
+
+<h3>2.3 <code>ThemeMatch</code> — new; not a <code>Signal</code></h3>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td><code>id</code></td><td>UUID PK</td><td></td></tr>
+<tr><td><code>theme_watch_id</code></td><td>UUID FK theme_watches, CASCADE</td><td></td></tr>
+<tr><td><code>source</code></td><td>ArticleSource enum</td><td>Always <code>GOOGLE_NEWS_RSS</code> for v1 (see §1) — kept as its own column rather than hardcoded so the decision is reversible without a migration.</td></tr>
+<tr><td><code>source_name</code>, <code>title</code>, <code>url</code>, <code>description</code>, <code>published_at</code>, <code>fetched_at</code></td><td>same as <code>Article</code></td><td><code>url</code> unique+indexed, same invariant as <code>Article.url</code>.</td></tr>
+<tr><td><code>embedding</code></td><td>ARRAY(Float), nullable</td><td>Same <code>mistral-embed</code> vector role as <code>Article.embedding</code> — feeds the cross-path dedupe in §6.</td></tr>
+<tr><td><code>duplicate_of_match_id</code></td><td>UUID self-FK, SET NULL</td><td>Mirrors <code>Article.duplicate_of_article_id</code> for within-<code>ThemeMatch</code> duplicates. Cross-table duplicates (this row duplicates an existing <code>Article</code>) are handled differently — see §6, no column needed since a <code>ThemeMatch</code> that duplicates an <code>Article</code> is simply never created.</td></tr>
+<tr><td><code>extracted_company_name</code></td><td>String(255), nullable</td><td>What the AI extraction pass identified, verbatim (not yet a <code>TargetCompany</code>). NULL means "no specific company" (kept per §1's decision), distinct from "extraction hasn't run yet" — see <code>skip_reason</code> below.</td></tr>
+<tr><td><code>matched_target_company_id</code></td><td>UUID FK target_companies, SET NULL</td><td>Auto-populated (no button needed) whenever <code>extracted_company_name</code> case-insensitively matches an existing <code>TargetCompany.name</code> — see §4. Drives whether "Track this company" renders at all (only when this is NULL and <code>extracted_company_name</code> isn't).</td></tr>
+<tr><td><code>summary</code>, <code>business_relevance</code>, <code>supporting_quote</code>, <code>relevance_score</code>, <code>confidence</code>, <code>entities</code></td><td>same shape as <code>Signal</code></td><td>No outreach snippet fields (<code>outreach_snippet_email</code> etc.) — those only make sense once a specific company is being pitched to, which is exactly the "track this company" boundary. A promoted company's own <code>Signal</code>s get outreach snippets normally once ingestion covers it.</td></tr>
+<tr><td><code>status</code></td><td>SignalStatus enum, default NEW</td><td>Reuses the existing <code>new</code>/<code>reviewed</code>/<code>archived</code>/<code>dismissed</code> enum and transition UI (<code>SignalRow</code>'s <code>onTransition</code>) rather than inventing a parallel status type.</td></tr>
+<tr><td><code>skip_reason</code></td><td>String, nullable</td><td>Same vocabulary as <code>Article.skip_reason</code>: <code>duplicate</code>, <code>triaged_out</code>, <code>ai_error</code>. No <code>company_mismatch</code> value — that concept doesn't apply here (see §4).</td></tr>
+<tr><td><code>triage_reason</code></td><td>String, nullable</td><td>Same role as <code>Article.triage_reason</code>.</td></tr>
+<tr><td><code>headline_only</code></td><td>computed property</td><td><code>source == GOOGLE_NEWS_RSS</code> is always true in v1, so this is always true too — kept as a property (not a column) exactly like <code>Article.is_headline_only</code>, for parity if a second theme provider is ever added.</td></tr>
+</table>
+
+<div class="assumption"><strong>Scope note:</strong> no favorites/todos for <code>ThemeMatch</code> in v1 (<code>SignalFavorite</code>/<code>SignalTodo</code> stay <code>Signal</code>-only). This keeps the first cut smaller; extending them to themes later is additive (a nullable <code>theme_match_id</code> column, or parallel tables) and not a breaking change if it turns out to matter.</div>
+
+<h2 id="query">3. Query building &amp; provider scope</h2>
+<p>New function in <code>news_query.py</code>, alongside <code>build_or_query</code>/<code>build_google_news_query</code>:</p>
+<pre><code>def build_theme_query(query_terms: list[str], sources: list[str] | None = None) -> str:
+    """Pure OR of the theme's own terms — unlike build_google_news_query, there's no
+    company name to require, so this is what that function degrades to when a company
+    has no keywords, generalized to the case where there's no name at all."""
+    terms = _quote_terms(query_terms)  # reuses the existing private helper
+    base = " OR ".join(terms)
+    if sources:
+        site_clause = " OR ".join(f"site:{domain.strip()}" for domain in sources if domain.strip())
+        if site_clause:
+            base = f"({base}) ({site_clause})"
+    return base</code></pre>
+<p><code>GoogleNewsRSSClient.fetch_articles()</code> needs no changes — it already accepts <code>sources</code> (added in v1 roadmap §2.3); a theme-ingestion call site just builds its query via <code>build_theme_query</code> instead of <code>build_google_news_query</code> and passes the theme's own <code>name</code> parameter... except <code>fetch_articles(*, name, keywords, since, sources)</code> currently <em>requires</em> <code>name</code> and calls <code>build_google_news_query(name, keywords, sources)</code> internally. Two ways to reconcile this, pick one during implementation:</p>
+<ul>
+<li><strong>(a)</strong> Add an optional <code>query_override: str | None</code> param to <code>fetch_articles()</code>; when set, skip <code>build_google_news_query</code> entirely and use it as the raw query string. Theme ingestion passes <code>query_override=build_theme_query(theme.query_terms, sources)</code>. Smaller diff, keeps the company path completely untouched.</li>
+<li><strong>(b)</strong> Give <code>GoogleNewsRSSClient</code> a second method, <code>fetch_articles_for_query(query, since)</code>, factoring the shared feed-fetch/parse/date-filter logic (lines 39–57 of the current file) out of <code>fetch_articles</code> into a private helper both call. Cleaner separation, slightly bigger diff.</li>
+</ul>
+<div class="assumption">Proposed default: (a) — smaller, lower-risk diff against a file that already works correctly for every existing company. Flag if a cleaner split is preferred.</div>
+
+<h2 id="ai">4. AI extraction &amp; relevance</h2>
+<p>The existing grounding guard (<code>article_mentions_company</code>) and the <code>company_mentioned</code>/<code>company_mismatch</code> machinery in <code>ai_client.py</code>/<code>ingestion.py</code> both assume exactly one known company name to check identity against (<a href="ingestion-reliability-planning.html">ingestion-reliability-planning.html §5</a>). A theme has none — the whole point is that the matching company is <em>unknown until the AI reads the article</em>. Two new pieces are needed:</p>
+
+<h4>4.1 Theme-specific triage</h4>
+<p>A theme's query is broader than a company's keyword list, so the cheap pre-filter matters at least as much here, arguably more. New method, same shape as <code>triage_article</code> but checking topical relevance to the theme rather than company identity:</p>
+<pre><code>def triage_theme_article(
+    self, *, company_name, offering_description, theme_name, query_terms,
+    industry=None, article_title, article_description, headline_only=False,
+) -> tuple[TriageResult, MistralUsage]</code></pre>
+<p>Reuses the existing <code>TriageResult</code> shape (<code>relevant: bool</code>, <code>reason: str</code>) and the same fail-open-on-<code>AIClientError</code> convention already in <code>_process_new_articles</code>.</p>
+
+<h4>4.2 Combined extraction + summarization</h4>
+<p>One call does both jobs (not two, to avoid doubling the per-article AI cost that's already the doc's biggest stated risk):</p>
+<pre><code>class ThemeArticleResult(AISummaryResult):
+    # Everything AISummaryResult already has (summary, business_relevance,
+    # supporting_quote, relevance_score, signal_type, confidence, entities), plus:
+    extracted_company_name: str | None = None  # None = no specific company (kept, see §1)
+
+def summarize_theme_article(
+    self, *, company_name, offering_description, theme_name, query_terms, industry=None,
+    article_title, article_description, output_language="en", headline_only=False,
+) -> tuple[ThemeArticleResult, MistralUsage]</code></pre>
+<p>The prompt asks the model to (a) summarize and score relevance the same way <code>summarize_article</code> does, framed against the theme + our offering rather than a specific target company, and (b) name the specific company the article is actually about, if any, in <code>extracted_company_name</code> — verbatim as it appears in the article, not normalized against existing <code>TargetCompany</code> rows (that matching happens in Python, see 4.3). No <code>company_mentioned</code> field — there's no single company to assert the truth of, so the concept doesn't apply; a hallucinated <code>extracted_company_name</code> is caught the same way any other AI content is: it's just wrong text a user can see and ignore, not something that mis-attributes a signal to the wrong company's feed (there's no per-company feed for it to land in) the way the original grounding bug did.</p>
+
+<h4>4.3 Auto-linking to an existing tracked company</h4>
+<p>After <code>summarize_theme_article</code> returns, before creating the <code>ThemeMatch</code> row: if <code>extracted_company_name</code> is set, do a case-insensitive lookup against <code>TargetCompany.name</code> (same query <code>get_or_create_company</code> already does for dedupe) and set <code>matched_target_company_id</code> if found. This is metadata only in v1 — it does <strong>not</strong> trigger anything automatically (no signal, no notification); it just changes what the frontend renders ("Tesla — already tracked" instead of a "Track this company" button, see §8).</p>
+
+<h2 id="ingestion">5. Ingestion pipeline integration</h2>
+<p>Extends <code>run_ingestion()</code> rather than introducing a second scheduler entry point, so theme and company fetches share the same run, the same <code>news_source_usage_logs</code>-backed rate limiting against <code>ArticleSource.GOOGLE_NEWS_RSS</code>, and the same cancellation checkpoints:</p>
+<ul>
+<li>After the existing per-<code>TargetCompany</code> loop (current <code>ingestion.py</code> lines 154–190), add a second loop over active <code>ThemeWatch</code> rows, structured identically: cancellation check, per-theme headroom check (<code>check_headroom</code>/<code>wait_for_minute_headroom</code> against <code>GOOGLE_NEWS_RSS</code> only, since that's the only provider in play), fetch via <code>build_theme_query</code> (§3), triage via <code>triage_theme_article</code>, summarize via <code>summarize_theme_article</code> (§4).</li>
+<li><code>IngestionRunResult</code> gains <code>theme_matches_created</code>/<code>themes_processed</code> counters, surfaced in <code>IngestionRunStatus</code>/the progress UI the same way <code>signals_created</code>/<code>companies_processed</code> already are.</li>
+<li>Cap via the new <code>max_articles_per_theme_per_run</code> setting (§1), same "newest N by <code>published_at</code>, 0 = unlimited" semantics as the company-side cap.</li>
+<li>No grounding-guard equivalent of <code>article_mentions_company</code> is needed before storing a <code>ThemeMatch</code> — a theme's query terms are the whole point of the match (there's no separate "identity" to verify the way a company name needs verifying), so the AI's own topical-relevance judgment via triage is the only gate, same as the company path's triage step.</li>
+</ul>
+
+<h2 id="dedup">6. Cross-path deduplication</h2>
+<p>Per §1's decision, the same embedding-similarity check (<code>_find_duplicate</code>, <code>cosine_similarity</code>, <code>mistral_dedupe_similarity_threshold</code>) spans both tables rather than each maintaining a blind pool:</p>
+<ul>
+<li><strong>Exact-URL check (cheap, mandatory, do this regardless of embeddings):</strong> before creating a <code>ThemeMatch</code>, check whether an <code>Article</code> with the same <code>url</code> already exists; if so, skip creating the <code>ThemeMatch</code> entirely (the story is already covered via some company's feed). Symmetric on the company side: before creating an <code>Article</code>, also check <code>ThemeMatch.url</code>. Both tables keep their own <code>unique</code> constraint on <code>url</code> independently — this is an application-level cross-check, not a shared DB constraint.</li>
+<li><strong>Embedding similarity (catches near-duplicate stories from different outlets, not just the same URL):</strong> when building the candidate pool for a company's <code>_find_duplicate</code> call, additionally include <code>ThemeMatch</code> rows whose <code>matched_target_company_id</code> equals that company. When checking a new <code>ThemeMatch</code> for duplicates, the candidate pool is other <code>ThemeMatch</code> rows for the same theme, plus (if <code>extracted_company_name</code> resolved to a <code>matched_target_company_id</code>) that company's own recent <code>Article</code> rows.</li>
+</ul>
+<div class="assumption">The embedding-similarity half is more involved than the exact-URL half (two different tables feeding one similarity scan) — if implementation time is tight, ship the exact-URL check first (it's cheap and catches the common case: the same wire-service story appearing under a company's own keyword search and under a theme's broader query) and treat the embedding cross-check as a fast-follow rather than blocking v1 theme search on it.</div>
+
+<h2 id="api">7. API endpoints</h2>
+<p>New router <code>app/api/theme_watches.py</code>, mirroring <code>target_companies.py</code>'s shape (§9 of the codebase report above) function-for-function:</p>
+<table>
+<tr><th>Endpoint</th><th>Mirrors</th><th>Notes</th></tr>
+<tr><td><code>GET /theme-watches</code></td><td><code>GET /target-companies</code></td><td>Own-follows by default, admin-only <code>?scope=all</code>.</td></tr>
+<tr><td><code>POST /theme-watches</code></td><td><code>POST /target-companies</code></td><td>Case-insensitive dedupe + auto-follow creator. Any authenticated user (§1).</td></tr>
+<tr><td><code>PATCH /theme-watches/{id}</code></td><td><code>PATCH /target-companies/{id}</code></td><td>Creator-or-admin only, same gate as companies.</td></tr>
+<tr><td><code>DELETE /theme-watches/{id}</code></td><td><code>DELETE /target-companies/{id}</code></td><td>Admin hard-deletes; follower unfollows (hard-deletes if last follower).</td></tr>
+<tr><td><code>POST /theme-watches/{id}/mute</code></td><td><code>POST /target-companies/{id}/mute</code></td><td></td></tr>
+<tr><td><code>GET /theme-watches/{id}/followers</code></td><td><code>GET /target-companies/{id}/followers</code></td><td>Admin-only.</td></tr>
+<tr><td><code>GET /theme-matches?theme_id=&amp;status=</code></td><td><code>GET /signals</code></td><td>Follow-scoped list, same status-filter convention as <code>SignalsFeed</code>.</td></tr>
+<tr><td><code>PATCH /theme-matches/{id}</code></td><td><code>PATCH /signals/{id}</code></td><td>Status transitions only (reviewed/archived/dismissed) — no other mutable fields.</td></tr>
+<tr><td><code>POST /theme-matches/{id}/track-company</code></td><td><code>POST /articles/{id}/create-signal</code> in spirit, but creates a company instead of a signal</td><td>Body: nothing needed beyond the path id — uses <code>extracted_company_name</code> already stored on the match. 404/409 if <code>matched_target_company_id</code> is already set (nothing to promote) or <code>extracted_company_name</code> is NULL. Admin-only or any user? — see §13.</td></tr>
+</table>
+
+<h2 id="frontend">8. Frontend</h2>
+<ul>
+<li><strong>Nav:</strong> new <code>NavLink to="/themes"</code> in <code>ProtectedLayout.tsx</code>'s primary nav block, new icon in <code>./icons/NavIcons</code>, new <code>nav:links.themes</code> i18n key.</li>
+<li><strong><code>SettingsThemeWatches.tsx</code></strong> (new, mirrors <code>SettingsTargets.tsx</code>): add-theme form (name + query terms via <code>TagInput</code>, same pattern as company keywords + industry/source-allowlist fields), tracked-themes list with edit/mute/pause/delete, creator-or-admin edit gating identical to <code>SettingsTargets.tsx</code>'s <code>canEdit()</code>.</li>
+<li><strong><code>ThemesFeed.tsx</code></strong> (new, mirrors <code>SignalsFeed.tsx</code>): theme filter dropdown, status filter, search/sort — same polling-for-in-flight-ingestion convention (<code>POLL_INTERVAL_MS</code>, <code>sawRunningRef</code>) since it's watching the same <code>IngestionRunStatus</code>. Row rendering reuses <code>SignalRow</code>-equivalent presentation: a "Track this company" button appears only when <code>extracted_company_name</code> is set and <code>matched_target_company_id</code> is NULL; when <code>matched_target_company_id</code> is set, show a plain badge/link to that company instead (it's already tracked, nothing to do).</li>
+<li><strong>Dashboard:</strong> no new stat tile proposed for v1 (unlike the Skipped tile) — themes get their own primary nav entry, so a dashboard summary card is optional polish rather than required for discoverability. Flag if a "N new theme matches" tile is wanted anyway.</li>
+</ul>
+
+<h2 id="cost">9. Cost controls &amp; rate limiting</h2>
+<ul>
+<li><code>workspace_settings.max_articles_per_theme_per_run</code> — new column, same default (10) and "0 = unlimited" convention as <code>max_articles_per_company_per_run</code>, same Settings UI section.</li>
+<li><code>workspace_settings.max_active_theme_watches</code> — new column, proposed default 10 (admin-configurable, same numeric-input pattern as the other caps). Enforced in <code>POST /theme-watches</code>: reject creation (or reactivation via <code>PATCH is_active=true</code>) once the workspace's active-theme count is at the ceiling. <span class="tag">proposed default</span> — flag if 10 is too low/high for expected usage.</li>
+<li>Theme ingestion shares <code>google_news_rss_max_requests_per_minute</code> with company ingestion (same provider, same headroom check) — no separate theme-specific rate limit needed, since the existing per-source limiter already throttles combined usage.</li>
+</ul>
+
+<h2 id="security">10. Security considerations</h2>
+<p>Every new user-facing input surface gets the same scrutiny the v1 roadmap's Phase 4 gave existing ones:</p>
+<ul>
+<li><code>query_terms</code>/<code>industry</code>/<code>google_news_source_allowlist</code> on <code>ThemeWatch</code> get the identical length/count caps and hostname validation already added to <code>TargetCompany</code> (v1 roadmap §5) — reuse the same Pydantic validators, don't reinvent them.</li>
+<li><code>POST /theme-watches/{id}/track-company</code> creates a <code>TargetCompany</code> — same collision/dedupe handling as <code>POST /target-companies</code> already has (case-insensitive, returns the existing row rather than erroring).</li>
+<li>New endpoints follow the existing <code>scope_to_follows</code>/<code>require_admin</code> conventions verbatim — no new authorization pattern to invent, just mirroring <code>target_companies.py</code>/<code>signals.py</code>.</li>
+<li>No new rate-limited "forces a paid AI call" endpoint is introduced (per §1's decision that promotion doesn't force a summarization call), so no new cooldown/rate-limit wiring is needed beyond what §9 already covers at the ingestion level.</li>
+</ul>
+
+<h2 id="scope">11. Explicitly out of scope for v1</h2>
+<ul>
+<li>Favorites/todos on <code>ThemeMatch</code> (§2.3 note).</li>
+<li>Digest email inclusion (§1 decision).</li>
+<li>NewsAPI.org/NewsData.io as theme providers (§1 decision).</li>
+<li>Automatically converting an already-tracked company's theme match into a <code>Signal</code> (§1 decision — "track" never forces a summarization call, even when the company turns out to already be tracked).</li>
+<li>Embedding-based cross-table dedup, if implementation time is tight (§6 — exact-URL dedup is the mandatory floor).</li>
+</ul>
+
+<h2 id="migration">12. Migration plan</h2>
+<table>
+<tr><th>Table</th><th>Change</th></tr>
+<tr><td><em>(new)</em> <code>theme_watches</code></td><td>Full table per §2.1.</td></tr>
+<tr><td><em>(new)</em> <code>theme_follows</code></td><td>Full table per §2.2.</td></tr>
+<tr><td><em>(new)</em> <code>theme_matches</code></td><td>Full table per §2.3.</td></tr>
+<tr><td><code>workspace_settings</code></td><td><code>max_articles_per_theme_per_run INTEGER NOT NULL DEFAULT 10</code>, <code>max_active_theme_watches INTEGER NOT NULL DEFAULT 10</code>.</td></tr>
+</table>
+<p>No changes to any existing table (<code>target_companies</code>, <code>articles</code>, <code>signals</code>, etc.) — everything here is additive, consistent with how Phase 1/2 landed.</p>
+
+<h2 id="open">13. Open questions deferred to implementation</h2>
+<ul>
+<li><strong>§3 query builder integration:</strong> option (a) vs (b) for reconciling <code>GoogleNewsRSSClient.fetch_articles()</code>'s required <code>name</code> param with a theme having none — pick whichever reads cleaner once the surrounding ingestion-loop code is actually being written.</li>
+<li><strong>§7 <code>track-company</code> permission:</strong> any follower of the theme, or admin-only? Creating a <code>TargetCompany</code> is already something any user can do today (<code>POST /target-companies</code> is not admin-gated), so admin-gating it only when reached <em>via</em> a theme match would be an inconsistent carve-out — proposed default is "any authenticated user," same as direct company creation, but flag if theme-sourced company creation should be more restricted.</li>
+<li><strong>§9 default cap values:</strong> <code>max_articles_per_theme_per_run=10</code> and <code>max_active_theme_watches=10</code> are placeholders reasoned from "same order of magnitude as the company cap," not from any real usage data (none exists yet for a feature that hasn't shipped) — revisit after the first few weeks of real theme usage.</li>
+<li><strong>§4 exact prompt wording:</strong> this doc specifies the shape of <code>triage_theme_article</code>/<code>summarize_theme_article</code>'s inputs/outputs, not their exact prompt text — that's a normal implementation-time task, same as any other prompt, not an architectural fork.</li>
+<li><strong>Historical backfill for themes:</strong> NewsData.io's backfill concept is explicitly out of scope (§1), but should a newly created theme get some form of "search back N hours further than the standard lookback window" on its first run, the way a new company implicitly benefits from <code>MIN_LOOKBACK_HOURS</code>? Proposed default: no special-casing — a theme's first run uses the same <code>lookback_hours</code> calculation as every other run, exactly like a newly added company does today.</li>
+</ul>
+
+<h2 id="checklist">14. Implementation checklist</h2>
+<ul class="checklist">
+<li>Models: <code>ThemeWatch</code>, <code>ThemeFollow</code>, <code>ThemeMatch</code> + Alembic migration (§2, §12)</li>
+<li><code>build_theme_query()</code> in <code>news_query.py</code> + resolved integration approach for <code>GoogleNewsRSSClient</code> (§3)</li>
+<li><code>triage_theme_article()</code> / <code>summarize_theme_article()</code> / <code>ThemeArticleResult</code> in <code>ai_client.py</code> (§4)</li>
+<li>Auto-link <code>matched_target_company_id</code> against existing <code>TargetCompany</code> rows (§4.3)</li>
+<li><code>run_ingestion()</code> extended with a per-theme loop sharing <code>GOOGLE_NEWS_RSS</code> rate limiting (§5)</li>
+<li>Exact-URL cross-path dedup (mandatory); embedding-similarity cross-path dedup (fast-follow if time-constrained) (§6)</li>
+<li><code>app/api/theme_watches.py</code> + <code>app/api/theme_matches.py</code>, mirroring <code>target_companies.py</code>/<code>signals.py</code> conventions (§7)</li>
+<li><code>SettingsThemeWatches.tsx</code>, <code>ThemesFeed.tsx</code>, new nav entry (§8)</li>
+<li><code>max_articles_per_theme_per_run</code> / <code>max_active_theme_watches</code> settings + UI (§9)</li>
+<li>Length/hostname validators reused from <code>TargetCompany</code>'s schema, not reinvented (§10)</li>
+<li>Full regression pass confirming no existing company/signal/dashboard/digest behavior changed (everything in this feature is additive)</li>
+</ul>
+
+<footer>
+  NewsAtlas — theme/topic search planning, written 2026-07-22, grounded against commit <code>9e47c6e</code> (branch <code>claude/session-kx2u8a</code>), continuing from <a href="v1-release-roadmap.html">v1-release-roadmap.html §4</a>. Every architectural fork was resolved with the user before this doc was written; remaining items are explicitly marked open in §13 rather than silently decided.
+</footer>
+
+</body>
+</html>
