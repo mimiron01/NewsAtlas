@@ -46,6 +46,8 @@ def _full_update_payload(**overrides):
         "newsdata_backfill_days": 0,
         "newsdata_max_requests_per_day": 200,
         "newsdata_max_requests_per_minute": 30,
+        "max_articles_per_theme_per_run": 10,
+        "max_active_theme_watches": 10,
     }
     payload.update(overrides)
     return payload

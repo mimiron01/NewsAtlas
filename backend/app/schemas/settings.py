@@ -50,6 +50,10 @@ class WorkspaceSettingsResponse(BaseModel):
     newsdata_max_requests_per_day: int
     newsdata_max_requests_per_minute: int
 
+    # --- Theme watch cost controls (see docs/theme-search-planning.html §9) ---
+    max_articles_per_theme_per_run: int
+    max_active_theme_watches: int
+
     model_config = {"from_attributes": True}
 
 
@@ -90,6 +94,13 @@ class WorkspaceSettingsUpdate(BaseModel):
     newsdata_backfill_days: int = Field(ge=0, le=1825)
     newsdata_max_requests_per_day: int = Field(ge=1, le=100_000)
     newsdata_max_requests_per_minute: int = Field(ge=1, le=1000)
+
+    # --- Theme watch cost controls (see docs/theme-search-planning.html §9) ---
+    # 0 disables the cap (unlimited), matching max_articles_per_company_per_run.
+    max_articles_per_theme_per_run: int = Field(ge=0, le=1000)
+    # Not a "0 = off" toggle like the field above — this is a hard ceiling on how many
+    # active theme watches a workspace can have at once, so it starts at 1.
+    max_active_theme_watches: int = Field(ge=1, le=1000)
 
     @field_validator("google_news_source_allowlist")
     @classmethod

@@ -55,6 +55,8 @@ def _to_response(settings: WorkspaceSettings) -> WorkspaceSettingsResponse:
         newsdata_backfill_days=settings.newsdata_backfill_days,
         newsdata_max_requests_per_day=settings.newsdata_max_requests_per_day,
         newsdata_max_requests_per_minute=settings.newsdata_max_requests_per_minute,
+        max_articles_per_theme_per_run=settings.max_articles_per_theme_per_run,
+        max_active_theme_watches=settings.max_active_theme_watches,
     )
 
 
@@ -99,6 +101,8 @@ def update_settings(
     settings.newsdata_backfill_days = payload.newsdata_backfill_days
     settings.newsdata_max_requests_per_day = payload.newsdata_max_requests_per_day
     settings.newsdata_max_requests_per_minute = payload.newsdata_max_requests_per_minute
+    settings.max_articles_per_theme_per_run = payload.max_articles_per_theme_per_run
+    settings.max_active_theme_watches = payload.max_active_theme_watches
 
     if payload.mistral_api_key is not None:
         # Stored encrypted (see app/core/crypto.py) — the "" clear-override sentinel
