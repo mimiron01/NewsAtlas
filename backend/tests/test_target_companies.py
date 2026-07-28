@@ -306,6 +306,74 @@ def test_admin_can_patch_and_delete_any_company(client):
     assert client.get("/target-companies", headers=user_headers).json() == []
 
 
+def test_bulk_delete_removes_multiple_companies(client):
+    headers = _auth_headers(client)
+    acme = client.post("/target-companies", json={"name": "Acme", "keywords": []}, headers=headers).json()
+    globex = client.post("/target-companies", json={"name": "Globex", "keywords": []}, headers=headers).json()
+
+    resp = client.post(
+        "/target-companies/bulk-delete",
+        json={"target_company_ids": [acme["id"], globex["id"]]},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 2, "not_found": 0}
+    assert client.get("/target-companies", headers=headers).json() == []
+
+
+def test_bulk_delete_counts_missing_ids_as_not_found(client):
+    headers = _auth_headers(client)
+    acme = client.post("/target-companies", json={"name": "Acme", "keywords": []}, headers=headers).json()
+
+    resp = client.post(
+        "/target-companies/bulk-delete",
+        json={"target_company_ids": [acme["id"], "00000000-0000-0000-0000-000000000000"]},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 1, "not_found": 1}
+
+
+def test_bulk_delete_non_admin_only_removes_own_follow(client):
+    headers_a, _ = _signup(client, email="a@proair.com")
+    headers_b, _ = _signup(client, email="b@proair.com")
+    company = client.post(
+        "/target-companies", json={"name": "Acme", "keywords": []}, headers=headers_a
+    ).json()
+
+    resp = client.post(
+        "/target-companies/bulk-delete",
+        json={"target_company_ids": [company["id"]]},
+        headers=headers_b,
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 0, "not_found": 1}
+    assert len(client.get("/target-companies", headers=headers_a).json()) == 1
+
+
+def test_bulk_delete_admin_hard_deletes_for_everyone(client):
+    admin_headers, _ = _signup(client, email="admin@proair.com")
+    user_headers, _ = _signup(client, email="rep@proair.com")
+    company = client.post(
+        "/target-companies", json={"name": "Acme", "keywords": []}, headers=user_headers
+    ).json()
+
+    resp = client.post(
+        "/target-companies/bulk-delete",
+        json={"target_company_ids": [company["id"]]},
+        headers=admin_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 1, "not_found": 0}
+    assert client.get("/target-companies", headers=user_headers).json() == []
+
+
+def test_bulk_delete_requires_non_empty_list(client):
+    headers = _auth_headers(client)
+    resp = client.post("/target-companies/bulk-delete", json={"target_company_ids": []}, headers=headers)
+    assert resp.status_code == 422
+
+
 def test_followers_endpoint_is_admin_only(client):
     admin_headers, _ = _signup(client, email="admin@proair.com")
     user_headers, _ = _signup(client, email="rep@proair.com")

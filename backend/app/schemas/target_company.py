@@ -98,3 +98,12 @@ class TargetCompanyImportResult(BaseModel):
     created: list[TargetCompanyResponse]
     skipped: list[TargetCompanyImportSkipped]
     errors: list[TargetCompanyImportError]
+
+
+class TargetCompanyBulkDeleteRequest(BaseModel):
+    target_company_ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+
+
+class TargetCompanyBulkDeleteResult(BaseModel):
+    deleted: int
+    not_found: int

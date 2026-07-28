@@ -161,6 +161,11 @@ export interface TargetCompanyImportResult {
   errors: TargetCompanyImportError[];
 }
 
+export interface TargetCompanyBulkDeleteResult {
+  deleted: number;
+  not_found: number;
+}
+
 export interface TargetCompany {
   id: string;
   name: string;
