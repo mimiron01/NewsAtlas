@@ -1,0 +1,7 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --tb=short"
+markers = [
+    "slow: tests that are slower than the typical unit test (e.g. exercise a full pipeline)",
+    "integration: tests that hit the real Postgres test database via the client/db_session fixtures",
+]

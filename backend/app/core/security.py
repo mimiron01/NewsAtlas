@@ -14,7 +14,9 @@ _BCRYPT_MAX_BYTES = 72
 
 def hash_password(password: str) -> str:
     password_bytes = password.encode("utf-8")[:_BCRYPT_MAX_BYTES]
-    return bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode("utf-8")
+    return bcrypt.hashpw(password_bytes, bcrypt.gensalt(rounds=settings.bcrypt_rounds)).decode(
+        "utf-8"
+    )
 
 
 def verify_password(plain_password: str, password_hash: str) -> bool:

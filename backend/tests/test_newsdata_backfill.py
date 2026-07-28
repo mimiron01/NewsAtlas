@@ -6,6 +6,7 @@ from app.services.ai_client import AIClientError
 from app.services.news_client import NewsClientError
 from app.services.newsdata_backfill import run_backfill_for_company
 from app.services.workspace_settings import get_or_create_workspace_settings
+from tests.conftest import enable_backfill
 from tests.test_ingestion import USAGE, FakeAIClient, _article
 
 
@@ -31,16 +32,6 @@ def _make_company(db_session, **overrides) -> TargetCompany:
     return tc
 
 
-def _enable_backfill(db_session, **overrides):
-    settings = get_or_create_workspace_settings(db_session)
-    settings.newsdata_enabled = True
-    settings.newsdata_backfill_days = 30
-    for key, value in overrides.items():
-        setattr(settings, key, value)
-    db_session.commit()
-    return settings
-
-
 def test_backfill_skipped_when_newsdata_disabled(db_session):
     tc = _make_company(db_session)
     ran = run_backfill_for_company(db_session, tc.id, newsdata_client=FakeArchiveClient())
@@ -62,7 +53,7 @@ def test_backfill_skipped_when_already_backfilled(db_session):
     from datetime import datetime, timezone
 
     tc = _make_company(db_session, backfilled_at=datetime.now(timezone.utc))
-    _enable_backfill(db_session)
+    enable_backfill(db_session)
     client = FakeArchiveClient(articles=[_article("Old news", "https://example.com/a")])
 
     ran = run_backfill_for_company(db_session, tc.id, newsdata_client=client)
@@ -72,7 +63,7 @@ def test_backfill_skipped_when_already_backfilled(db_session):
 
 def test_backfill_skipped_and_logged_when_rate_limited(db_session):
     tc = _make_company(db_session)
-    _enable_backfill(db_session, newsdata_max_requests_per_day=1, newsdata_max_requests_per_minute=1_000_000)
+    enable_backfill(db_session, newsdata_max_requests_per_day=1, newsdata_max_requests_per_minute=1_000_000)
     db_session.add(NewsSourceUsageLog(source=ArticleSource.NEWSDATA, requests_used=1, target_company_id=tc.id))
     db_session.commit()
 
@@ -93,7 +84,7 @@ def test_backfill_skipped_and_logged_when_rate_limited(db_session):
 
 def test_backfill_leaves_backfilled_at_unset_on_fetch_error(db_session):
     tc = _make_company(db_session)
-    _enable_backfill(db_session)
+    enable_backfill(db_session)
     client = FakeArchiveClient(error=True)
 
     ran = run_backfill_for_company(db_session, tc.id, newsdata_client=client)
@@ -105,7 +96,7 @@ def test_backfill_leaves_backfilled_at_unset_on_fetch_error(db_session):
 
 def test_backfill_fetches_processes_and_marks_backfilled(db_session):
     tc = _make_company(db_session)
-    _enable_backfill(db_session)
+    enable_backfill(db_session)
     client = FakeArchiveClient(
         articles=[_article("Acme old funding round", "https://example.com/old-funding")], requests_used=2
     )
@@ -135,7 +126,7 @@ def test_backfill_fetches_processes_and_marks_backfilled(db_session):
 
 def test_backfill_dedupes_against_existing_article_url(db_session):
     tc = _make_company(db_session)
-    _enable_backfill(db_session)
+    enable_backfill(db_session)
     existing = Article(
         target_company_id=tc.id,
         source=ArticleSource.NEWSAPI,

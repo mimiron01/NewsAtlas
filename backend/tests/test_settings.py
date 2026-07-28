@@ -1,24 +1,4 @@
-def _admin_headers(client):
-    resp = client.post(
-        "/auth/signup",
-        json={"email": "admin@proair.com", "password": "password123", "name": "Admin", "invite_code": "test-invite-code"},
-    )
-    token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-
-def _user_headers(client):
-    # First signup becomes admin automatically, so the second one is a regular user.
-    client.post(
-        "/auth/signup",
-        json={"email": "admin@proair.com", "password": "password123", "name": "Admin", "invite_code": "test-invite-code"},
-    )
-    resp = client.post(
-        "/auth/signup",
-        json={"email": "user@proair.com", "password": "password123", "name": "User", "invite_code": "test-invite-code"},
-    )
-    token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+from tests.conftest import admin_headers, user_headers
 
 
 def _full_update_payload(**overrides):
@@ -54,7 +34,7 @@ def _full_update_payload(**overrides):
 
 
 def test_get_settings_creates_default_row(client):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     resp = client.get("/settings", headers=headers)
     assert resp.status_code == 200
     body = resp.json()
@@ -67,7 +47,7 @@ def test_get_settings_creates_default_row(client):
 
 
 def test_update_settings(client):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     resp = client.put("/settings", json=_full_update_payload(), headers=headers)
     assert resp.status_code == 200
     body = resp.json()
@@ -77,7 +57,7 @@ def test_update_settings(client):
 
 
 def test_update_settings_changes_main_language(client):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     resp = client.put(
         "/settings", json=_full_update_payload(main_language="de"), headers=headers
     )
@@ -89,7 +69,7 @@ def test_update_settings_changes_main_language(client):
 
 
 def test_update_settings_rejects_unsupported_main_language(client):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     resp = client.put(
         "/settings", json=_full_update_payload(main_language="fr"), headers=headers
     )
@@ -97,7 +77,7 @@ def test_update_settings_rejects_unsupported_main_language(client):
 
 
 def test_update_settings_changes_mistral_model_choices(client):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     resp = client.put(
         "/settings",
         json=_full_update_payload(
@@ -119,7 +99,7 @@ def test_mistral_api_key_unset_by_default_when_no_env_key(client, monkeypatch):
     from app.core.config import get_settings
 
     get_settings.cache_clear()
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     resp = client.get("/settings", headers=headers)
     body = resp.json()
     assert body["mistral_api_key_configured"] is False
@@ -132,7 +112,7 @@ def test_mistral_api_key_falls_back_to_env_when_no_override(client, monkeypatch)
     from app.core.config import get_settings
 
     get_settings.cache_clear()
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     resp = client.get("/settings", headers=headers)
     body = resp.json()
     assert body["mistral_api_key_configured"] is True
@@ -146,7 +126,7 @@ def test_mistral_api_key_override_takes_precedence_over_env(client, monkeypatch)
     from app.core.config import get_settings
 
     get_settings.cache_clear()
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     client.put(
         "/settings",
         json=_full_update_payload(mistral_api_key="sk-in-app-override-wxyz"),
@@ -161,7 +141,7 @@ def test_mistral_api_key_override_takes_precedence_over_env(client, monkeypatch)
 
 
 def test_mistral_api_key_omitted_from_payload_leaves_it_unchanged(client):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     client.put(
         "/settings",
         json=_full_update_payload(mistral_api_key="sk-first-value-1111"),
@@ -178,7 +158,7 @@ def test_mistral_api_key_empty_string_clears_override(client, monkeypatch):
     from app.core.config import get_settings
 
     get_settings.cache_clear()
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     client.put(
         "/settings",
         json=_full_update_payload(mistral_api_key="sk-in-app-override-wxyz"),
@@ -192,7 +172,7 @@ def test_mistral_api_key_empty_string_clears_override(client, monkeypatch):
 
 
 def test_mistral_api_key_stored_encrypted_at_rest(client, db_session):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     client.put(
         "/settings",
         json=_full_update_payload(mistral_api_key="sk-super-secret-plaintext-value"),
@@ -206,7 +186,7 @@ def test_mistral_api_key_stored_encrypted_at_rest(client, db_session):
 
 
 def test_newsdata_api_key_stored_encrypted_at_rest(client, db_session):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     client.put(
         "/settings",
         json=_full_update_payload(newsdata_enabled=True, newsdata_api_key="nd-super-secret-plaintext"),
@@ -225,7 +205,7 @@ def test_settings_require_auth(client):
 
 
 def test_settings_require_admin(client):
-    headers = _user_headers(client)
+    headers = user_headers(client)
     assert client.get("/settings", headers=headers).status_code == 403
     assert client.put("/settings", json=_full_update_payload(), headers=headers).status_code == 403
 
@@ -238,7 +218,7 @@ def test_public_settings_readable_by_non_admin(client):
     RSS (the only source themes can use) is switched off — which is why their topics
     silently returned nothing."""
     # _user_headers signs the admin up first, so this covers both roles.
-    member_headers = _user_headers(client)
+    member_headers = user_headers(client)
 
     assert client.get("/settings", headers=member_headers).status_code == 403
 

@@ -1,18 +1,11 @@
 from app.models.ai_usage_log import AIUsageLog
 from app.models.target_company import TargetCompany
 
-
-def _auth_headers(client, email="rep@proair.com"):
-    resp = client.post(
-        "/auth/signup",
-        json={"email": email, "password": "password123", "name": "Rep", "invite_code": "test-invite-code"},
-    )
-    token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+from tests.conftest import auth_headers
 
 
 def test_usage_summary_empty(client, db_session):
-    headers = _auth_headers(client)
+    headers = auth_headers(client)
     resp = client.get("/ai-usage/summary", headers=headers)
     assert resp.status_code == 200
     body = resp.json()
@@ -23,7 +16,7 @@ def test_usage_summary_empty(client, db_session):
 
 
 def test_usage_summary_aggregates_by_call_type_and_company(client, db_session):
-    headers = _auth_headers(client)
+    headers = auth_headers(client)
     tc = TargetCompany(name="Acme Corp", keywords=[])
     db_session.add(tc)
     db_session.commit()
@@ -86,7 +79,7 @@ def test_usage_summary_requires_auth(client):
 def test_usage_summary_is_admin_only(client):
     # The first signup in a fresh workspace is auto-promoted to admin, so a non-admin
     # requires a second signup.
-    _auth_headers(client, email="admin@proair.com")
-    user_headers = _auth_headers(client, email="rep@proair.com")
+    auth_headers(client, email="admin@proair.com")
+    user_headers = auth_headers(client, email="rep@proair.com")
     resp = client.get("/ai-usage/summary", headers=user_headers)
     assert resp.status_code == 403

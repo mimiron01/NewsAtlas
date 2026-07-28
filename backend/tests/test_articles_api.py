@@ -5,14 +5,7 @@ from app.models.signal import Signal
 from app.models.target_company import TargetCompany
 from app.services.ingestion import ArticleNotEligibleError
 
-
-def _signup(client, email="admin@proair.com"):
-    resp = client.post(
-        "/auth/signup",
-        json={"email": email, "password": "password123", "name": "Rep", "invite_code": "test-invite-code"},
-    )
-    token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+from tests.conftest import auth_headers
 
 
 def _make_skipped_article(
@@ -45,16 +38,16 @@ def _make_skipped_article(
 
 def test_list_skipped_articles_requires_admin(client, db_session):
     _make_skipped_article(db_session)
-    _signup(client, email="admin@proair.com")
+    auth_headers(client, email="admin@proair.com")
     # second signup is not the first user in this workspace, so not an admin
-    non_admin_headers = _signup(client, email="rep@proair.com")
+    non_admin_headers = auth_headers(client, email="rep@proair.com")
 
     resp = client.get("/articles/skipped", headers=non_admin_headers)
     assert resp.status_code == 403
 
 
 def test_list_skipped_articles_returns_triage_reason(client, db_session):
-    admin_headers = _signup(client, email="admin@proair.com")
+    admin_headers = auth_headers(client, email="admin@proair.com")
     _make_skipped_article(db_session)
 
     resp = client.get("/articles/skipped", headers=admin_headers)
@@ -68,7 +61,7 @@ def test_list_skipped_articles_returns_triage_reason(client, db_session):
 
 
 def test_list_skipped_articles_filters_by_reason(client, db_session):
-    admin_headers = _signup(client, email="admin@proair.com")
+    admin_headers = auth_headers(client, email="admin@proair.com")
     _make_skipped_article(db_session, skip_reason="duplicate", triage_reason=None)
 
     resp = client.get("/articles/skipped", headers=admin_headers)
@@ -79,7 +72,7 @@ def test_list_skipped_articles_filters_by_reason(client, db_session):
 
 
 def test_create_signal_from_skipped_article_promotes(client, db_session, monkeypatch):
-    admin_headers = _signup(client, email="admin@proair.com")
+    admin_headers = auth_headers(client, email="admin@proair.com")
     article = _make_skipped_article(db_session)
 
     def fake_promote(db, promoted_article):
@@ -108,7 +101,7 @@ def test_create_signal_from_skipped_article_promotes(client, db_session, monkeyp
 
 
 def test_create_signal_from_skipped_article_rejects_ineligible(client, db_session, monkeypatch):
-    admin_headers = _signup(client, email="admin@proair.com")
+    admin_headers = auth_headers(client, email="admin@proair.com")
     article = _make_skipped_article(db_session, skip_reason="duplicate", triage_reason=None)
 
     def fake_promote(db, promoted_article):
@@ -121,7 +114,7 @@ def test_create_signal_from_skipped_article_rejects_ineligible(client, db_sessio
 
 
 def test_create_signal_from_skipped_article_404_for_unknown_article(client, db_session):
-    admin_headers = _signup(client, email="admin@proair.com")
+    admin_headers = auth_headers(client, email="admin@proair.com")
     resp = client.post(
         "/articles/00000000-0000-0000-0000-000000000000/create-signal", headers=admin_headers
     )
@@ -129,7 +122,7 @@ def test_create_signal_from_skipped_article_404_for_unknown_article(client, db_s
 
 
 def test_create_signal_from_skipped_article_enforces_cooldown(client, db_session, monkeypatch):
-    admin_headers = _signup(client, email="admin@proair.com")
+    admin_headers = auth_headers(client, email="admin@proair.com")
     article_one = _make_skipped_article(db_session)
     article_two = _make_skipped_article(db_session, url="https://example.com/acme-softball-2")
 

@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expires_minutes: int = 60 * 24  # 24h; short-lived by design, see M4 in security review
 
+    # bcrypt's own default cost factor. Lowered in the test suite (see tests/conftest.py)
+    # where dozens of tests sign up users and the real cost buys no security value.
+    bcrypt_rounds: int = 12
+
     signup_invite_code: str = ""
 
     # Encrypts WorkspaceSettings.mistral_api_key/.newsdata_api_key at rest (see

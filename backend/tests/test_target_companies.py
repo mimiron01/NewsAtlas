@@ -1,24 +1,8 @@
-import uuid
-
-
-def _signup(client, email="rep@proair.com"):
-    resp = client.post(
-        "/auth/signup",
-        json={"email": email, "password": "password123", "name": "Rep", "invite_code": "test-invite-code"},
-    )
-    token = resp.json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
-    user_id = client.get("/auth/me", headers=headers).json()["id"]
-    return headers, uuid.UUID(user_id)
-
-
-def _auth_headers(client):
-    headers, _user_id = _signup(client)
-    return headers
+from tests.conftest import auth_headers, signup
 
 
 def test_create_list_update_delete_target_company(client):
-    headers = _auth_headers(client)
+    headers = auth_headers(client)
 
     create_resp = client.post(
         "/target-companies",
@@ -52,7 +36,7 @@ def test_create_list_update_delete_target_company(client):
 
 
 def test_follower_can_edit_name_and_keywords(client):
-    headers = _auth_headers(client)
+    headers = auth_headers(client)
     company = client.post(
         "/target-companies",
         json={"name": "Acme Corp", "keywords": ["Acme"], "industry": "Manufacturing"},
@@ -72,8 +56,8 @@ def test_follower_can_edit_name_and_keywords(client):
 
 
 def test_non_creator_follower_cannot_edit_shared_company(client):
-    creator_headers, _ = _signup(client, email="creator@proair.com")
-    other_headers, _ = _signup(client, email="other@proair.com")
+    creator_headers, _ = signup(client, email="creator@proair.com")
+    other_headers, _ = signup(client, email="other@proair.com")
     company = client.post(
         "/target-companies", json={"name": "Acme", "keywords": []}, headers=creator_headers
     ).json()
@@ -93,7 +77,7 @@ def test_non_creator_follower_cannot_edit_shared_company(client):
 
 
 def test_keywords_over_max_count_rejected(client):
-    headers = _auth_headers(client)
+    headers = auth_headers(client)
     resp = client.post(
         "/target-companies",
         json={"name": "Acme", "keywords": [f"kw{i}" for i in range(21)]},
@@ -103,7 +87,7 @@ def test_keywords_over_max_count_rejected(client):
 
 
 def test_keyword_over_max_length_rejected(client):
-    headers = _auth_headers(client)
+    headers = auth_headers(client)
     resp = client.post(
         "/target-companies",
         json={"name": "Acme", "keywords": ["x" * 101]},
@@ -113,7 +97,7 @@ def test_keyword_over_max_length_rejected(client):
 
 
 def test_google_news_source_allowlist_rejects_non_hostname(client):
-    headers = _auth_headers(client)
+    headers = auth_headers(client)
     resp = client.post(
         "/target-companies",
         json={"name": "Acme", "keywords": [], "google_news_source_allowlist": ["https://reuters.com"]},
@@ -123,7 +107,7 @@ def test_google_news_source_allowlist_rejects_non_hostname(client):
 
 
 def test_google_news_source_allowlist_accepts_bare_hostname(client):
-    headers = _auth_headers(client)
+    headers = auth_headers(client)
     resp = client.post(
         "/target-companies",
         json={"name": "Acme", "keywords": [], "google_news_source_allowlist": ["Reuters.com"]},
@@ -134,8 +118,8 @@ def test_google_news_source_allowlist_accepts_bare_hostname(client):
 
 
 def test_admin_can_edit_name_and_keywords_of_company_they_do_not_follow(client):
-    admin_headers, _ = _signup(client, email="admin@proair.com")
-    user_headers, _ = _signup(client, email="rep@proair.com")
+    admin_headers, _ = signup(client, email="admin@proair.com")
+    user_headers, _ = signup(client, email="rep@proair.com")
     company = client.post(
         "/target-companies", json={"name": "Acme", "keywords": []}, headers=user_headers
     ).json()
@@ -161,7 +145,7 @@ def test_target_companies_require_auth(client):
 
 
 def test_update_missing_target_company_404(client):
-    headers = _auth_headers(client)
+    headers = auth_headers(client)
     resp = client.patch(
         "/target-companies/00000000-0000-0000-0000-000000000000",
         json={"is_active": False},
@@ -171,8 +155,8 @@ def test_update_missing_target_company_404(client):
 
 
 def test_create_target_company_dedupes_by_name_case_insensitive(client):
-    headers_a, _ = _signup(client, email="a@proair.com")
-    headers_b, _ = _signup(client, email="b@proair.com")
+    headers_a, _ = signup(client, email="a@proair.com")
+    headers_b, _ = signup(client, email="b@proair.com")
 
     resp_a = client.post(
         "/target-companies", json={"name": "Acme Corp", "keywords": []}, headers=headers_a
@@ -189,8 +173,8 @@ def test_create_target_company_dedupes_by_name_case_insensitive(client):
 
 
 def test_list_only_shows_own_follows(client):
-    headers_a, _ = _signup(client, email="a@proair.com")
-    headers_b, _ = _signup(client, email="b@proair.com")
+    headers_a, _ = signup(client, email="a@proair.com")
+    headers_b, _ = signup(client, email="b@proair.com")
     client.post("/target-companies", json={"name": "Acme", "keywords": []}, headers=headers_a)
 
     assert len(client.get("/target-companies", headers=headers_a).json()) == 1
@@ -198,8 +182,8 @@ def test_list_only_shows_own_follows(client):
 
 
 def test_patch_and_delete_require_following(client):
-    headers_a, _ = _signup(client, email="a@proair.com")
-    headers_b, _ = _signup(client, email="b@proair.com")
+    headers_a, _ = signup(client, email="a@proair.com")
+    headers_b, _ = signup(client, email="b@proair.com")
     company = client.post(
         "/target-companies", json={"name": "Acme", "keywords": []}, headers=headers_a
     ).json()
@@ -216,9 +200,9 @@ def test_patch_and_delete_require_following(client):
 def test_unfollow_keeps_company_when_other_followers_remain(client):
     # The first signup in a fresh workspace is auto-promoted to admin, whose delete is
     # always a hard-delete — sign up a throwaway admin first so a/b are regular users.
-    _signup(client, email="bootstrap-admin@proair.com")
-    headers_a, _ = _signup(client, email="a@proair.com")
-    headers_b, _ = _signup(client, email="b@proair.com")
+    signup(client, email="bootstrap-admin@proair.com")
+    headers_a, _ = signup(client, email="a@proair.com")
+    headers_b, _ = signup(client, email="b@proair.com")
     company = client.post(
         "/target-companies", json={"name": "Acme", "keywords": []}, headers=headers_a
     ).json()
@@ -234,7 +218,7 @@ def test_unfollow_keeps_company_when_other_followers_remain(client):
 
 
 def test_unfollow_as_sole_follower_hard_deletes_company(client):
-    headers = _auth_headers(client)
+    headers = auth_headers(client)
     company = client.post(
         "/target-companies", json={"name": "Acme", "keywords": []}, headers=headers
     ).json()
@@ -245,7 +229,7 @@ def test_unfollow_as_sole_follower_hard_deletes_company(client):
 
 
 def test_mute_toggle(client):
-    headers = _auth_headers(client)
+    headers = auth_headers(client)
     company = client.post(
         "/target-companies", json={"name": "Acme", "keywords": []}, headers=headers
     ).json()
@@ -259,8 +243,8 @@ def test_mute_toggle(client):
 
 
 def test_mute_requires_following(client):
-    headers_a, _ = _signup(client, email="a@proair.com")
-    headers_b, _ = _signup(client, email="b@proair.com")
+    headers_a, _ = signup(client, email="a@proair.com")
+    headers_b, _ = signup(client, email="b@proair.com")
     company = client.post(
         "/target-companies", json={"name": "Acme", "keywords": []}, headers=headers_a
     ).json()
@@ -270,8 +254,8 @@ def test_mute_requires_following(client):
 
 
 def test_admin_scope_all_lists_full_catalog(client):
-    admin_headers, _ = _signup(client, email="admin@proair.com")
-    user_headers, _ = _signup(client, email="rep@proair.com")
+    admin_headers, _ = signup(client, email="admin@proair.com")
+    user_headers, _ = signup(client, email="rep@proair.com")
     client.post("/target-companies", json={"name": "Acme", "keywords": []}, headers=user_headers)
 
     resp = client.get("/target-companies?scope=all", headers=admin_headers)
@@ -281,16 +265,16 @@ def test_admin_scope_all_lists_full_catalog(client):
 
 
 def test_scope_all_is_admin_only(client):
-    admin_headers, _ = _signup(client, email="admin@proair.com")
-    user_headers, _ = _signup(client, email="rep@proair.com")
+    admin_headers, _ = signup(client, email="admin@proair.com")
+    user_headers, _ = signup(client, email="rep@proair.com")
 
     resp = client.get("/target-companies?scope=all", headers=user_headers)
     assert resp.status_code == 403
 
 
 def test_admin_can_patch_and_delete_any_company(client):
-    admin_headers, _ = _signup(client, email="admin@proair.com")
-    user_headers, _ = _signup(client, email="rep@proair.com")
+    admin_headers, _ = signup(client, email="admin@proair.com")
+    user_headers, _ = signup(client, email="rep@proair.com")
     company = client.post(
         "/target-companies", json={"name": "Acme", "keywords": []}, headers=user_headers
     ).json()
@@ -307,7 +291,7 @@ def test_admin_can_patch_and_delete_any_company(client):
 
 
 def test_bulk_delete_removes_multiple_companies(client):
-    headers = _auth_headers(client)
+    headers = auth_headers(client)
     acme = client.post("/target-companies", json={"name": "Acme", "keywords": []}, headers=headers).json()
     globex = client.post("/target-companies", json={"name": "Globex", "keywords": []}, headers=headers).json()
 
@@ -322,7 +306,7 @@ def test_bulk_delete_removes_multiple_companies(client):
 
 
 def test_bulk_delete_counts_missing_ids_as_not_found(client):
-    headers = _auth_headers(client)
+    headers = auth_headers(client)
     acme = client.post("/target-companies", json={"name": "Acme", "keywords": []}, headers=headers).json()
 
     resp = client.post(
@@ -335,8 +319,8 @@ def test_bulk_delete_counts_missing_ids_as_not_found(client):
 
 
 def test_bulk_delete_non_admin_only_removes_own_follow(client):
-    headers_a, _ = _signup(client, email="a@proair.com")
-    headers_b, _ = _signup(client, email="b@proair.com")
+    headers_a, _ = signup(client, email="a@proair.com")
+    headers_b, _ = signup(client, email="b@proair.com")
     company = client.post(
         "/target-companies", json={"name": "Acme", "keywords": []}, headers=headers_a
     ).json()
@@ -352,8 +336,8 @@ def test_bulk_delete_non_admin_only_removes_own_follow(client):
 
 
 def test_bulk_delete_admin_hard_deletes_for_everyone(client):
-    admin_headers, _ = _signup(client, email="admin@proair.com")
-    user_headers, _ = _signup(client, email="rep@proair.com")
+    admin_headers, _ = signup(client, email="admin@proair.com")
+    user_headers, _ = signup(client, email="rep@proair.com")
     company = client.post(
         "/target-companies", json={"name": "Acme", "keywords": []}, headers=user_headers
     ).json()
@@ -369,14 +353,14 @@ def test_bulk_delete_admin_hard_deletes_for_everyone(client):
 
 
 def test_bulk_delete_requires_non_empty_list(client):
-    headers = _auth_headers(client)
+    headers = auth_headers(client)
     resp = client.post("/target-companies/bulk-delete", json={"target_company_ids": []}, headers=headers)
     assert resp.status_code == 422
 
 
 def test_followers_endpoint_is_admin_only(client):
-    admin_headers, _ = _signup(client, email="admin@proair.com")
-    user_headers, _ = _signup(client, email="rep@proair.com")
+    admin_headers, _ = signup(client, email="admin@proair.com")
+    user_headers, _ = signup(client, email="rep@proair.com")
     company = client.post(
         "/target-companies", json={"name": "Acme", "keywords": []}, headers=user_headers
     ).json()

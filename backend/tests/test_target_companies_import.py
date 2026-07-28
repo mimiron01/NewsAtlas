@@ -2,14 +2,7 @@ import io
 
 from app.models.target_company import TargetCompany
 
-
-def _signup(client, email="admin@proair.com"):
-    resp = client.post(
-        "/auth/signup",
-        json={"email": email, "password": "password123", "name": "Rep", "invite_code": "test-invite-code"},
-    )
-    token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+from tests.conftest import auth_headers
 
 
 def _csv_file(content: str):
@@ -17,7 +10,7 @@ def _csv_file(content: str):
 
 
 def test_import_creates_companies_with_mapped_columns(client, db_session):
-    headers = _signup(client)
+    headers = auth_headers(client)
     csv_content = (
         "Account Name,Industry,Notes\n"
         "Acme Corp,Manufacturing,some note\n"
@@ -41,7 +34,7 @@ def test_import_creates_companies_with_mapped_columns(client, db_session):
 
 
 def test_import_without_industry_column(client, db_session):
-    headers = _signup(client)
+    headers = auth_headers(client)
     csv_content = "Company\nAcme Corp\n"
     resp = client.post(
         "/target-companies/import",
@@ -56,7 +49,7 @@ def test_import_without_industry_column(client, db_session):
 
 
 def test_import_skips_existing_duplicate_case_insensitive(client, db_session):
-    headers = _signup(client)
+    headers = auth_headers(client)
     db_session.add(TargetCompany(name="Acme Corp", keywords=[]))
     db_session.commit()
 
@@ -77,7 +70,7 @@ def test_import_skips_existing_duplicate_case_insensitive(client, db_session):
 
 
 def test_import_skips_duplicate_within_same_file(client, db_session):
-    headers = _signup(client)
+    headers = auth_headers(client)
     csv_content = "Name\nAcme Corp\nACME CORP\n"
     resp = client.post(
         "/target-companies/import",
@@ -91,7 +84,7 @@ def test_import_skips_duplicate_within_same_file(client, db_session):
 
 
 def test_import_reports_row_error_for_missing_name(client, db_session):
-    headers = _signup(client)
+    headers = auth_headers(client)
     csv_content = "Name,Industry\n,Manufacturing\nValid Co,Software\n"
     resp = client.post(
         "/target-companies/import",
@@ -106,7 +99,7 @@ def test_import_reports_row_error_for_missing_name(client, db_session):
 
 
 def test_import_rejects_missing_name_column(client, db_session):
-    headers = _signup(client)
+    headers = auth_headers(client)
     csv_content = "Company,Industry\nAcme Corp,Manufacturing\n"
     resp = client.post(
         "/target-companies/import",
@@ -118,7 +111,7 @@ def test_import_rejects_missing_name_column(client, db_session):
 
 
 def test_import_rejects_non_csv_extension(client, db_session):
-    headers = _signup(client)
+    headers = auth_headers(client)
     resp = client.post(
         "/target-companies/import",
         headers=headers,
@@ -129,7 +122,7 @@ def test_import_rejects_non_csv_extension(client, db_session):
 
 
 def test_import_rejects_oversized_row_count(client, db_session):
-    headers = _signup(client)
+    headers = auth_headers(client)
     rows = "\n".join(f"Company {i}" for i in range(501))
     csv_content = f"Name\n{rows}\n"
     resp = client.post(
@@ -142,8 +135,8 @@ def test_import_rejects_oversized_row_count(client, db_session):
 
 
 def test_import_requires_admin(client, db_session):
-    _signup(client, email="admin@proair.com")
-    user_headers = _signup(client, email="rep@proair.com")
+    auth_headers(client, email="admin@proair.com")
+    user_headers = auth_headers(client, email="rep@proair.com")
     csv_content = "Name\nAcme Corp\n"
     resp = client.post(
         "/target-companies/import",
@@ -155,7 +148,7 @@ def test_import_requires_admin(client, db_session):
 
 
 def test_import_sanitizes_formula_injection_prefix(client, db_session):
-    headers = _signup(client)
+    headers = auth_headers(client)
     csv_content = "Name,Industry\n=cmd|'/c calc'!A1,+SUM(A1:A2)\n"
     resp = client.post(
         "/target-companies/import",
@@ -170,7 +163,7 @@ def test_import_sanitizes_formula_injection_prefix(client, db_session):
 
 
 def test_import_auto_follows_importing_admin(client, db_session):
-    headers = _signup(client)
+    headers = auth_headers(client)
     csv_content = "Name\nAcme Corp\n"
     resp = client.post(
         "/target-companies/import",
