@@ -1,27 +1,7 @@
 from app.models.article import ArticleSource
 from app.models.news_source_usage_log import NewsSourceUsageLog
 
-
-def _admin_headers(client):
-    resp = client.post(
-        "/auth/signup",
-        json={"email": "admin@proair.com", "password": "password123", "name": "Admin", "invite_code": "test-invite-code"},
-    )
-    token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-
-def _user_headers(client):
-    client.post(
-        "/auth/signup",
-        json={"email": "admin@proair.com", "password": "password123", "name": "Admin", "invite_code": "test-invite-code"},
-    )
-    resp = client.post(
-        "/auth/signup",
-        json={"email": "user@proair.com", "password": "password123", "name": "User", "invite_code": "test-invite-code"},
-    )
-    token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+from tests.conftest import admin_headers, user_headers
 
 
 def test_news_usage_requires_auth(client):
@@ -30,13 +10,13 @@ def test_news_usage_requires_auth(client):
 
 
 def test_news_usage_requires_admin(client):
-    headers = _user_headers(client)
+    headers = user_headers(client)
     resp = client.get("/news-usage", headers=headers)
     assert resp.status_code == 403
 
 
 def test_news_usage_reflects_defaults_when_empty(client):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     resp = client.get("/news-usage", headers=headers)
     assert resp.status_code == 200
     body = resp.json()
@@ -48,7 +28,7 @@ def test_news_usage_reflects_defaults_when_empty(client):
 
 
 def test_news_usage_aggregates_logged_requests(client, db_session):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     db_session.add_all(
         [
             NewsSourceUsageLog(source=ArticleSource.NEWSAPI, call_type="latest", requests_used=3, articles_returned=5),
@@ -65,7 +45,7 @@ def test_news_usage_aggregates_logged_requests(client, db_session):
 
 
 def test_news_usage_rate_limited_marker_rows_counted_separately(client, db_session):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     db_session.add(
         NewsSourceUsageLog(source=ArticleSource.NEWSDATA, call_type="rate_limited", requests_used=0)
     )

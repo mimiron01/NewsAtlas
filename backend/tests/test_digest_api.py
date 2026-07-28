@@ -1,13 +1,6 @@
 from app.schemas.digest import DigestRunResult
 
-
-def _auth_headers(client):
-    resp = client.post(
-        "/auth/signup",
-        json={"email": "rep@proair.com", "password": "password123", "name": "Rep", "invite_code": "test-invite-code"},
-    )
-    token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
+from tests.conftest import auth_headers
 
 
 def test_send_now_requires_auth(client):
@@ -16,7 +9,7 @@ def test_send_now_requires_auth(client):
 
 
 def test_send_now_invokes_digest_pipeline(client, monkeypatch):
-    headers = _auth_headers(client)
+    headers = auth_headers(client)
 
     fake_result = DigestRunResult(users_emailed=2, signals_included=3, errors=[])
     monkeypatch.setattr("app.api.digest.send_daily_digest", lambda db: fake_result)

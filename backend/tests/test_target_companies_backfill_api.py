@@ -1,40 +1,11 @@
 from app.services.workspace_settings import get_or_create_workspace_settings
 
-
-def _admin_headers(client):
-    resp = client.post(
-        "/auth/signup",
-        json={"email": "admin@proair.com", "password": "password123", "name": "Admin", "invite_code": "test-invite-code"},
-    )
-    token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-
-def _user_headers(client):
-    client.post(
-        "/auth/signup",
-        json={"email": "admin@proair.com", "password": "password123", "name": "Admin", "invite_code": "test-invite-code"},
-    )
-    resp = client.post(
-        "/auth/signup",
-        json={"email": "user@proair.com", "password": "password123", "name": "User", "invite_code": "test-invite-code"},
-    )
-    token = resp.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-
-def _enable_backfill(db_session, **overrides):
-    settings = get_or_create_workspace_settings(db_session)
-    settings.newsdata_enabled = True
-    settings.newsdata_backfill_days = 30
-    for key, value in overrides.items():
-        setattr(settings, key, value)
-    db_session.commit()
+from tests.conftest import admin_headers, enable_backfill, user_headers
 
 
 def test_create_company_triggers_backfill_when_configured(client, db_session, monkeypatch):
-    headers = _admin_headers(client)
-    _enable_backfill(db_session)
+    headers = admin_headers(client)
+    enable_backfill(db_session)
 
     calls = []
     monkeypatch.setattr(
@@ -48,7 +19,7 @@ def test_create_company_triggers_backfill_when_configured(client, db_session, mo
 
 
 def test_create_company_does_not_trigger_backfill_when_disabled(client, db_session, monkeypatch):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     # newsdata_enabled defaults to False — no explicit setup needed.
 
     calls = []
@@ -63,7 +34,7 @@ def test_create_company_does_not_trigger_backfill_when_disabled(client, db_sessi
 
 
 def test_manual_backfill_requires_admin(client, db_session):
-    headers = _user_headers(client)
+    headers = user_headers(client)
     create = client.post("/target-companies", json={"name": "Acme Corp", "keywords": []}, headers=headers)
     company_id = create.json()["id"]
 
@@ -72,7 +43,7 @@ def test_manual_backfill_requires_admin(client, db_session):
 
 
 def test_manual_backfill_rejected_when_newsdata_disabled(client, db_session):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     create = client.post("/target-companies", json={"name": "Acme Corp", "keywords": []}, headers=headers)
     company_id = create.json()["id"]
 
@@ -82,7 +53,7 @@ def test_manual_backfill_rejected_when_newsdata_disabled(client, db_session):
 
 
 def test_manual_backfill_rejected_when_backfill_days_zero(client, db_session):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     settings = get_or_create_workspace_settings(db_session)
     settings.newsdata_enabled = True
     settings.newsdata_backfill_days = 0
@@ -97,10 +68,10 @@ def test_manual_backfill_rejected_when_backfill_days_zero(client, db_session):
 
 
 def test_manual_backfill_schedules_when_eligible(client, db_session, monkeypatch):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     create = client.post("/target-companies", json={"name": "Acme Corp", "keywords": []}, headers=headers)
     company_id = create.json()["id"]
-    _enable_backfill(db_session)
+    enable_backfill(db_session)
 
     calls = []
     monkeypatch.setattr(
@@ -116,10 +87,10 @@ def test_manual_backfill_schedules_when_eligible(client, db_session, monkeypatch
 
 
 def test_manual_backfill_rejected_when_already_backfilled(client, db_session, monkeypatch):
-    headers = _admin_headers(client)
+    headers = admin_headers(client)
     create = client.post("/target-companies", json={"name": "Acme Corp", "keywords": []}, headers=headers)
     company_id = create.json()["id"]
-    _enable_backfill(db_session)
+    enable_backfill(db_session)
 
     from datetime import datetime, timezone
 

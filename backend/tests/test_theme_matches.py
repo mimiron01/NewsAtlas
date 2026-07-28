@@ -3,25 +3,10 @@ from datetime import datetime, timezone
 
 from app.models.signal import SignalStatus
 from app.models.target_company import TargetCompany
-from app.models.theme_follow import ThemeFollow
 from app.models.theme_match import ThemeMatch
 from app.models.theme_watch import ThemeWatch
 
-
-def _signup(client, email="rep@proair.com"):
-    resp = client.post(
-        "/auth/signup",
-        json={"email": email, "password": "password123", "name": "Rep", "invite_code": "test-invite-code"},
-    )
-    token = resp.json()["access_token"]
-    headers = {"Authorization": f"Bearer {token}"}
-    user_id = client.get("/auth/me", headers=headers).json()["id"]
-    return headers, uuid.UUID(user_id)
-
-
-def _auth_headers(client):
-    headers, _user_id = _signup(client)
-    return headers
+from tests.conftest import follow_theme, signup
 
 
 def _make_theme(db_session, name="Automotive") -> ThemeWatch:
@@ -53,16 +38,11 @@ def _make_match(
     return match
 
 
-def _follow(db_session, user_id, theme_watch_id) -> None:
-    db_session.add(ThemeFollow(user_id=user_id, theme_watch_id=theme_watch_id))
-    db_session.commit()
-
-
 def test_list_theme_matches_scoped_to_followed_themes(client, db_session):
-    headers, user_id = _signup(client)
+    headers, user_id = signup(client)
     theme = _make_theme(db_session)
     _make_match(db_session, theme)
-    _follow(db_session, user_id, theme.id)
+    follow_theme(db_session, user_id, theme.id)
     other_theme = _make_theme(db_session, name="Fintech")
     _make_match(db_session, other_theme, url="https://example.com/other")
 
@@ -74,9 +54,9 @@ def test_list_theme_matches_scoped_to_followed_themes(client, db_session):
 
 
 def test_list_theme_matches_filters_by_theme_and_status(client, db_session):
-    headers, user_id = _signup(client)
+    headers, user_id = signup(client)
     theme = _make_theme(db_session)
-    _follow(db_session, user_id, theme.id)
+    follow_theme(db_session, user_id, theme.id)
     match = _make_match(db_session, theme, url="https://example.com/a")
     dismissed = _make_match(db_session, theme, url="https://example.com/b")
     dismissed.status = SignalStatus.DISMISSED
@@ -88,10 +68,10 @@ def test_list_theme_matches_filters_by_theme_and_status(client, db_session):
 
 
 def test_get_theme_match_requires_following(client, db_session):
-    headers_a, user_id_a = _signup(client, email="a@proair.com")
-    headers_b, _ = _signup(client, email="b@proair.com")
+    headers_a, user_id_a = signup(client, email="a@proair.com")
+    headers_b, _ = signup(client, email="b@proair.com")
     theme = _make_theme(db_session)
-    _follow(db_session, user_id_a, theme.id)
+    follow_theme(db_session, user_id_a, theme.id)
     match = _make_match(db_session, theme)
 
     ok = client.get(f"/theme-matches/{match.id}", headers=headers_a)
@@ -102,9 +82,9 @@ def test_get_theme_match_requires_following(client, db_session):
 
 
 def test_update_theme_match_status(client, db_session):
-    headers, user_id = _signup(client)
+    headers, user_id = signup(client)
     theme = _make_theme(db_session)
-    _follow(db_session, user_id, theme.id)
+    follow_theme(db_session, user_id, theme.id)
     match = _make_match(db_session, theme)
 
     resp = client.patch(
@@ -120,9 +100,9 @@ def test_theme_matches_require_auth(client):
 
 
 def test_track_company_creates_and_follows_company(client, db_session):
-    headers, user_id = _signup(client)
+    headers, user_id = signup(client)
     theme = _make_theme(db_session)
-    _follow(db_session, user_id, theme.id)
+    follow_theme(db_session, user_id, theme.id)
     match = _make_match(db_session, theme, extracted_company_name="Acme Corp")
 
     resp = client.post(f"/theme-matches/{match.id}/track-company", headers=headers)
@@ -142,9 +122,9 @@ def test_track_company_creates_and_follows_company(client, db_session):
 
 
 def test_track_company_dedupes_against_existing_target_company(client, db_session):
-    headers, user_id = _signup(client)
+    headers, user_id = signup(client)
     theme = _make_theme(db_session)
-    _follow(db_session, user_id, theme.id)
+    follow_theme(db_session, user_id, theme.id)
     existing = TargetCompany(name="Acme Corp", keywords=[])
     db_session.add(existing)
     db_session.commit()
@@ -157,9 +137,9 @@ def test_track_company_dedupes_against_existing_target_company(client, db_sessio
 
 
 def test_track_company_fails_without_extracted_company(client, db_session):
-    headers, user_id = _signup(client)
+    headers, user_id = signup(client)
     theme = _make_theme(db_session)
-    _follow(db_session, user_id, theme.id)
+    follow_theme(db_session, user_id, theme.id)
     match = _make_match(db_session, theme, extracted_company_name=None)
 
     resp = client.post(f"/theme-matches/{match.id}/track-company", headers=headers)
@@ -167,9 +147,9 @@ def test_track_company_fails_without_extracted_company(client, db_session):
 
 
 def test_track_company_fails_when_already_matched(client, db_session):
-    headers, user_id = _signup(client)
+    headers, user_id = signup(client)
     theme = _make_theme(db_session)
-    _follow(db_session, user_id, theme.id)
+    follow_theme(db_session, user_id, theme.id)
     tc = TargetCompany(name="Acme Corp", keywords=[])
     db_session.add(tc)
     db_session.commit()
@@ -183,10 +163,10 @@ def test_track_company_fails_when_already_matched(client, db_session):
 
 
 def test_track_company_requires_following_the_theme(client, db_session):
-    headers_a, user_id_a = _signup(client, email="a@proair.com")
-    headers_b, _ = _signup(client, email="b@proair.com")
+    headers_a, user_id_a = signup(client, email="a@proair.com")
+    headers_b, _ = signup(client, email="b@proair.com")
     theme = _make_theme(db_session)
-    _follow(db_session, user_id_a, theme.id)
+    follow_theme(db_session, user_id_a, theme.id)
     match = _make_match(db_session, theme, extracted_company_name="Acme Corp")
 
     resp = client.post(f"/theme-matches/{match.id}/track-company", headers=headers_b)
