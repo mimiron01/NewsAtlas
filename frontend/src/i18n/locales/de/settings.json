@@ -4,7 +4,6 @@
     "company": "Unternehmen",
     "sources": "Nachrichtenquellen",
     "ai": "KI-Konfiguration",
-    "review": "Übersprungene Artikel",
     "usage": "KI-Nutzung",
     "users": "Benutzer",
     "logs": "Protokolle"
@@ -23,12 +22,25 @@
     "companyName": "Firmenname",
     "offeringDescription": "Angebotsbeschreibung",
     "offeringPlaceholder": "Beschreiben Sie, was Ihr Unternehmen verkauft, für wen und welche Probleme es löst...",
+    "offeringHelp": {
+      "explainer": "Dieser Text wird der KI bei jedem eingehenden Artikel übergeben, um die Relevanz zu bewerten und Kontaktvorschläge zu entwerfen. Beschreiben Sie in einfacher Sprache — nicht als Marketingtext —, was Sie verkaufen, wer es kauft und welches Problem es löst.",
+      "tooShort": "Das ist recht kurz — mehr Details (was Sie verkaufen, wer es kauft, welches Problem es löst) verbessern, wie genau die KI die Relevanz einschätzen kann.",
+      "showExample": "Beispiel anzeigen",
+      "goodExampleLabel": "Gutes Beispiel:",
+      "goodExample": "Wir verkaufen eine cloudbasierte Flottenwartungsplattform für mittelgroße Speditionen (50-500 Fahrzeuge). Sie sagt mechanische Ausfälle voraus, bevor sie auftreten, basierend auf Telematikdaten, damit Flotten teure Pannen und ungeplante Ausfallzeiten vermeiden. Unsere Käufer sind Flottenmanager und Betriebsleiter, die derzeit auf manuelle Inspektionspläne oder Papierprotokolle angewiesen sind. Wir differenzieren uns durch niedrige Sensor-Installationskosten und Einrichtung am selben Tag.",
+      "vagueExampleLabel": "Zu vage:",
+      "vagueExample": "Wir bieten innovative Softwarelösungen, die Unternehmen helfen, in der heutigen wettbewerbsintensiven Welt zu wachsen und erfolgreich zu sein."
+    },
     "mainLanguage": "Hauptsprache",
     "mainLanguageHint": "Die Standardsprache für die Oberfläche und die von der KI erstellten Signalzusammenfassungen. Benutzer können sie in ihrem eigenen Profil weiterhin überschreiben.",
     "ingestionInterval": "Abrufintervall (Stunden)",
     "digestSendTime": "Versandzeit der täglichen Zusammenfassung",
     "maxArticlesPerCompany": "Max. Artikel pro Unternehmen pro Abruf (0 = kein Limit)",
-    "maxArticlesPerCompanyHint": "Begrenzt jedes Unternehmen auf seine neuesten N Artikel pro Abruflauf, bevor sie zusammengefasst werden — schützt davor, dass ein einzelnes vielbeachtetes Unternehmen (oder eine breite Schlüsselwortliste) das gesamte KI-Budget eines Laufs verbraucht."
+    "maxArticlesPerCompanyHint": "Begrenzt jedes Unternehmen auf seine neuesten N Artikel pro Abruflauf, bevor sie zusammengefasst werden — schützt davor, dass ein einzelnes vielbeachtetes Unternehmen (oder eine breite Schlüsselwortliste) das gesamte KI-Budget eines Laufs verbraucht.",
+    "maxArticlesPerTheme": "Max. Artikel pro Thema pro Abruf (0 = kein Limit)",
+    "maxArticlesPerThemeHint": "Gleiches Limit wie oben, aber pro Theme Watch statt pro Unternehmen.",
+    "maxActiveThemeWatches": "Max. aktive Theme Watches",
+    "maxActiveThemeWatchesHint": "Feste Obergrenze, wie viele Theme Watches workspace-weit gleichzeitig aktiv sein können. Pausieren oder löschen Sie einen, um Platz für einen weiteren zu schaffen."
   },
 
   "targets": {
@@ -39,6 +51,9 @@
     "keywords": "Schlüsselwörter / Aliasse",
     "keywordsPlaceholder": "Schlüsselwort eingeben und Enter drücken",
     "keywordsHint": "Bevorzugen Sie spezifische Namen/Domains statt generischer Einzelwörter oder Abkürzungen — ein zu allgemeines Schlüsselwort kann unpassende Artikel einbeziehen, die dieses Unternehmen gar nicht erwähnen.",
+    "sourceAllowlist": "Vertrauenswürdige Quellen für dieses Unternehmen (optional)",
+    "sourceAllowlistPlaceholder": "Domain eingeben (z. B. techcrunch.com) und Enter drücken",
+    "sourceAllowlistHint": "Ergänzt die workspace-weite Liste vertrauenswürdiger Quellen für Google News RSS, ersetzt sie nicht.",
     "addTargetCompany": "Zielunternehmen hinzufügen",
     "trackedCompanies": "Verfolgte Unternehmen ({{count}})",
     "noCompaniesYet": "Noch keine Zielunternehmen.",
@@ -68,7 +83,24 @@
     "confirmDeleteAdmin": "Dadurch werden „{{name}}“ und alle zugehörigen Signale für alle Benutzer dauerhaft gelöscht. Fortfahren?",
     "confirmUnfollowOnly": "Sie sind der einzige Follower — wenn Sie „{{name}}“ nicht mehr folgen, wird es (mit allen Signalen) für alle entfernt. Fortfahren?",
     "confirmUnfollowShared": "„{{name}}“ nicht mehr folgen? Andere Benutzer, die es verfolgen, sehen es weiterhin.",
-    "removeTag": "{{tag}} entfernen"
+    "removeTag": "{{tag}} entfernen",
+    "import": {
+      "openButton": "CSV importieren",
+      "title": "Zielunternehmen aus CSV importieren",
+      "subtitle": "Importieren Sie eine aus Salesforce exportierte Unternehmensliste (oder eine beliebige CSV mit einer Namensspalte). Doppelte Namen werden übersprungen, nicht zusammengeführt.",
+      "chooseFile": "CSV-Datei auswählen",
+      "previewHint": "Vorschau von {{filename}} — bestätigen Sie die zu verwendenden Spalten und importieren Sie dann.",
+      "nameColumn": "Spalte für Firmenname",
+      "industryColumn": "Spalte für Branche (optional)",
+      "noIndustryColumn": "(keine)",
+      "importButton": "Importieren",
+      "importing": "Wird importiert...",
+      "importFailed": "CSV-Import fehlgeschlagen",
+      "done": "Fertig",
+      "resultSummary": "{{created}} erstellt, {{skipped}} als Duplikate übersprungen, {{errors}} fehlerhaft.",
+      "skippedRow": "Zeile {{row}}: „{{name}}“ übersprungen ({{reason}})",
+      "errorRow": "Zeile {{row}}: {{reason}}"
+    }
   },
 
   "sources": {
@@ -91,7 +123,10 @@
     "googleNewsRss": {
       "hint": "Kostenloser Feed ohne API-Schlüssel. Google veröffentlicht kein offizielles Kontingent dafür, daher ist das Limit unten eine selbst auferlegte Höflichkeitsgrenze und keine echte Plan-Stufe.",
       "country": "Land",
-      "language": "Sprache"
+      "language": "Sprache",
+      "sourceAllowlist": "Vertrauenswürdige Quellen (Workspace-Standard)",
+      "sourceAllowlistPlaceholder": "Domain eingeben (z. B. reuters.com) und Enter drücken",
+      "sourceAllowlistHint": "Optional. Wenn gesetzt, werden Google-News-RSS-Ergebnisse für jedes Unternehmen auf diese Domains beschränkt, zuzüglich der Domains, die ein Unternehmen selbst hinzufügt. Leer lassen, um ganz Google News zu durchsuchen."
     },
     "newsdata": {
       "hint": "Kostenpflichtige API — nutzt vollständige Artikelinhalte als Grundlage, native Duplikaterkennung, native Stimmungs-/Tag-Analyse und einen einmaligen historischen Nachlade-Vorgang beim Hinzufügen eines Unternehmens.",

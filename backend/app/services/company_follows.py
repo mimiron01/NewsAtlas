@@ -15,6 +15,7 @@ def get_or_create_company(
     keywords: list[str],
     industry: str | None,
     created_by: uuid.UUID,
+    google_news_source_allowlist: list[str] | None = None,
 ) -> TargetCompany:
     """Case-insensitive dedupe by name, shared by self-serve create and admin assignment."""
     existing = (
@@ -24,7 +25,13 @@ def get_or_create_company(
     )
     if existing is not None:
         return existing
-    company = TargetCompany(name=name, keywords=keywords, industry=industry, created_by=created_by)
+    company = TargetCompany(
+        name=name,
+        keywords=keywords,
+        industry=industry,
+        created_by=created_by,
+        google_news_source_allowlist=google_news_source_allowlist or [],
+    )
     db.add(company)
     db.flush()
     return company
@@ -94,6 +101,8 @@ def to_response(
         keywords=company.keywords,
         industry=company.industry,
         is_active=company.is_active,
+        google_news_source_allowlist=company.google_news_source_allowlist,
+        created_by=company.created_by,
         is_muted=follow.is_muted if follow is not None else None,
         follower_count=follower_count(db, company.id),
         backfilled_at=company.backfilled_at,

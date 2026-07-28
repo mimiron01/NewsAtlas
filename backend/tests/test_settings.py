@@ -46,6 +46,8 @@ def _full_update_payload(**overrides):
         "newsdata_backfill_days": 0,
         "newsdata_max_requests_per_day": 200,
         "newsdata_max_requests_per_minute": 30,
+        "max_articles_per_theme_per_run": 10,
+        "max_active_theme_watches": 10,
     }
     payload.update(overrides)
     return payload
@@ -187,6 +189,34 @@ def test_mistral_api_key_empty_string_clears_override(client, monkeypatch):
     assert body["mistral_api_key_source"] == "environment"
     assert body["mistral_api_key_last4"] == "abcd"
     get_settings.cache_clear()
+
+
+def test_mistral_api_key_stored_encrypted_at_rest(client, db_session):
+    headers = _admin_headers(client)
+    client.put(
+        "/settings",
+        json=_full_update_payload(mistral_api_key="sk-super-secret-plaintext-value"),
+        headers=headers,
+    )
+    from app.models.workspace_settings import WorkspaceSettings
+
+    row = db_session.query(WorkspaceSettings).first()
+    assert row.mistral_api_key != "sk-super-secret-plaintext-value"
+    assert "sk-super-secret-plaintext-value" not in row.mistral_api_key
+
+
+def test_newsdata_api_key_stored_encrypted_at_rest(client, db_session):
+    headers = _admin_headers(client)
+    client.put(
+        "/settings",
+        json=_full_update_payload(newsdata_enabled=True, newsdata_api_key="nd-super-secret-plaintext"),
+        headers=headers,
+    )
+    from app.models.workspace_settings import WorkspaceSettings
+
+    row = db_session.query(WorkspaceSettings).first()
+    assert row.newsdata_api_key != "nd-super-secret-plaintext"
+    assert "nd-super-secret-plaintext" not in row.newsdata_api_key
 
 
 def test_settings_require_auth(client):

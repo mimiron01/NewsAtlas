@@ -116,6 +116,47 @@ _TRIAGE_SYSTEM_PROMPT = (
 )
 
 
+_THEME_SYSTEM_PROMPT = (
+    "You are a sales-intelligence assistant. Given a news article that matched a theme "
+    "watch's query terms (a topic like \"Automotive\" or \"Startup Series B\", not a single "
+    "named company) and a description of our own company's offering, respond with a JSON "
+    "object containing exactly these keys:\n"
+    '- "extracted_company_name": string or null. The specific company this article is '
+    "genuinely about, named or unambiguously referenced — verbatim as it appears in the "
+    "article, not normalized or guessed. null if the article is topical/industry news with "
+    "no single company at its center (this is a normal, expected outcome, not a failure).\n"
+    '- "summary": 2-4 plain-language sentences summarizing the article.\n'
+    '- "business_relevance": why this news matters given our offering and this theme, and '
+    "which company (if any) it's relevant to.\n"
+    '- "supporting_quote": a short verbatim excerpt (max ~25 words) from the article '
+    "description that directly supports business_relevance. Empty string if the "
+    "description doesn't contain a usable quote.\n"
+    '- "relevance_score": integer 1-5. 5 = a clear, immediate buying trigger directly tied '
+    "to our offering that warrants outreach today; 1 = tangentially related background "
+    "news with no clear outreach angle.\n"
+    f'- "signal_type": one of {list(_SIGNAL_TYPES)}.\n'
+    '- "confidence": one of ["low", "medium", "high"] — how confident you are that '
+    "business_relevance is accurately grounded in the article text.\n"
+    '- "entities": an object with any of these keys you can confidently extract from the '
+    'article: "amount" (string, e.g. a funding/deal size), "people" (array of strings, '
+    '"name (title)"), "tags" (array of short lowercase keyword strings). Omit keys you '
+    "can't confidently fill; use {} if none apply.\n"
+    "Respond with ONLY the JSON object and no other text."
+)
+
+_THEME_TRIAGE_SYSTEM_PROMPT = (
+    "You are a fast relevance filter for a sales-intelligence pipeline. Given a news "
+    "article that matched a theme watch's query terms (a topic, not a single named "
+    "company) and a description of our own company's offering, decide whether the "
+    "article is worth a full analysis. Respond with ONLY a JSON object: "
+    '{"relevant": true|false, "reason": "<max 10 words>"}. '
+    "Answer false if the article has no plausible business/outreach angle at all given "
+    "our offering (e.g. pure sports/celebrity/local-interest noise that only matched a "
+    "query term coincidentally) — unlike a company-specific triage, there is no single "
+    "company identity to verify here, only topical relevance."
+)
+
+
 class AIClientError(Exception):
     """Raised when the AI provider can't be reached or returns an unusable response."""
 
@@ -170,6 +211,52 @@ class AISummaryResult(BaseModel):
 class TriageResult(BaseModel):
     relevant: bool
     reason: str = ""
+
+
+class ThemeArticleResult(BaseModel):
+    """Result of a theme-watch article analysis — deliberately not a subclass of
+    AISummaryResult: no company_mentioned (there's no single company to assert the truth
+    of, see docs/theme-search-planning.html §4.2) and no outreach snippet fields (those
+    only make sense once a specific company is being pitched to, which is the "track this
+    company" boundary — see ThemeMatch's schema)."""
+
+    extracted_company_name: str | None = None
+    summary: str
+    business_relevance: str
+    supporting_quote: str = ""
+    relevance_score: int = 3
+    signal_type: str = "other"
+    confidence: str = "medium"
+    entities: dict = {}
+
+    @field_validator("extracted_company_name")
+    @classmethod
+    def _blank_to_none(cls, value: str | None) -> str | None:
+        stripped = (value or "").strip()
+        return stripped or None
+
+    @field_validator("relevance_score")
+    @classmethod
+    def _clamp_score(cls, value: int) -> int:
+        return max(1, min(5, value))
+
+    @field_validator("signal_type")
+    @classmethod
+    def _normalize_signal_type(cls, value: str) -> str:
+        normalized = (value or "").strip().lower().replace(" ", "_")
+        if normalized in _SIGNAL_TYPES:
+            return normalized
+        logger.warning("Mistral returned unrecognized signal_type %r; coercing to 'other'", value)
+        return "other"
+
+    @field_validator("confidence")
+    @classmethod
+    def _normalize_confidence(cls, value: str) -> str:
+        normalized = (value or "").strip().lower()
+        if normalized in ("low", "medium", "high"):
+            return normalized
+        logger.warning("Mistral returned unrecognized confidence %r; coercing to 'medium'", value)
+        return "medium"
 
 
 def _sum_usage(a: MistralUsage, b: MistralUsage) -> MistralUsage:
@@ -255,6 +342,7 @@ class AIClient:
         article_title: str,
         article_description: str | None,
         industry: str | None = None,
+        keywords: list[str] | None = None,
         recent_signals: list[str] | None = None,
         feedback_note: str | None = None,
         output_language: str = "en",
@@ -271,6 +359,8 @@ class AIClient:
         ]
         if industry:
             context_lines.append(f"Target industry: {industry}")
+        if keywords:
+            context_lines.append(f"Target company keywords/context: {', '.join(keywords)}")
         context_lines.append(f"Article title: {article_title}")
         context_lines.append(
             f"Article description: {article_description or '(no description available)'}"
@@ -325,6 +415,8 @@ class AIClient:
         target_company_name: str,
         article_title: str,
         article_description: str | None,
+        industry: str | None = None,
+        keywords: list[str] | None = None,
         headline_only: bool = False,
     ) -> tuple[TriageResult, MistralUsage]:
         """Cheap pre-filter using the small model. Failures fail open (treat as relevant)
@@ -336,17 +428,20 @@ class AIClient:
         system_content = _TRIAGE_SYSTEM_PROMPT
         if headline_only:
             system_content += _TRIAGE_HEADLINE_ONLY_DIRECTIVE
+
+        context_lines = [f"Our offering: {offering_description or '(not provided)'}",
+                          f"Target company: {target_company_name}"]
+        if industry:
+            context_lines.append(f"Target industry: {industry}")
+        if keywords:
+            context_lines.append(f"Target company keywords/context: {', '.join(keywords)}")
+        context_lines.append(f"Article title: {article_title}")
+        context_lines.append(
+            f"Article description: {article_description or '(no description available)'}"
+        )
         messages = [
             {"role": "system", "content": system_content},
-            {
-                "role": "user",
-                "content": (
-                    f"Our offering: {offering_description or '(not provided)'}\n"
-                    f"Target company: {target_company_name}\n"
-                    f"Article title: {article_title}\n"
-                    f"Article description: {article_description or '(no description available)'}"
-                ),
-            },
+            {"role": "user", "content": "\n".join(context_lines)},
         ]
         try:
             content, usage = self._chat(
@@ -356,6 +451,111 @@ class AIClient:
             return TriageResult.model_validate(data), usage
         except (httpx.HTTPError, json.JSONDecodeError, ValidationError) as exc:
             raise AIClientError(f"Mistral triage failed: {exc}")
+
+    def triage_theme_article(
+        self,
+        *,
+        offering_description: str,
+        theme_name: str,
+        query_terms: list[str],
+        article_title: str,
+        article_description: str | None,
+        industry: str | None = None,
+        headline_only: bool = False,
+    ) -> tuple[TriageResult, MistralUsage]:
+        """Same cheap-pre-filter/fail-open contract as triage_article, but checking
+        topical relevance to a theme rather than identity of a single target company —
+        see docs/theme-search-planning.html §4.1."""
+        if not self.api_key:
+            raise AIClientError("MISTRAL_API_KEY is not configured")
+
+        system_content = _THEME_TRIAGE_SYSTEM_PROMPT
+        if headline_only:
+            system_content += _TRIAGE_HEADLINE_ONLY_DIRECTIVE
+
+        context_lines = [
+            f"Our offering: {offering_description or '(not provided)'}",
+            f"Theme: {theme_name}",
+            f"Theme query terms: {', '.join(query_terms)}",
+        ]
+        if industry:
+            context_lines.append(f"Theme industry context: {industry}")
+        context_lines.append(f"Article title: {article_title}")
+        context_lines.append(
+            f"Article description: {article_description or '(no description available)'}"
+        )
+        messages = [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": "\n".join(context_lines)},
+        ]
+        try:
+            content, usage = self._chat(
+                self.triage_model, messages, temperature=0.0, max_tokens=60
+            )
+            data = json.loads(content)
+            return TriageResult.model_validate(data), usage
+        except (httpx.HTTPError, json.JSONDecodeError, ValidationError) as exc:
+            raise AIClientError(f"Mistral theme triage failed: {exc}")
+
+    def summarize_theme_article(
+        self,
+        *,
+        company_name: str,
+        offering_description: str,
+        theme_name: str,
+        query_terms: list[str],
+        article_title: str,
+        article_description: str | None,
+        industry: str | None = None,
+        output_language: str = "en",
+        headline_only: bool = False,
+    ) -> tuple[ThemeArticleResult, MistralUsage]:
+        """One call does both jobs — summarize and identify the specific company (if
+        any) the article is about — rather than two, to avoid doubling the per-article
+        AI cost (see docs/theme-search-planning.html §4.2)."""
+        if not self.api_key:
+            raise AIClientError("MISTRAL_API_KEY is not configured")
+
+        context_lines = [
+            f"Our company: {company_name}",
+            f"Our offering: {offering_description or '(not provided)'}",
+            "",
+            f"Theme: {theme_name}",
+            f"Theme query terms: {', '.join(query_terms)}",
+        ]
+        if industry:
+            context_lines.append(f"Theme industry context: {industry}")
+        context_lines.append(f"Article title: {article_title}")
+        context_lines.append(
+            f"Article description: {article_description or '(no description available)'}"
+        )
+
+        system_content = _THEME_SYSTEM_PROMPT + _language_directive(output_language)
+        if headline_only:
+            system_content += _HEADLINE_ONLY_DIRECTIVE
+        messages = [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": "\n".join(context_lines)},
+        ]
+
+        last_error: Exception | None = None
+        cumulative_usage = MistralUsage()
+        for _ in range(self.MAX_ATTEMPTS):
+            content: str | None = None
+            try:
+                content, usage = self._chat(self.model, messages, temperature=0.3)
+                cumulative_usage = _sum_usage(cumulative_usage, usage)
+                data = json.loads(content)
+                return ThemeArticleResult.model_validate(data), cumulative_usage
+            except httpx.HTTPError as exc:
+                raise AIClientError(f"Mistral theme summarization failed: {exc}")
+            except (json.JSONDecodeError, ValidationError) as exc:
+                last_error = exc
+                if content is not None:
+                    messages.append({"role": "assistant", "content": content})
+                messages.append({"role": "user", "content": _RETRY_PROMPT})
+
+        raise AIClientError(f"Mistral theme summarization failed after retry: {last_error}")
 
     def embed_texts(self, texts: list[str]) -> tuple[list[list[float]], MistralUsage]:
         """Batches all given texts into a single embeddings request."""

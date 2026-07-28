@@ -4,7 +4,8 @@
   "stats": {
     "newSignals": "Neue Signale",
     "favorites": "Favoriten",
-    "openTodos": "Offene Aufgaben"
+    "openTodos": "Offene Aufgaben",
+    "skipped": "Übersprungen — ansehen"
   },
   "topSignals": "Top-Signale",
   "viewAllSignals": "Alle Signale anzeigen →",

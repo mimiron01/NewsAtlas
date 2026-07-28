@@ -19,6 +19,8 @@ from app.api import (
     signal_todos,
     signals,
     target_companies,
+    theme_matches,
+    theme_watches,
 )
 from app.core.body_limit import MaxBodySizeMiddleware
 from app.core.config import assert_secure_for_production, get_settings
@@ -86,6 +88,8 @@ app.include_router(digest.router)
 app.include_router(ai_usage.router)
 app.include_router(news_usage.router)
 app.include_router(admin.router)
+app.include_router(theme_watches.router)
+app.include_router(theme_matches.router)
 
 
 @app.get("/health")

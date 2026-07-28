@@ -36,6 +36,18 @@ export function TargetsIcon() {
   );
 }
 
+export function ThemeIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path
+        d="M11.5 3.5H6a2.5 2.5 0 0 0-2.5 2.5v5.5a1 1 0 0 0 .29.71l8.5 8.5a1 1 0 0 0 1.42 0l5.79-5.79a1 1 0 0 0 0-1.42l-8.5-8.5a1 1 0 0 0-.71-.29Z"
+        strokeLinejoin="round"
+      />
+      <circle cx="8" cy="8" r="1.25" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function SunIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

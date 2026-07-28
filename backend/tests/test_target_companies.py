@@ -71,6 +71,68 @@ def test_follower_can_edit_name_and_keywords(client):
     assert updated["industry"] == "Industrial"
 
 
+def test_non_creator_follower_cannot_edit_shared_company(client):
+    creator_headers, _ = _signup(client, email="creator@proair.com")
+    other_headers, _ = _signup(client, email="other@proair.com")
+    company = client.post(
+        "/target-companies", json={"name": "Acme", "keywords": []}, headers=creator_headers
+    ).json()
+    # Dedupes by name, so this follows the same company created above rather than
+    # creating a second one.
+    client.post("/target-companies", json={"name": "Acme", "keywords": []}, headers=other_headers)
+
+    patch_resp = client.patch(
+        f"/target-companies/{company['id']}", json={"name": "Renamed"}, headers=other_headers
+    )
+    assert patch_resp.status_code == 403
+
+    # The non-creator follower can still mute/unfollow their own follow, just not
+    # rewrite the shared company itself.
+    mute_resp = client.post(f"/target-companies/{company['id']}/mute", headers=other_headers)
+    assert mute_resp.status_code == 200
+
+
+def test_keywords_over_max_count_rejected(client):
+    headers = _auth_headers(client)
+    resp = client.post(
+        "/target-companies",
+        json={"name": "Acme", "keywords": [f"kw{i}" for i in range(21)]},
+        headers=headers,
+    )
+    assert resp.status_code == 422
+
+
+def test_keyword_over_max_length_rejected(client):
+    headers = _auth_headers(client)
+    resp = client.post(
+        "/target-companies",
+        json={"name": "Acme", "keywords": ["x" * 101]},
+        headers=headers,
+    )
+    assert resp.status_code == 422
+
+
+def test_google_news_source_allowlist_rejects_non_hostname(client):
+    headers = _auth_headers(client)
+    resp = client.post(
+        "/target-companies",
+        json={"name": "Acme", "keywords": [], "google_news_source_allowlist": ["https://reuters.com"]},
+        headers=headers,
+    )
+    assert resp.status_code == 422
+
+
+def test_google_news_source_allowlist_accepts_bare_hostname(client):
+    headers = _auth_headers(client)
+    resp = client.post(
+        "/target-companies",
+        json={"name": "Acme", "keywords": [], "google_news_source_allowlist": ["Reuters.com"]},
+        headers=headers,
+    )
+    assert resp.status_code == 201
+    assert resp.json()["google_news_source_allowlist"] == ["reuters.com"]
+
+
 def test_admin_can_edit_name_and_keywords_of_company_they_do_not_follow(client):
     admin_headers, _ = _signup(client, email="admin@proair.com")
     user_headers, _ = _signup(client, email="rep@proair.com")

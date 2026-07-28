@@ -73,6 +73,8 @@ def test_dashboard_empty_state(client, db_session):
         "recent_favorites": [],
         "open_todo_count": 0,
         "open_todos": [],
+        "dismissed_signal_count": 0,
+        "skipped_article_count": 0,
     }
 
 
@@ -164,3 +166,41 @@ def test_dashboard_scoped_to_followed_companies_only(client, db_session):
     resp = client.get("/dashboard", headers=headers)
     ids = [s["id"] for s in resp.json()["top_signals"]]
     assert ids == [str(followed.id)]
+
+
+def test_dashboard_dismissed_signal_count_scoped_to_follows(client, db_session):
+    headers, user_id = _signup(client)
+    dismissed = _make_signal(db_session, company_name="Acme Corp", status=SignalStatus.DISMISSED)
+    dismissed_article = db_session.get(Article, dismissed.article_id)
+    _follow(db_session, user_id, dismissed_article.target_company_id)
+    # Not followed, so it shouldn't count for this user.
+    _make_signal(db_session, company_name="Globex", status=SignalStatus.DISMISSED)
+
+    resp = client.get("/dashboard", headers=headers)
+    assert resp.json()["dismissed_signal_count"] == 1
+
+
+def test_dashboard_skipped_article_count_admin_only(client, db_session):
+    target_company = TargetCompany(name="Acme Corp", keywords=[])
+    db_session.add(target_company)
+    db_session.commit()
+    db_session.refresh(target_company)
+    db_session.add(
+        Article(
+            target_company_id=target_company.id,
+            source_name="Reuters",
+            title="Low relevance story",
+            url="https://example.com/low-relevance",
+            skip_reason="triaged_out",
+        )
+    )
+    db_session.commit()
+
+    # First signup in a fresh workspace is auto-promoted to admin.
+    admin_headers, _ = _signup(client, email="admin@proair.com")
+    admin_resp = client.get("/dashboard", headers=admin_headers)
+    assert admin_resp.json()["skipped_article_count"] == 1
+
+    user_headers, _ = _signup(client, email="rep@proair.com")
+    user_resp = client.get("/dashboard", headers=user_headers)
+    assert user_resp.json()["skipped_article_count"] == 0

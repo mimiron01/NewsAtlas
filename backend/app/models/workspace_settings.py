@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, Integer, String, Text, func
+from sqlalchemy import ARRAY, Boolean, DateTime, Float, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -21,6 +21,14 @@ class WorkspaceSettings(Base, UUIDPrimaryKeyMixin):
     # a single busy company or an overly broad keyword list. 0 disables the cap
     # (unlimited), matching the newsdata_backfill_days "0 = off" convention below.
     max_articles_per_company_per_run: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    # Same "0 = unlimited" cap, but for ThemeWatch ingestion (see
+    # docs/theme-search-planning.html §9) — a theme's query is inherently broader than a
+    # named company's keyword list, so it needs its own budget rather than sharing this one.
+    max_articles_per_theme_per_run: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    # Ceiling on total active ThemeWatch rows per workspace, enforced in POST
+    # /theme-watches — uncapped concurrent themes is a bigger cost blast radius than
+    # uncapped companies ever was, since each one fans out into more candidate articles.
+    max_active_theme_watches: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
@@ -31,6 +39,13 @@ class WorkspaceSettings(Base, UUIDPrimaryKeyMixin):
         DateTime(timezone=True), nullable=True
     )
     last_manual_digest_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    # Same cooldown pattern for the "create signal anyway" override on a triaged-out
+    # article (see api/articles.py) — that endpoint forces a full, paid Mistral
+    # summarization call per click, so it needs the same anti-looping guard as the
+    # other two manual triggers above.
+    last_manual_signal_promotion_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
     # Short, rule-based steering note derived from dismissed-signal patterns (no LLM call
@@ -69,6 +84,12 @@ class WorkspaceSettings(Base, UUIDPrimaryKeyMixin):
     # ceiling to avoid being rate-limited/blocked, not a mapping to a real plan tier.
     google_news_rss_max_requests_per_minute: Mapped[int] = mapped_column(
         Integer, nullable=False, default=20
+    )
+    # Workspace-wide default trusted domains for Google News RSS, unioned with each
+    # target company's own google_news_source_allowlist (see TargetCompany) — a
+    # company's list only ever adds sources, never removes these defaults.
+    google_news_source_allowlist: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, default=list
     )
 
     newsdata_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

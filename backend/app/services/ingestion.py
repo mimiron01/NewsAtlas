@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Protocol
 
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -10,12 +10,14 @@ from app.models.ai_usage_log import AIUsageLog
 from app.models.article import Article, ArticleSource
 from app.models.signal import Signal
 from app.models.target_company import TargetCompany
+from app.models.theme_match import ThemeMatch
+from app.models.theme_watch import ThemeWatch
 from app.schemas.ingestion import IngestionRunResult
 from app.services.ai_client import AIClient, AIClientError, MistralUsage, cosine_similarity, vector_norm
 from app.services.feedback import refresh_feedback_note
 from app.services.google_news_rss_client import GoogleNewsRSSClient
 from app.services.news_client import NewsClient, NewsClientError
-from app.services.news_query import article_mentions_company
+from app.services.news_query import article_mentions_company, build_theme_query
 from app.services.news_rate_limiter import HeadroomStatus, check_headroom, wait_for_minute_headroom
 from app.services.news_usage import log_rate_limited
 from app.services.news_usage import log_usage as log_news_usage
@@ -76,6 +78,20 @@ class _CompanyIngestOutcome:
     # True if a cancellation was observed while processing this company's articles (see
     # IngestionProgress.should_cancel) — the outer per-company loop in run_ingestion()
     # stops after this company rather than starting the next one.
+    cancelled: bool = False
+
+
+@dataclass
+class _ThemeIngestOutcome:
+    """Mirrors _CompanyIngestOutcome, sized down to what a ThemeWatch run actually
+    produces (see docs/theme-search-planning.html §5) — no articles_fetched/by_source/
+    rate_limited of its own since those fold into the shared GOOGLE_NEWS_RSS totals the
+    company loop already tracks."""
+
+    matches_created: int = 0
+    duplicates_skipped: int = 0
+    triaged_out: int = 0
+    errors: list[str] = field(default_factory=list)
     cancelled: bool = False
 
 
@@ -189,6 +205,44 @@ def run_ingestion(
             cancelled = True
             break
 
+    # Theme watches share the company loop's GOOGLE_NEWS_RSS client/rate limiting (see
+    # docs/theme-search-planning.html §5) — reuse whichever instance is already active
+    # (real or test-injected) rather than constructing a second one. No client means
+    # Google News RSS isn't enabled for this workspace, so there's nothing to fetch
+    # themes with (themes have no other provider in v1).
+    theme_matches_created = 0
+    themes_processed = 0
+    if not cancelled:
+        google_news_client_for_themes = next(
+            (client for source, client in providers if source == ArticleSource.GOOGLE_NEWS_RSS),
+            None,
+        )
+        if google_news_client_for_themes is not None:
+            theme_watches = db.query(ThemeWatch).filter(ThemeWatch.is_active.is_(True)).all()
+            for idx, theme_watch in enumerate(theme_watches, start=1):
+                if progress.should_cancel():
+                    cancelled = True
+                    break
+
+                theme_outcome = _ingest_theme_watch(
+                    db,
+                    ai_client=ai_client,
+                    workspace_settings=workspace_settings,
+                    google_news_client=google_news_client_for_themes,
+                    theme_watch=theme_watch,
+                    since=since,
+                    progress=progress,
+                )
+                theme_matches_created += theme_outcome.matches_created
+                duplicates_skipped += theme_outcome.duplicates_skipped
+                triaged_out += theme_outcome.triaged_out
+                errors.extend(theme_outcome.errors)
+                themes_processed = idx
+
+                if theme_outcome.cancelled:
+                    cancelled = True
+                    break
+
     return IngestionRunResult(
         target_companies_processed=companies_processed,
         cancelled=cancelled,
@@ -200,6 +254,8 @@ def run_ingestion(
         by_source=by_source,
         rate_limited=rate_limited,
         errors=errors,
+        theme_matches_created=theme_matches_created,
+        themes_processed=themes_processed,
     )
 
 
@@ -404,8 +460,284 @@ def _fetch_from_source(
             full_content=workspace_settings.newsdata_full_content_enabled,
             use_native_dedupe=workspace_settings.newsdata_use_native_dedupe,
         )
+    if source == ArticleSource.GOOGLE_NEWS_RSS:
+        # Union, not override: the workspace-wide defaults always apply, and a
+        # company's own list only ever adds more trusted sources (see
+        # docs/v1-release-roadmap.html §2.3 and the "Open questions" section there).
+        sources = list(
+            dict.fromkeys(
+                [*(workspace_settings.google_news_source_allowlist or []),
+                 *(target_company.google_news_source_allowlist or [])]
+            )
+        )
+        articles = client.fetch_articles(
+            name=target_company.name,
+            keywords=target_company.keywords,
+            since=since,
+            sources=sources,
+        )
+        return articles, 1
     articles = client.fetch_articles(name=target_company.name, keywords=target_company.keywords, since=since)
     return articles, 1
+
+
+def _ingest_theme_watch(
+    db: Session,
+    *,
+    ai_client: AIClient,
+    workspace_settings,
+    google_news_client: GoogleNewsRSSClient,
+    theme_watch: ThemeWatch,
+    since: datetime,
+    progress: IngestionProgress,
+) -> _ThemeIngestOutcome:
+    """Mirrors _ingest_target_company, sized down to the single-provider (Google News
+    RSS only) theme path — see docs/theme-search-planning.html §5."""
+    outcome = _ThemeIngestOutcome()
+
+    per_minute_limit, _ = _rate_limit_config(workspace_settings, ArticleSource.GOOGLE_NEWS_RSS)
+    rate_status = check_headroom(
+        db, ArticleSource.GOOGLE_NEWS_RSS, per_minute_limit=per_minute_limit, per_day_limit=None
+    )
+    if rate_status is HeadroomStatus.MINUTE_LIMITED:
+        if wait_for_minute_headroom(
+            db,
+            ArticleSource.GOOGLE_NEWS_RSS,
+            per_minute_limit=per_minute_limit,
+            should_cancel=progress.should_cancel,
+        ):
+            rate_status = HeadroomStatus.OK
+        if progress.should_cancel():
+            outcome.cancelled = True
+            return outcome
+    if rate_status is not HeadroomStatus.OK:
+        log_rate_limited(db, source=ArticleSource.GOOGLE_NEWS_RSS, target_company_id=None)
+        return outcome
+
+    # Union, not override — same convention as the company path (v1 roadmap §2.3).
+    sources = list(
+        dict.fromkeys(
+            [*(workspace_settings.google_news_source_allowlist or []),
+             *(theme_watch.google_news_source_allowlist or [])]
+        )
+    )
+    query = build_theme_query(theme_watch.query_terms, sources)
+    try:
+        fetched = google_news_client.fetch_articles(since=since, query_override=query)
+    except NewsClientError as exc:
+        _record_error(
+            outcome.errors, progress, f"[theme:{theme_watch.name}] google_news_rss fetch failed: {exc}"
+        )
+        return outcome
+
+    log_news_usage(
+        db,
+        source=ArticleSource.GOOGLE_NEWS_RSS,
+        call_type="latest",
+        target_company_id=None,
+        requests_used=1,
+        articles_returned=len(fetched),
+    )
+
+    if not fetched:
+        return outcome
+
+    # Cross-path dedup (mandatory floor — see docs/theme-search-planning.html §6):
+    # never create a ThemeMatch for a URL already covered via some company's Article,
+    # and never create two ThemeMatch rows for the same URL (this theme or another).
+    # No grounding-guard equivalent of article_mentions_company is needed here — a
+    # theme's query terms ARE the relevance signal, verified by triage below, not a
+    # single company identity to check (see §5).
+    seen_urls: set[str] = set()
+    deduped: list = []
+    for item in fetched:
+        if item.url in seen_urls:
+            continue
+        if db.query(Article).filter(Article.url == item.url).first() is not None:
+            continue
+        if db.query(ThemeMatch).filter(ThemeMatch.url == item.url).first() is not None:
+            continue
+        seen_urls.add(item.url)
+        deduped.append(item)
+
+    if not deduped:
+        return outcome
+
+    cap = workspace_settings.max_articles_per_theme_per_run
+    if cap > 0 and len(deduped) > cap:
+        deduped.sort(
+            key=lambda item: item.published_at or datetime.min.replace(tzinfo=timezone.utc),
+            reverse=True,
+        )
+        deduped = deduped[:cap]
+
+    new_matches: list[ThemeMatch] = []
+    for item in deduped:
+        match = ThemeMatch(
+            theme_watch_id=theme_watch.id,
+            source=ArticleSource.GOOGLE_NEWS_RSS,
+            source_name=item.source_name,
+            title=item.title,
+            url=item.url,
+            description=item.description,
+            published_at=item.published_at,
+        )
+        db.add(match)
+        new_matches.append(match)
+    db.commit()
+
+    created, duplicates_here, triaged_out_here, batch_errors, batch_cancelled = (
+        _process_new_theme_matches(
+            db,
+            ai_client=ai_client,
+            workspace_settings=workspace_settings,
+            theme_watch=theme_watch,
+            new_matches=new_matches,
+            progress=progress,
+        )
+    )
+    outcome.matches_created = created
+    outcome.duplicates_skipped = duplicates_here
+    outcome.triaged_out = triaged_out_here
+    outcome.errors.extend(batch_errors)
+    outcome.cancelled = batch_cancelled
+    return outcome
+
+
+def _process_new_theme_matches(
+    db: Session,
+    *,
+    ai_client: AIClient,
+    workspace_settings,
+    theme_watch: ThemeWatch,
+    new_matches: list[ThemeMatch],
+    progress: IngestionProgress | None = None,
+) -> tuple[int, int, int, list[str], bool]:
+    """Mirrors _process_new_articles: batch-embed, dedupe against recent same-theme
+    matches, triage, then summarize+extract in one call. No company_mentioned/
+    company_mismatch handling — that concept doesn't apply to a theme match (see
+    docs/theme-search-planning.html §4.2). Auto-links matched_target_company_id once
+    extraction identifies a company that's already tracked (§4.3)."""
+    progress = progress or _NULL_PROGRESS
+    errors: list[str] = []
+    matches_created = 0
+    duplicates_skipped = 0
+    triaged_out = 0
+    cancelled = False
+
+    try:
+        embed_inputs = [f"{m.title}\n{_theme_grounding_text(m)}" for m in new_matches]
+        vectors, embed_usage = ai_client.embed_texts(embed_inputs)
+        _log_usage(db, "embedding", ai_client.embed_model, embed_usage, None)
+        for match, vector in zip(new_matches, vectors):
+            match.embedding = vector
+        db.commit()
+    except AIClientError as exc:
+        _record_error(errors, progress, f"[theme:{theme_watch.name}] embedding failed: {exc}")
+
+    new_match_ids = {m.id for m in new_matches}
+    candidates = (
+        db.query(ThemeMatch)
+        .filter(
+            ThemeMatch.theme_watch_id == theme_watch.id,
+            ThemeMatch.embedding.isnot(None),
+            ~ThemeMatch.id.in_(new_match_ids),
+            or_(ThemeMatch.skip_reason.is_(None), ThemeMatch.skip_reason != "ai_error"),
+        )
+        .order_by(ThemeMatch.fetched_at.desc())
+        .limit(RECENT_ARTICLES_FOR_DEDUPE)
+        .all()
+    )
+
+    for position, match in enumerate(new_matches):
+        if progress.should_cancel():
+            cancelled = True
+            break
+
+        if match.embedding is not None:
+            duplicate = _find_duplicate(
+                match, candidates, workspace_settings.mistral_dedupe_similarity_threshold
+            )
+            if duplicate is not None:
+                match.duplicate_of_match_id = duplicate.id
+                _skip_theme_match(db, match, "duplicate")
+                duplicates_skipped += 1
+                candidates.insert(0, match)
+                continue
+            candidates.insert(0, match)
+
+        if workspace_settings.mistral_triage_enabled:
+            try:
+                triage, triage_usage = ai_client.triage_theme_article(
+                    offering_description=workspace_settings.offering_description,
+                    theme_name=theme_watch.name,
+                    query_terms=theme_watch.query_terms,
+                    article_title=match.title,
+                    article_description=_theme_grounding_text(match),
+                    industry=theme_watch.industry,
+                    headline_only=match.headline_only,
+                )
+                _log_usage(db, "triage", ai_client.triage_model, triage_usage, None, commit=False)
+            except AIClientError as exc:
+                _record_error(
+                    errors,
+                    progress,
+                    f"[theme:{theme_watch.name}] triage failed for {match.url}: {exc} "
+                    "(proceeding to full summarization without the cost-saving triage filter)",
+                )
+                triage = None
+            if triage is not None and not triage.relevant:
+                _skip_theme_match(db, match, "triaged_out", triage_reason=triage.reason)
+                triaged_out += 1
+                continue
+
+        try:
+            result, usage = ai_client.summarize_theme_article(
+                company_name=workspace_settings.company_name,
+                offering_description=workspace_settings.offering_description,
+                theme_name=theme_watch.name,
+                query_terms=theme_watch.query_terms,
+                article_title=match.title,
+                article_description=_theme_grounding_text(match),
+                industry=theme_watch.industry,
+                output_language=workspace_settings.main_language,
+                headline_only=match.headline_only,
+            )
+            _log_usage(db, "summarize", ai_client.model, usage, None, commit=False)
+        except AIClientError as exc:
+            _skip_theme_match(db, match, "ai_error")
+            _record_error(
+                errors, progress, f"[theme:{theme_watch.name}] summarization failed for {match.url}: {exc}"
+            )
+            continue
+
+        match.summary = result.summary
+        match.business_relevance = result.business_relevance
+        match.supporting_quote = result.supporting_quote
+        match.relevance_score = result.relevance_score
+        match.signal_type = result.signal_type
+        match.confidence = result.confidence
+        match.entities = result.entities
+        match.extracted_company_name = result.extracted_company_name
+        match.prompt_tokens = usage.prompt_tokens
+        match.completion_tokens = usage.completion_tokens
+        match.total_tokens = usage.total_tokens
+
+        # Auto-link (no user action) whenever the extracted name matches an existing
+        # TargetCompany — metadata only, doesn't create a Signal (see §4.3/§1).
+        if result.extracted_company_name:
+            existing_company = (
+                db.query(TargetCompany)
+                .filter(func.lower(TargetCompany.name) == result.extracted_company_name.strip().lower())
+                .first()
+            )
+            if existing_company is not None:
+                match.matched_target_company_id = existing_company.id
+
+        db.commit()
+        matches_created += 1
+
+    return matches_created, duplicates_skipped, triaged_out, errors, cancelled
 
 
 def _process_new_articles(
@@ -493,6 +825,8 @@ def _process_new_articles(
                     target_company_name=target_company.name,
                     article_title=article.title,
                     article_description=_grounding_text(article),
+                    industry=target_company.industry,
+                    keywords=target_company.keywords,
                     headline_only=article.is_headline_only,
                 )
                 _log_usage(
@@ -520,6 +854,7 @@ def _process_new_articles(
                 article_title=article.title,
                 article_description=_grounding_text(article),
                 industry=target_company.industry,
+                keywords=target_company.keywords,
                 # A copy, not the live list: it's mutated below as new signals are
                 # created, and the callee must see the state as of *this* call, not
                 # whatever the list looks like by the time it's inspected later.
@@ -609,6 +944,7 @@ def promote_skipped_article(db: Session, article: Article) -> Signal:
         article_title=article.title,
         article_description=_grounding_text(article),
         industry=target_company.industry,
+        keywords=target_company.keywords,
         recent_signals=recent_signal_summaries,
         feedback_note=workspace_settings.ai_feedback_note,
         output_language=workspace_settings.main_language,
@@ -668,6 +1004,23 @@ def _skip_article(
     db.commit()
 
 
+def _theme_grounding_text(match: ThemeMatch) -> str:
+    """Same truncation convention as _grounding_text — ThemeMatch has no full_content
+    field (Google News RSS never provides one), so this is just the description."""
+    text = match.description or ""
+    if len(text) > FULL_TEXT_TRUNCATE:
+        text = text[:FULL_TEXT_TRUNCATE].rsplit(" ", 1)[0] + "..."
+    return text
+
+
+def _skip_theme_match(
+    db: Session, match: ThemeMatch, reason: str, *, triage_reason: str | None = None
+) -> None:
+    match.skip_reason = reason
+    match.triage_reason = triage_reason
+    db.commit()
+
+
 def _log_usage(
     db: Session,
     call_type: str,
@@ -692,10 +1045,12 @@ def _log_usage(
 
 
 def _find_duplicate(
-    article: Article, candidates: list[Article], threshold: float
-) -> Article | None:
+    article: Article | ThemeMatch, candidates: list, threshold: float
+) -> Article | ThemeMatch | None:
+    """Duck-typed on .embedding — reused as-is for both Article (per-company path) and
+    ThemeMatch (per-theme path, see docs/theme-search-planning.html §6)."""
     norm_a = vector_norm(article.embedding)
-    best: Article | None = None
+    best: Article | ThemeMatch | None = None
     best_sim = 0.0
     for candidate in candidates:
         if candidate.embedding is None:

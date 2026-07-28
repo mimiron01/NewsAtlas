@@ -41,8 +41,31 @@ def test_production_rejects_missing_invite_code():
         environment="production",
         jwt_secret="a" * 32,
         signup_invite_code="",
+        app_secret_key="a" * 32,
     )
     with pytest.raises(RuntimeError, match="SIGNUP_INVITE_CODE"):
+        assert_secure_for_production(settings)
+
+
+def test_production_rejects_missing_app_secret_key():
+    settings = Settings(
+        environment="production",
+        jwt_secret="a" * 32,
+        signup_invite_code="some-code",
+        app_secret_key="",
+    )
+    with pytest.raises(RuntimeError, match="APP_SECRET_KEY"):
+        assert_secure_for_production(settings)
+
+
+def test_production_rejects_short_app_secret_key():
+    settings = Settings(
+        environment="production",
+        jwt_secret="a" * 32,
+        signup_invite_code="some-code",
+        app_secret_key="short",
+    )
+    with pytest.raises(RuntimeError, match="APP_SECRET_KEY"):
         assert_secure_for_production(settings)
 
 
@@ -51,5 +74,6 @@ def test_production_passes_with_secure_config():
         environment="production",
         jwt_secret="a" * 32,
         signup_invite_code="some-code",
+        app_secret_key="a" * 32,
     )
     assert_secure_for_production(settings)  # must not raise

@@ -143,6 +143,8 @@ def execute_ingestion_run(run_id: uuid.UUID) -> None:
                 "by_source": result.by_source,
                 "rate_limited": result.rate_limited,
                 "errors": result.errors,
+                "theme_matches_created": result.theme_matches_created,
+                "themes_processed": result.themes_processed,
             }
         )
         db.commit()
@@ -189,4 +191,6 @@ def to_status_response(run: IngestionRun) -> IngestionRunStatusResponse:
         rate_limited=run.rate_limited,
         errors=run.errors,
         fatal_error=run.fatal_error,
+        theme_matches_created=run.theme_matches_created,
+        themes_processed=run.themes_processed,
     )

@@ -49,9 +49,16 @@ export default function SignalDetail() {
 
   async function updateStatus(status: SignalStatus) {
     if (!signal) return;
+    const previousStatus = signal.status;
     try {
       const updated = await api.patch<Signal>(`/signals/${signal.id}`, { status });
       setSignal(updated);
+      if (status === "dismissed") {
+        showToast(t("dismissedToast"), "success", {
+          label: t("undo"),
+          onClick: () => updateStatus(previousStatus),
+        });
+      }
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : t("statusUpdateFailed"), "error");
     }

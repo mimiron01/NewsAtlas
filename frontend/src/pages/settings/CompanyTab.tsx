@@ -47,6 +47,10 @@ export default function CompanyTab() {
     );
   }
 
+  const offeringWordCount = settings.offering_description.trim()
+    ? settings.offering_description.trim().split(/\s+/).length
+    : 0;
+
   return (
     <form onSubmit={handleSubmit}>
       <div className="panel-card">
@@ -64,12 +68,25 @@ export default function CompanyTab() {
 
         <label>
           {t("company.offeringDescription")}
+          <p className="field-hint">{t("company.offeringHelp.explainer")}</p>
           <textarea
             rows={8}
             value={settings.offering_description}
             onChange={(e) => setSettings({ ...settings, offering_description: e.target.value })}
             placeholder={t("company.offeringPlaceholder")}
           />
+          {offeringWordCount > 0 && offeringWordCount < 30 && (
+            <span className="field-hint">{t("company.offeringHelp.tooShort")}</span>
+          )}
+          <details>
+            <summary className="field-hint">{t("company.offeringHelp.showExample")}</summary>
+            <p className="field-hint">
+              <strong>{t("company.offeringHelp.goodExampleLabel")}</strong> {t("company.offeringHelp.goodExample")}
+            </p>
+            <p className="field-hint">
+              <strong>{t("company.offeringHelp.vagueExampleLabel")}</strong> {t("company.offeringHelp.vagueExample")}
+            </p>
+          </details>
         </label>
 
         <label>
@@ -122,6 +139,35 @@ export default function CompanyTab() {
           />
           <span className="field-hint">{t("company.maxArticlesPerCompanyHint")}</span>
         </label>
+
+        <div className="field-row">
+          <label>
+            {t("company.maxArticlesPerTheme")}
+            <input
+              type="number"
+              min={0}
+              max={1000}
+              value={settings.max_articles_per_theme_per_run}
+              onChange={(e) =>
+                setSettings({ ...settings, max_articles_per_theme_per_run: Number(e.target.value) })
+              }
+            />
+            <span className="field-hint">{t("company.maxArticlesPerThemeHint")}</span>
+          </label>
+          <label>
+            {t("company.maxActiveThemeWatches")}
+            <input
+              type="number"
+              min={1}
+              max={1000}
+              value={settings.max_active_theme_watches}
+              onChange={(e) =>
+                setSettings({ ...settings, max_active_theme_watches: Number(e.target.value) })
+              }
+            />
+            <span className="field-hint">{t("company.maxActiveThemeWatchesHint")}</span>
+          </label>
+        </div>
       </div>
 
       <button type="submit" disabled={isSaving}>

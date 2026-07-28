@@ -4,7 +4,8 @@
   "links": {
     "dashboard": "Übersicht",
     "signals": "Signale",
-    "targets": "Meine Unternehmen"
+    "targets": "Meine Unternehmen",
+    "themes": "Themen"
   },
   "theme": {
     "light": "Hell",

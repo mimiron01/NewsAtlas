@@ -7,6 +7,7 @@ os.environ.setdefault("ENABLE_SCHEDULER", "false")
 os.environ.setdefault("ENABLE_RATE_LIMITING", "false")
 os.environ.setdefault("SIGNUP_INVITE_CODE", "test-invite-code")
 os.environ.setdefault("JWT_SECRET", "test-only-secret-key-not-for-production-use-0123456789")
+os.environ.setdefault("APP_SECRET_KEY", "test-only-app-secret-key-not-for-production-0123456789")
 
 import pytest
 from fastapi.testclient import TestClient

@@ -6,7 +6,7 @@ from urllib.parse import quote
 import feedparser
 
 from app.services.news_client import NewsArticle, NewsClientError
-from app.services.news_query import build_or_query, is_safe_article_url
+from app.services.news_query import build_google_news_query, is_safe_article_url
 
 _TAG_RE = re.compile(r"<[^>]+>")
 
@@ -27,8 +27,23 @@ class GoogleNewsRSSClient:
         self.language = language
         self.timeout = timeout
 
-    def fetch_articles(self, *, name: str, keywords: list[str], since: datetime) -> list[NewsArticle]:
-        query = build_or_query(name, keywords)
+    def fetch_articles(
+        self,
+        *,
+        name: str | None = None,
+        keywords: list[str] | None = None,
+        since: datetime,
+        sources: list[str] | None = None,
+        query_override: str | None = None,
+    ) -> list[NewsArticle]:
+        """Builds the query from name/keywords via build_google_news_query() as usual —
+        unless query_override is given, in which case it's used verbatim. Theme ingestion
+        (see docs/theme-search-planning.html §3) has no company name to anchor a query to,
+        so it passes a pre-built query (build_theme_query()) here instead."""
+        if query_override is not None:
+            query = query_override
+        else:
+            query = build_google_news_query(name or "", keywords or [], sources)
         ceid = f"{self.country}:{self.language}"
         url = f"{self.BASE_URL}?q={quote(query)}&hl={self.language}&gl={self.country}&ceid={quote(ceid)}"
 

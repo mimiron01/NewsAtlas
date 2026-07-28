@@ -70,6 +70,17 @@
   "copySnippet": "Textbaustein kopieren",
   "copied": "Kopiert!",
   "notesAndTodos": "Notizen & Aufgaben",
+  "dismissedToast": "Signal verworfen.",
+  "undo": "Rückgängig",
+  "skippedPage": {
+    "title": "Übersprungen",
+    "subtitle": "Alles, was die Pipeline nicht zu einem aktiven Signal gemacht hat — verworfene Signale, die Sie wiederherstellen können, und (für Admins) aussortierte Artikel, die Sie befördern können.",
+    "loadFailed": "Übersprungene Einträge konnten nicht geladen werden",
+    "dismissedHeading": "Verworfene Signale",
+    "noDismissed": "Keine verworfenen Signale.",
+    "restored": "„{{title}}“ wiederhergestellt.",
+    "skippedArticlesHeading": "Übersprungene Artikel"
+  },
   "feed": {
     "title": "Signale",
     "subtitle": "News-Signale für Ihre Zielunternehmen, von KI zusammengefasst.",

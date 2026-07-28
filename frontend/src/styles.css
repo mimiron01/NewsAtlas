@@ -413,6 +413,21 @@ button.danger { background: var(--danger-solid); }
 .signal-row-actions button { font-size: 0.78rem; padding: 5px 10px; white-space: nowrap; }
 .signal-title { font-weight: 600; margin: 2px 0; }
 
+@media (max-width: 640px) {
+  /* Below this width, the fixed-width actions column has less room than its buttons'
+     natural (nowrap) width, which visually overlapped the signal title instead of
+     just shrinking (see docs/v1-release-roadmap.html §5 stabilization item). Wrapping
+     the row moves actions onto their own line below the title instead. */
+  .signal-row { flex-wrap: wrap; }
+  .signal-row-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    flex-basis: 100%;
+    padding-top: 8px;
+    padding-left: 34px; /* aligns with signal-row-link's content, past the favorite button */
+  }
+}
+
 .feed-select-all {
   display: flex;
   align-items: center;
@@ -582,6 +597,9 @@ button.secondary {
   z-index: 100;
 }
 .toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 10px 16px;
   border-radius: 8px;
   font-size: 0.88rem;
@@ -592,6 +610,17 @@ button.secondary {
 }
 .toast-success { background: var(--ok-solid); }
 .toast-error { background: var(--danger-solid); }
+.toast-action {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: white;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.toast-action:hover { background: rgba(255, 255, 255, 0.3); }
 @keyframes toast-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -774,6 +803,8 @@ button.secondary {
   text-align: left;
 }
 .profile-popover button:hover { background: var(--bg); transform: none; }
+
+.table-scroll { overflow-x: auto; }
 
 .settings-heading { margin: 0 0 16px; }
 .settings-tabs {

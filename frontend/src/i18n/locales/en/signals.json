@@ -70,6 +70,17 @@
   "copySnippet": "Copy snippet",
   "copied": "Copied!",
   "notesAndTodos": "Notes & todos",
+  "dismissedToast": "Signal dismissed.",
+  "undo": "Undo",
+  "skippedPage": {
+    "title": "Skipped",
+    "subtitle": "Everything the pipeline didn't turn into an active signal — dismissed signals you can restore, and (for admins) triaged-out articles you can promote.",
+    "loadFailed": "Failed to load skipped items",
+    "dismissedHeading": "Dismissed signals",
+    "noDismissed": "No dismissed signals.",
+    "restored": "Restored \"{{title}}\".",
+    "skippedArticlesHeading": "Skipped articles"
+  },
   "feed": {
     "title": "Signals feed",
     "subtitle": "News signals for your target companies, summarized by AI.",
