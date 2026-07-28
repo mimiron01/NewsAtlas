@@ -65,6 +65,9 @@ export interface WorkspaceSettings {
   newsdata_backfill_days: number;
   newsdata_max_requests_per_day: number;
   newsdata_max_requests_per_minute: number;
+
+  max_articles_per_theme_per_run: number;
+  max_active_theme_watches: number;
 }
 
 export interface WorkspaceSettingsUpdatePayload {
@@ -99,6 +102,9 @@ export interface WorkspaceSettingsUpdatePayload {
   newsdata_backfill_days: number;
   newsdata_max_requests_per_day: number;
   newsdata_max_requests_per_minute: number;
+
+  max_articles_per_theme_per_run: number;
+  max_active_theme_watches: number;
 }
 
 export type ArticleSource = "newsapi" | "google_news_rss" | "newsdata";
@@ -277,6 +283,11 @@ export interface IngestionRunStatus {
   rate_limited: Record<string, number>;
   errors: string[];
   fatal_error: string | null;
+
+  // Final-result only — no live per-theme progress granularity in v1 (see
+  // docs/theme-search-planning.html §7).
+  theme_matches_created: number;
+  themes_processed: number;
 }
 
 export interface SkippedArticle {
@@ -316,4 +327,55 @@ export interface AIUsageSummary {
   total_tokens: number;
   by_call_type: AIUsageByCallType[];
   by_target_company: AIUsageByTargetCompany[];
+}
+
+export interface ThemeWatch {
+  id: string;
+  name: string;
+  query_terms: string[];
+  industry: string | null;
+  is_active: boolean;
+  google_news_source_allowlist: string[];
+  created_by: string | null;
+  // Per-follow fields: null when the requester (an admin using ?scope=all) doesn't
+  // themselves follow this theme.
+  is_muted: boolean | null;
+  follower_count: number;
+}
+
+export interface ThemeFollower {
+  user_id: string;
+  email: string;
+  name: string;
+  is_muted: boolean;
+  assigned_by: string | null;
+  created_at: string;
+}
+
+export interface ThemeMatch {
+  id: string;
+  status: SignalStatus;
+  summary: string | null;
+  business_relevance: string | null;
+  supporting_quote: string | null;
+  relevance_score: number | null;
+  signal_type: SignalType | null;
+  confidence: SignalConfidence | null;
+  entities: SignalEntities | null;
+  fetched_at: string;
+  title: string;
+  url: string;
+  source_name: string;
+  published_at: string | null;
+  source: ArticleSource;
+  headline_only: boolean;
+  theme_watch_id: string;
+  theme_watch_name: string;
+  // What the AI extraction pass identified, if anything. matched_target_company_id/name
+  // are set once that name auto-resolves to an existing TargetCompany; "Track this
+  // company" is only offered when extracted_company_name is set but
+  // matched_target_company_id isn't (see docs/theme-search-planning.html §4.3).
+  extracted_company_name: string | null;
+  matched_target_company_id: string | null;
+  matched_target_company_name: string | null;
 }

@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { useTheme } from "../hooks/useTheme";
 import LanguageSwitcher from "./LanguageSwitcher";
-import { HomeIcon, MenuIcon, MoonIcon, SignalsIcon, SunIcon, TargetsIcon } from "./icons/NavIcons";
+import { HomeIcon, MenuIcon, MoonIcon, SignalsIcon, SunIcon, TargetsIcon, ThemeIcon } from "./icons/NavIcons";
 import ProfileMenu from "./ProfileMenu";
 
 export default function ProtectedLayout() {
@@ -51,6 +51,9 @@ export default function ProtectedLayout() {
           </NavLink>
           <NavLink to="/settings/targets">
             <TargetsIcon /> {t("nav:links.targets")}
+          </NavLink>
+          <NavLink to="/themes">
+            <ThemeIcon /> {t("nav:links.themes")}
           </NavLink>
           <div className="navbar-links-mobile-extra">
             <button type="button" className="theme-toggle" onClick={cycleTheme}>

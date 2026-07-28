@@ -36,7 +36,11 @@
     "ingestionInterval": "Abrufintervall (Stunden)",
     "digestSendTime": "Versandzeit der täglichen Zusammenfassung",
     "maxArticlesPerCompany": "Max. Artikel pro Unternehmen pro Abruf (0 = kein Limit)",
-    "maxArticlesPerCompanyHint": "Begrenzt jedes Unternehmen auf seine neuesten N Artikel pro Abruflauf, bevor sie zusammengefasst werden — schützt davor, dass ein einzelnes vielbeachtetes Unternehmen (oder eine breite Schlüsselwortliste) das gesamte KI-Budget eines Laufs verbraucht."
+    "maxArticlesPerCompanyHint": "Begrenzt jedes Unternehmen auf seine neuesten N Artikel pro Abruflauf, bevor sie zusammengefasst werden — schützt davor, dass ein einzelnes vielbeachtetes Unternehmen (oder eine breite Schlüsselwortliste) das gesamte KI-Budget eines Laufs verbraucht.",
+    "maxArticlesPerTheme": "Max. Artikel pro Thema pro Abruf (0 = kein Limit)",
+    "maxArticlesPerThemeHint": "Gleiches Limit wie oben, aber pro Theme Watch statt pro Unternehmen.",
+    "maxActiveThemeWatches": "Max. aktive Theme Watches",
+    "maxActiveThemeWatchesHint": "Feste Obergrenze, wie viele Theme Watches workspace-weit gleichzeitig aktiv sein können. Pausieren oder löschen Sie einen, um Platz für einen weiteren zu schaffen."
   },
 
   "targets": {

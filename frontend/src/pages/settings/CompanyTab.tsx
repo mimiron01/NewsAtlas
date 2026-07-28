@@ -139,6 +139,35 @@ export default function CompanyTab() {
           />
           <span className="field-hint">{t("company.maxArticlesPerCompanyHint")}</span>
         </label>
+
+        <div className="field-row">
+          <label>
+            {t("company.maxArticlesPerTheme")}
+            <input
+              type="number"
+              min={0}
+              max={1000}
+              value={settings.max_articles_per_theme_per_run}
+              onChange={(e) =>
+                setSettings({ ...settings, max_articles_per_theme_per_run: Number(e.target.value) })
+              }
+            />
+            <span className="field-hint">{t("company.maxArticlesPerThemeHint")}</span>
+          </label>
+          <label>
+            {t("company.maxActiveThemeWatches")}
+            <input
+              type="number"
+              min={1}
+              max={1000}
+              value={settings.max_active_theme_watches}
+              onChange={(e) =>
+                setSettings({ ...settings, max_active_theme_watches: Number(e.target.value) })
+              }
+            />
+            <span className="field-hint">{t("company.maxActiveThemeWatchesHint")}</span>
+          </label>
+        </div>
       </div>
 
       <button type="submit" disabled={isSaving}>

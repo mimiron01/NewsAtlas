@@ -29,5 +29,7 @@ export function buildSettingsPayload(settings: WorkspaceSettings): WorkspaceSett
     newsdata_backfill_days: settings.newsdata_backfill_days,
     newsdata_max_requests_per_day: settings.newsdata_max_requests_per_day,
     newsdata_max_requests_per_minute: settings.newsdata_max_requests_per_minute,
+    max_articles_per_theme_per_run: settings.max_articles_per_theme_per_run,
+    max_active_theme_watches: settings.max_active_theme_watches,
   };
 }

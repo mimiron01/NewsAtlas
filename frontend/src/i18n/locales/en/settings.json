@@ -36,7 +36,11 @@
     "ingestionInterval": "Ingestion interval (hours)",
     "digestSendTime": "Daily digest send time",
     "maxArticlesPerCompany": "Max articles per company per fetch (0 = no limit)",
-    "maxArticlesPerCompanyHint": "Caps each company to its newest N articles per fetch run before they're summarized — protects against a single busy company (or a broad keyword list) using up the whole run's AI budget."
+    "maxArticlesPerCompanyHint": "Caps each company to its newest N articles per fetch run before they're summarized — protects against a single busy company (or a broad keyword list) using up the whole run's AI budget.",
+    "maxArticlesPerTheme": "Max articles per theme per fetch (0 = no limit)",
+    "maxArticlesPerThemeHint": "Same cap as above, applied per theme watch instead of per company.",
+    "maxActiveThemeWatches": "Max active theme watches",
+    "maxActiveThemeWatchesHint": "Hard ceiling on how many theme watches can be active workspace-wide at once. Pause or delete one to free up room for another."
   },
 
   "targets": {

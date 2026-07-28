@@ -16,6 +16,7 @@ import SettingsTargets from "./pages/SettingsTargets";
 import SignalDetail from "./pages/SignalDetail";
 import SignalsFeed from "./pages/SignalsFeed";
 import SkippedFeed from "./pages/SkippedFeed";
+import ThemesPage from "./pages/ThemesPage";
 
 export default function App() {
   const { user, isLoading } = useAuth();
@@ -32,6 +33,7 @@ export default function App() {
         <Route path="/signals/:signalId" element={<SignalDetail />} />
         <Route path="/skipped" element={<SkippedFeed />} />
         <Route path="/settings/targets" element={<SettingsTargets />} />
+        <Route path="/themes" element={<ThemesPage />} />
         <Route element={<RequireAdmin />}>
           <Route path="/settings" element={<SettingsLayout />}>
             <Route index element={<Navigate to="company" replace />} />

@@ -9,6 +9,7 @@ import deErrors from "./locales/de/errors.json";
 import deNav from "./locales/de/nav.json";
 import deSettings from "./locales/de/settings.json";
 import deSignals from "./locales/de/signals.json";
+import deThemes from "./locales/de/themes.json";
 import enAuth from "./locales/en/auth.json";
 import enCommon from "./locales/en/common.json";
 import enDashboard from "./locales/en/dashboard.json";
@@ -16,6 +17,7 @@ import enErrors from "./locales/en/errors.json";
 import enNav from "./locales/en/nav.json";
 import enSettings from "./locales/en/settings.json";
 import enSignals from "./locales/en/signals.json";
+import enThemes from "./locales/en/themes.json";
 
 export const SUPPORTED_LANGUAGES = ["en", "de"] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
@@ -40,6 +42,7 @@ i18n
         signals: enSignals,
         settings: enSettings,
         errors: enErrors,
+        themes: enThemes,
       },
       de: {
         common: deCommon,
@@ -49,11 +52,12 @@ i18n
         signals: deSignals,
         settings: deSettings,
         errors: deErrors,
+        themes: deThemes,
       },
     },
     supportedLngs: SUPPORTED_LANGUAGES as unknown as string[],
     fallbackLng: "en",
-    ns: ["common", "nav", "auth", "dashboard", "signals", "settings", "errors"],
+    ns: ["common", "nav", "auth", "dashboard", "signals", "settings", "errors", "themes"],
     defaultNS: "common",
     detection: {
       order: ["localStorage", "navigator"],
