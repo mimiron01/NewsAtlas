@@ -61,7 +61,7 @@ function UsageSummary({ stat }: { stat: NewsSourceUsageStat | undefined }) {
               <tr>
                 <th>{t("sources.table.when")}</th>
                 <th>{t("sources.table.type")}</th>
-                <th>{t("sources.table.company")}</th>
+                <th>{t("sources.table.attributedTo")}</th>
                 <th>{t("sources.table.requests")}</th>
                 <th>{t("sources.table.articles")}</th>
               </tr>
@@ -71,7 +71,13 @@ function UsageSummary({ stat }: { stat: NewsSourceUsageStat | undefined }) {
                 <tr key={idx}>
                   <td>{formatDate(entry.created_at, { dateStyle: "short", timeStyle: "short" })}</td>
                   <td>{entry.call_type}</td>
-                  <td>{entry.target_company_name ?? "—"}</td>
+                  {/* A call is made for a company or for a topic — labelled so a topic's
+                      Google News usage isn't an unattributed blank row. */}
+                  <td>
+                    {entry.theme_watch_name
+                      ? t("sources.table.themeAttribution", { name: entry.theme_watch_name })
+                      : (entry.target_company_name ?? "—")}
+                  </td>
                   <td>{entry.requests_used}</td>
                   <td>{entry.articles_returned}</td>
                 </tr>

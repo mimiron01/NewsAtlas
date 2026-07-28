@@ -10,13 +10,14 @@
       "linkLabel": "Set up company profile"
     },
     "targetCompany": {
-      "label": "Add a target company",
-      "body": "Pick the companies you want news signals for.",
-      "linkLabel": "Add target companies"
+      "label": "Add a company or a topic",
+      "body": "Pick the companies you want news signals for — or add a topic to watch a whole market.",
+      "linkLabel": "Add target companies",
+      "themeLinkLabel": "Add a topic"
     },
     "firstSignals": {
       "label": "Fetch your first signals",
-      "body": "Click \"Fetch new signals\" below once you've added a target company."
+      "body": "Click \"Fetch new signals\" below once you've added a company or a topic."
     }
   }
 }

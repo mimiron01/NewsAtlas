@@ -27,6 +27,7 @@ class IngestionRunResult(BaseModel):
     # triaged_out above, since those are the same kind of event regardless of path.
     theme_matches_created: int = 0
     themes_processed: int = 0
+    themes_total: int = 0
 
 
 class IngestionRunStatusResponse(BaseModel):
@@ -42,10 +43,17 @@ class IngestionRunStatusResponse(BaseModel):
     finished_at: datetime | None
     progress_percent: int
 
+    # Set only for a single-theme run started from the Themes page; None for an ordinary
+    # full run over every company and theme.
+    theme_watch_id: uuid.UUID | None = None
+
     current_step: str | None
     current_company_name: str | None
+    current_theme_name: str | None = None
     companies_total: int
     companies_processed: int
+    # Reused by the theme phase for its own per-match progress (the field name predates
+    # themes; both phases mean "items in the batch currently being summarized").
     articles_total_this_company: int
     articles_processed_this_company: int
 
@@ -58,9 +66,10 @@ class IngestionRunStatusResponse(BaseModel):
     rate_limited: dict[str, int] = Field(default_factory=dict)
     errors: list[str] = Field(default_factory=list)
     fatal_error: str | None
-    # Final-result-only, like the rest of this block — no live per-theme progress in v1
-    # (see docs/theme-search-planning.html §5 and the IngestionRun model comment).
-    theme_matches_created: int = 0
+    # themes_total/themes_processed are live (updated as the theme loop runs, same as the
+    # company counters above); theme_matches_created settles once the run finishes.
+    themes_total: int = 0
     themes_processed: int = 0
+    theme_matches_created: int = 0
 
     model_config = {"from_attributes": True}

@@ -23,11 +23,15 @@ export default function SetupChecklist({
       linkLabel: t("setupChecklist.companyProfile.linkLabel"),
     },
     {
+      // Satisfied by either a tracked company or a tracked topic — both are fetchable
+      // work, so both routes out of this step are offered.
       done: hasTargetCompany,
       label: t("setupChecklist.targetCompany.label"),
       body: t("setupChecklist.targetCompany.body"),
       to: "/settings/targets",
       linkLabel: t("setupChecklist.targetCompany.linkLabel"),
+      secondaryTo: "/themes",
+      secondaryLinkLabel: t("setupChecklist.targetCompany.themeLinkLabel"),
     },
     {
       done: hasSignals,
@@ -53,6 +57,11 @@ export default function SetupChecklist({
               {step.to && !step.done && (
                 <Link to={step.to} className="link-button">
                   {step.linkLabel} →
+                </Link>
+              )}
+              {step.secondaryTo && !step.done && (
+                <Link to={step.secondaryTo} className="link-button">
+                  {step.secondaryLinkLabel} →
                 </Link>
               )}
             </div>

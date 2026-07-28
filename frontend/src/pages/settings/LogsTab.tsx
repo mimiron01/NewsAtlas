@@ -64,15 +64,34 @@ export default function LogsTab() {
                 </span>{" "}
                 <strong>{formatDate(run.started_at, { dateStyle: "short", timeStyle: "short" })}</strong>
                 <span className="tag">{t(`logs.trigger.${run.trigger}`)}</span>
+                {/* A single-topic run reads very differently from a full one — without
+                    this it looked like a full run that mysteriously processed 0 companies. */}
+                {run.theme_watch_id && <span className="tag">{t("logs.themeScopedRun")}</span>}
                 {run.finished_at && <span className="tag">{formatDuration(run.started_at, run.finished_at)}</span>}
                 <div className="keywords">
                   {t("logs.companiesProcessed", { processed: run.companies_processed, total: run.companies_total, count: run.companies_total })}
+                  {run.themes_total > 0 && (
+                    <>
+                      {" · "}
+                      {t("logs.themesProcessed", {
+                        processed: run.themes_processed,
+                        total: run.themes_total,
+                        count: run.themes_total,
+                      })}
+                    </>
+                  )}
                   {" · "}
                   {t("logs.articlesFetched", { count: run.articles_fetched })}
                   {" · "}
                   {t("logs.newCount", { count: run.articles_new })}
                   {" · "}
                   {t("logs.signalsCreated", { count: run.signals_created })}
+                  {run.themes_total > 0 && (
+                    <>
+                      {" · "}
+                      {t("logs.themeMatchesCreated", { count: run.theme_matches_created })}
+                    </>
+                  )}
                   {(run.duplicates_skipped > 0 || run.triaged_out > 0) && (
                     <>
                       {" · "}

@@ -1,14 +1,18 @@
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_admin
+from app.api.deps import get_current_user, require_admin
 from app.core.audit import log_event
 from app.core.config import get_settings
 from app.core.crypto import encrypt_secret
 from app.db.session import get_db
 from app.models.user import User
 from app.models.workspace_settings import WorkspaceSettings
-from app.schemas.settings import WorkspaceSettingsResponse, WorkspaceSettingsUpdate
+from app.schemas.settings import (
+    PublicWorkspaceSettingsResponse,
+    WorkspaceSettingsResponse,
+    WorkspaceSettingsUpdate,
+)
 from app.services import scheduler
 from app.services.workspace_settings import (
     get_mistral_api_key_status,
@@ -66,6 +70,30 @@ def get_settings_endpoint(
     _current_user: User = Depends(require_admin),
 ) -> WorkspaceSettingsResponse:
     return _to_response(get_or_create_workspace_settings(db))
+
+
+@router.get("/public", response_model=PublicWorkspaceSettingsResponse)
+def get_public_settings(
+    db: Session = Depends(get_db),
+    _current_user: User = Depends(get_current_user),
+) -> PublicWorkspaceSettingsResponse:
+    """The handful of workspace capability flags every authenticated user needs in order to
+    understand what the app can currently do for them — deliberately a separate, tiny
+    response rather than relaxing GET /settings, which carries API-key status, provider
+    quotas, and the AI configuration and must stay admin-only.
+
+    Concretely: themes can only fetch via Google News RSS, so a non-admin whose topics
+    silently return nothing had no way to find out that the source is switched off. Now the
+    Themes page can say so, and say whether the workspace's news edition matches the market
+    the topic is about.
+    """
+    settings = get_or_create_workspace_settings(db)
+    return PublicWorkspaceSettingsResponse(
+        google_news_rss_enabled=settings.google_news_rss_enabled,
+        google_news_rss_country=settings.google_news_rss_country,
+        google_news_rss_language=settings.google_news_rss_language,
+        manual_trigger_cooldown_seconds=get_settings().manual_trigger_cooldown_seconds,
+    )
 
 
 @router.put("", response_model=WorkspaceSettingsResponse)

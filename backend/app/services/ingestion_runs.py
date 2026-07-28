@@ -13,6 +13,7 @@ from app.models.ingestion_run import (
     IngestionRun,
 )
 from app.models.target_company import TargetCompany
+from app.models.theme_watch import ThemeWatch
 from app.schemas.ingestion import IngestionRunStatusResponse
 from app.services.ingestion import run_ingestion
 
@@ -83,16 +84,29 @@ def request_cancel(db: Session, run_id: uuid.UUID) -> IngestionRun | None:
 
 
 def create_run(
-    db: Session, *, trigger: str, triggered_by_user_id: uuid.UUID | None = None
+    db: Session,
+    *,
+    trigger: str,
+    triggered_by_user_id: uuid.UUID | None = None,
+    theme_watch_id: uuid.UUID | None = None,
 ) -> IngestionRun:
-    # A best-effort initial estimate — run_ingestion() re-confirms it via progress.update()
-    # once it queries active target companies itself, moments later.
-    companies_total = db.query(TargetCompany).filter(TargetCompany.is_active.is_(True)).count()
+    # A best-effort initial estimate — run_ingestion() re-confirms both totals via
+    # progress.update() once it queries active companies/themes itself, moments later.
+    # A theme-scoped run touches no companies and exactly one theme, so it says so up
+    # front rather than briefly showing the whole workspace's company count.
+    if theme_watch_id is not None:
+        companies_total = 0
+        themes_total = 1
+    else:
+        companies_total = db.query(TargetCompany).filter(TargetCompany.is_active.is_(True)).count()
+        themes_total = db.query(ThemeWatch).filter(ThemeWatch.is_active.is_(True)).count()
     run = IngestionRun(
         trigger=trigger,
         status=STATUS_RUNNING,
         triggered_by_user_id=triggered_by_user_id,
+        theme_watch_id=theme_watch_id,
         companies_total=companies_total,
+        themes_total=themes_total,
     )
     db.add(run)
     db.commit()
@@ -113,8 +127,13 @@ def execute_ingestion_run(run_id: uuid.UUID) -> None:
     db = SessionLocal()
     try:
         tracker = ProgressTracker(db, run_id)
+        # Read off the row rather than passed in, so both entry points (the manual-trigger
+        # background task and the scheduled job) stay single-argument.
+        scoped_theme_id = (
+            db.query(IngestionRun.theme_watch_id).filter(IngestionRun.id == run_id).scalar()
+        )
         try:
-            result = run_ingestion(db, progress=tracker)
+            result = run_ingestion(db, progress=tracker, theme_watch_id=scoped_theme_id)
         except Exception as exc:  # noqa: BLE001 - top-level background job boundary
             log_event("ingestion_run_failed", run_id=str(run_id), error=str(exc))
             db.query(IngestionRun).filter(IngestionRun.id == run_id).update(
@@ -145,6 +164,10 @@ def execute_ingestion_run(run_id: uuid.UUID) -> None:
                 "errors": result.errors,
                 "theme_matches_created": result.theme_matches_created,
                 "themes_processed": result.themes_processed,
+                "themes_total": result.themes_total,
+                # Cleared on finish so a settled row never reads as if it were still
+                # working on a particular theme.
+                "current_theme_name": None,
             }
         )
         db.commit()
@@ -153,18 +176,29 @@ def execute_ingestion_run(run_id: uuid.UUID) -> None:
 
 
 def progress_percent(run: IngestionRun) -> int:
+    """Fraction of the run's total work units done, where one unit is one company or one
+    theme — both phases cost roughly one fetch plus a capped batch of AI calls, so they're
+    weighted equally rather than trying to model their relative durations.
+
+    Counting themes in the denominator (not just companies) is what makes a themes-only
+    workspace show real progress: it used to divide by companies_total alone and return a
+    frozen 0% for the entire run whenever that was zero.
+    """
     if run.status != STATUS_RUNNING:
         return 100
-    if run.companies_total <= 0:
+    total_units = run.companies_total + run.themes_total
+    if total_units <= 0:
         return 0
-    companies_done = float(run.companies_processed)
+    units_done = float(run.companies_processed + run.themes_processed)
+    # Partial credit for the batch currently being summarized, in whichever phase is
+    # active — the counters are shared by both (see IngestionRunStatusResponse).
     if run.articles_total_this_company > 0:
-        companies_done += min(
+        units_done += min(
             run.articles_processed_this_company / run.articles_total_this_company, 1.0
         )
     # Capped below 100 while still running so the bar never claims "done" a beat before
     # the row is actually marked completed/failed.
-    return min(99, int(companies_done / run.companies_total * 100))
+    return min(99, int(units_done / total_units * 100))
 
 
 def to_status_response(run: IngestionRun) -> IngestionRunStatusResponse:
@@ -173,11 +207,13 @@ def to_status_response(run: IngestionRun) -> IngestionRunStatusResponse:
         status=run.status,
         cancel_requested=run.cancel_requested,
         trigger=run.trigger,
+        theme_watch_id=run.theme_watch_id,
         started_at=run.started_at,
         finished_at=run.finished_at,
         progress_percent=progress_percent(run),
         current_step=run.current_step,
         current_company_name=run.current_company_name,
+        current_theme_name=run.current_theme_name,
         companies_total=run.companies_total,
         companies_processed=run.companies_processed,
         articles_total_this_company=run.articles_total_this_company,
@@ -191,6 +227,7 @@ def to_status_response(run: IngestionRun) -> IngestionRunStatusResponse:
         rate_limited=run.rate_limited,
         errors=run.errors,
         fatal_error=run.fatal_error,
-        theme_matches_created=run.theme_matches_created,
+        themes_total=run.themes_total,
         themes_processed=run.themes_processed,
+        theme_matches_created=run.theme_matches_created,
     )

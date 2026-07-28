@@ -1,10 +1,12 @@
-from app.models.article import Article
+from app.models.article import Article, ArticleSource
+from app.models.news_source_usage_log import NewsSourceUsageLog
 from app.models.target_company import TargetCompany
 from app.models.theme_match import ThemeMatch
 from app.models.theme_watch import ThemeWatch
 from app.services.ai_client import MistralUsage, ThemeArticleResult, TriageResult
 from app.services.ingestion import run_ingestion
 from app.services.news_client import NewsClientError
+from app.services.news_usage import log_usage
 from tests.test_ingestion import USAGE, _article
 from tests.test_ingestion_multi_source import _enable_sources
 
@@ -20,8 +22,26 @@ class FakeGoogleClient:
         self.error = error
         self.calls: list[dict] = []
 
-    def fetch_articles(self, *, name=None, keywords=None, since, sources=None, query_override=None):
-        self.calls.append({"name": name, "query_override": query_override, "sources": sources})
+    def fetch_articles(
+        self,
+        *,
+        name=None,
+        keywords=None,
+        since,
+        sources=None,
+        query_override=None,
+        country=None,
+        language=None,
+    ):
+        self.calls.append(
+            {
+                "name": name,
+                "query_override": query_override,
+                "sources": sources,
+                "country": country,
+                "language": language,
+            }
+        )
         if self.error:
             raise NewsClientError("google news boom")
         if query_override is not None:
@@ -249,6 +269,190 @@ def test_theme_ingestion_not_run_when_google_news_rss_disabled(db_session):
 
     assert result.themes_processed == 0
     assert result.theme_matches_created == 0
+    # The skip must be visible, not silent: Google News RSS is the only source themes can
+    # use, so without this the run reports success and the user is left with a topic that
+    # never produces anything and no stated reason.
+    assert len(result.errors) == 1
+    assert "Google News RSS is disabled" in result.errors[0]
+
+
+def test_no_google_news_disabled_error_when_there_are_no_themes(db_session):
+    """The warning is about themes going unserved — a workspace with no themes at all has
+    nothing to warn about, whatever its source configuration."""
+    result = run_ingestion(db_session, ai_client=FakeThemeAIClient())
+
+    assert result.errors == []
+
+
+def test_theme_ingestion_records_error_when_rate_limited(db_session, monkeypatch):
+    """A per-minute ceiling is normally waited out rather than skipped (see
+    wait_for_minute_headroom), so the skip branch is only reached when that wait gives up.
+    Patched rather than slept through, so this stays a fast unit test of the branch."""
+    theme = _make_theme(db_session, name="Automotive")
+    _enable_sources(
+        db_session, google_news_rss_enabled=True, google_news_rss_max_requests_per_minute=1
+    )
+    # Consume the single request of per-minute headroom so the theme's check reports
+    # MINUTE_LIMITED and reaches the wait in the first place.
+    log_usage(
+        db_session,
+        source=ArticleSource.GOOGLE_NEWS_RSS,
+        target_company_id=None,
+        theme_watch_id=theme.id,
+        requests_used=1,
+    )
+    monkeypatch.setattr("app.services.ingestion.wait_for_minute_headroom", lambda *a, **k: False)
+    google = FakeGoogleClient(articles=[_article("Some story", "https://example.com/x")])
+
+    result = run_ingestion(db_session, ai_client=FakeThemeAIClient(), google_news_client=google)
+
+    assert google.calls == []
+    # Previously a silent return: a rate-limited theme was indistinguishable from a theme
+    # that simply found no news.
+    assert len(result.errors) == 1
+    assert "rate limit" in result.errors[0].lower()
+    rate_limited_log = (
+        db_session.query(NewsSourceUsageLog)
+        .filter(NewsSourceUsageLog.call_type == "rate_limited")
+        .one()
+    )
+    assert rate_limited_log.theme_watch_id == theme.id
+
+
+def test_theme_ingestion_uses_per_theme_country_and_language(db_session):
+    """A theme tracking a national market needs its own Google News edition — the
+    workspace-wide one can only ever be right for a single market."""
+    theme = _make_theme(db_session, name="Startups DE", query_terms=["Startup"])
+    theme.google_news_country = "DE"
+    theme.google_news_language = "de"
+    db_session.commit()
+    _enable_sources(
+        db_session,
+        google_news_rss_enabled=True,
+        google_news_rss_country="US",
+        google_news_rss_language="en",
+    )
+    google = FakeGoogleClient(articles=[])
+
+    run_ingestion(db_session, ai_client=FakeThemeAIClient(), google_news_client=google)
+
+    assert google.calls[0]["country"] == "DE"
+    assert google.calls[0]["language"] == "de"
+
+
+def test_theme_without_locale_override_inherits_workspace_edition(db_session):
+    _make_theme(db_session, name="Automotive")
+    _enable_sources(
+        db_session,
+        google_news_rss_enabled=True,
+        google_news_rss_country="US",
+        google_news_rss_language="en",
+    )
+    google = FakeGoogleClient(articles=[])
+
+    run_ingestion(db_session, ai_client=FakeThemeAIClient(), google_news_client=google)
+
+    # None, not "US"/"en" — the client falls back to its own configured edition, so the
+    # workspace value stays the single source of truth for non-overridden themes.
+    assert google.calls[0]["country"] is None
+    assert google.calls[0]["language"] is None
+
+
+def test_scoped_run_processes_only_that_theme_and_no_companies(db_session):
+    wanted = _make_theme(db_session, name="Automotive", query_terms=["EV battery"])
+    _make_theme(db_session, name="Fintech", query_terms=["neobank"])
+    company = TargetCompany(name="Acme Corp", keywords=["Acme"], is_active=True)
+    db_session.add(company)
+    db_session.commit()
+    _enable_sources(db_session, google_news_rss_enabled=True)
+    google = FakeGoogleClient(
+        articles=[_article("EV battery plant opens", "https://example.com/ev")],
+        articles_by_company={"Acme Corp": [_article("Acme news", "https://example.com/acme")]},
+    )
+
+    result = run_ingestion(
+        db_session,
+        ai_client=FakeThemeAIClient(),
+        google_news_client=google,
+        theme_watch_id=wanted.id,
+    )
+
+    assert result.themes_processed == 1
+    assert result.themes_total == 1
+    assert result.target_companies_processed == 0
+    assert result.signals_created == 0
+    # Exactly one fetch, for the scoped theme — neither the other theme nor the company
+    # was touched.
+    assert len(google.calls) == 1
+    assert google.calls[0]["name"] is None
+    matches = db_session.query(ThemeMatch).all()
+    assert [m.theme_watch_id for m in matches] == [wanted.id]
+
+
+def test_scoped_run_ignores_a_paused_other_theme_and_still_runs_the_target(db_session):
+    wanted = _make_theme(db_session, name="Automotive")
+    _make_theme(db_session, name="Paused", is_active=False)
+    _enable_sources(db_session, google_news_rss_enabled=True)
+    google = FakeGoogleClient(articles=[_article("EV battery plant", "https://example.com/ev")])
+
+    result = run_ingestion(
+        db_session,
+        ai_client=FakeThemeAIClient(),
+        google_news_client=google,
+        theme_watch_id=wanted.id,
+    )
+
+    assert result.themes_processed == 1
+    assert result.theme_matches_created == 1
+
+
+def test_theme_fetch_usage_is_attributed_to_the_theme(db_session):
+    theme = _make_theme(db_session, name="Automotive")
+    _enable_sources(db_session, google_news_rss_enabled=True)
+    google = FakeGoogleClient(articles=[_article("EV story", "https://example.com/ev")])
+
+    run_ingestion(db_session, ai_client=FakeThemeAIClient(), google_news_client=google)
+
+    log = (
+        db_session.query(NewsSourceUsageLog)
+        .filter(NewsSourceUsageLog.call_type == "latest")
+        .one()
+    )
+    assert log.theme_watch_id == theme.id
+    assert log.target_company_id is None
+
+
+def test_company_ingestion_skips_url_already_covered_by_a_theme_match(db_session):
+    """The mirror image of the existing theme-side check. Without it the cross-path URL
+    dedupe held in one direction only, so the same story surfaced as both a theme match
+    and a company signal depending purely on which loop fetched it first."""
+    theme = _make_theme(db_session, name="Automotive")
+    db_session.add(
+        ThemeMatch(
+            theme_watch_id=theme.id,
+            source=ArticleSource.GOOGLE_NEWS_RSS,
+            source_name="Reuters",
+            title="Acme opens EV battery plant",
+            url="https://example.com/shared-story",
+            description="desc",
+        )
+    )
+    company = TargetCompany(name="Acme Corp", keywords=["Acme"], is_active=True)
+    db_session.add(company)
+    db_session.commit()
+    _enable_sources(db_session, google_news_rss_enabled=True)
+    google = FakeGoogleClient(
+        articles=[],
+        articles_by_company={
+            "Acme Corp": [_article("Acme opens EV battery plant", "https://example.com/shared-story")]
+        },
+    )
+
+    result = run_ingestion(db_session, ai_client=FakeThemeAIClient(), google_news_client=google)
+
+    assert result.articles_new == 0
+    assert result.signals_created == 0
+    assert db_session.query(Article).count() == 0
 
 
 def test_theme_ingestion_skips_inactive_themes(db_session):

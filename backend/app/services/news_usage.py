@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.article import ArticleSource
 from app.models.news_source_usage_log import NewsSourceUsageLog
 from app.models.target_company import TargetCompany
+from app.models.theme_watch import ThemeWatch
 from app.models.workspace_settings import WorkspaceSettings
 
 RECENT_ENTRIES_PER_SOURCE = 20
@@ -18,17 +19,23 @@ def log_usage(
     source: ArticleSource,
     call_type: str = "latest",
     target_company_id: uuid.UUID | None,
+    theme_watch_id: uuid.UUID | None = None,
     requests_used: int = 1,
     articles_returned: int = 0,
     commit: bool = True,
 ) -> None:
     """Records an outbound call that actually went out. Read by the rate limiter
-    (services/news_rate_limiter.py) and by the Settings-page usage view (api/news_usage.py)."""
+    (services/news_rate_limiter.py) and by the Settings-page usage view (api/news_usage.py).
+
+    Exactly one of target_company_id/theme_watch_id is expected to be set — a call is made
+    on behalf of one company or one theme, never both.
+    """
     db.add(
         NewsSourceUsageLog(
             source=source,
             call_type=call_type,
             target_company_id=target_company_id,
+            theme_watch_id=theme_watch_id,
             requests_used=requests_used,
             articles_returned=articles_returned,
         )
@@ -38,7 +45,12 @@ def log_usage(
 
 
 def log_rate_limited(
-    db: Session, *, source: ArticleSource, target_company_id: uuid.UUID | None, commit: bool = True
+    db: Session,
+    *,
+    source: ArticleSource,
+    target_company_id: uuid.UUID | None,
+    theme_watch_id: uuid.UUID | None = None,
+    commit: bool = True,
 ) -> None:
     """Records a call the rate limiter refused to make (services/news_rate_limiter.py
     returned no headroom). requests_used=0 so this never counts against the limit itself —
@@ -49,6 +61,7 @@ def log_rate_limited(
             source=source,
             call_type="rate_limited",
             target_company_id=target_company_id,
+            theme_watch_id=theme_watch_id,
             requests_used=0,
             articles_returned=0,
         )
@@ -113,8 +126,9 @@ def get_source_usage_stats(
     stats = []
     for source, config in limits.items():
         recent_rows = (
-            db.query(NewsSourceUsageLog, TargetCompany.name)
+            db.query(NewsSourceUsageLog, TargetCompany.name, ThemeWatch.name)
             .outerjoin(TargetCompany, NewsSourceUsageLog.target_company_id == TargetCompany.id)
+            .outerjoin(ThemeWatch, NewsSourceUsageLog.theme_watch_id == ThemeWatch.id)
             .filter(NewsSourceUsageLog.source == source)
             .order_by(NewsSourceUsageLog.created_at.desc())
             .limit(RECENT_ENTRIES_PER_SOURCE)
@@ -132,12 +146,13 @@ def get_source_usage_stats(
                 "recent": [
                     {
                         "call_type": row.call_type,
-                        "target_company_name": name,
+                        "target_company_name": company_name,
+                        "theme_watch_name": theme_name,
                         "requests_used": row.requests_used,
                         "articles_returned": row.articles_returned,
                         "created_at": row.created_at,
                     }
-                    for row, name in recent_rows
+                    for row, company_name, theme_name in recent_rows
                 ],
             }
         )

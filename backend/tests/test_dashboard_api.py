@@ -1,9 +1,12 @@
 from datetime import datetime, timezone
 
-from app.models.article import Article
+from app.models.article import Article, ArticleSource
 from app.models.company_follow import CompanyFollow
 from app.models.signal import Signal, SignalStatus
 from app.models.target_company import TargetCompany
+from app.models.theme_follow import ThemeFollow
+from app.models.theme_match import ThemeMatch
+from app.models.theme_watch import ThemeWatch
 
 
 def _signup(client, email="rep@proair.com"):
@@ -73,6 +76,8 @@ def test_dashboard_empty_state(client, db_session):
         "recent_favorites": [],
         "open_todo_count": 0,
         "open_todos": [],
+        "new_theme_match_count": 0,
+        "top_theme_matches": [],
         "dismissed_signal_count": 0,
         "skipped_article_count": 0,
     }
@@ -204,3 +209,103 @@ def test_dashboard_skipped_article_count_admin_only(client, db_session):
     user_headers, _ = _signup(client, email="rep@proair.com")
     user_resp = client.get("/dashboard", headers=user_headers)
     assert user_resp.json()["skipped_article_count"] == 0
+
+
+# --- Theme matches on the dashboard ------------------------------------------------
+
+
+def _make_theme_match(
+    db_session,
+    theme_name="Startups DE",
+    title="A German startup raised a Series B",
+    relevance_score=None,
+    status=SignalStatus.NEW,
+    skip_reason=None,
+) -> ThemeMatch:
+    theme = db_session.query(ThemeWatch).filter(ThemeWatch.name == theme_name).first()
+    if theme is None:
+        theme = ThemeWatch(name=theme_name, query_terms=["Startup"])
+        db_session.add(theme)
+        db_session.commit()
+        db_session.refresh(theme)
+
+    match = ThemeMatch(
+        theme_watch_id=theme.id,
+        source=ArticleSource.GOOGLE_NEWS_RSS,
+        source_name="Handelsblatt",
+        title=title,
+        url=f"https://example.com/{abs(hash((title, status, skip_reason)))}",
+        description="desc",
+        summary="summary",
+        relevance_score=relevance_score,
+        status=status,
+        skip_reason=skip_reason,
+    )
+    db_session.add(match)
+    db_session.commit()
+    db_session.refresh(match)
+    return match
+
+
+def _follow_theme(db_session, user_id, theme_watch_id, is_muted=False) -> None:
+    db_session.add(
+        ThemeFollow(user_id=user_id, theme_watch_id=theme_watch_id, is_muted=is_muted)
+    )
+    db_session.commit()
+
+
+def test_dashboard_counts_theme_matches_for_followed_themes(client, db_session):
+    headers, user_id = _signup(client)
+    match = _make_theme_match(db_session, relevance_score=5)
+    _follow_theme(db_session, user_id, match.theme_watch_id)
+
+    body = client.get("/dashboard", headers=headers).json()
+
+    assert body["new_theme_match_count"] == 1
+    assert len(body["top_theme_matches"]) == 1
+    assert body["top_theme_matches"][0]["theme_watch_name"] == "Startups DE"
+
+
+def test_dashboard_hides_theme_matches_of_unfollowed_themes(client, db_session):
+    headers, _user_id = _signup(client)
+    _make_theme_match(db_session)
+
+    body = client.get("/dashboard", headers=headers).json()
+
+    assert body["new_theme_match_count"] == 0
+    assert body["top_theme_matches"] == []
+
+
+def test_dashboard_excludes_muted_themes(client, db_session):
+    headers, user_id = _signup(client)
+    match = _make_theme_match(db_session)
+    _follow_theme(db_session, user_id, match.theme_watch_id, is_muted=True)
+
+    body = client.get("/dashboard", headers=headers).json()
+
+    assert body["new_theme_match_count"] == 0
+
+
+def test_dashboard_excludes_skipped_theme_matches(client, db_session):
+    """Duplicates/triaged-out/ai_error rows are bookkeeping, not something a user should
+    see counted as a new match."""
+    headers, user_id = _signup(client)
+    kept = _make_theme_match(db_session, title="Kept story")
+    _follow_theme(db_session, user_id, kept.theme_watch_id)
+    _make_theme_match(db_session, title="Dropped story", skip_reason="triaged_out")
+
+    body = client.get("/dashboard", headers=headers).json()
+
+    assert body["new_theme_match_count"] == 1
+    assert [m["title"] for m in body["top_theme_matches"]] == ["Kept story"]
+
+
+def test_dashboard_orders_theme_matches_by_relevance(client, db_session):
+    headers, user_id = _signup(client)
+    low = _make_theme_match(db_session, title="Low relevance", relevance_score=2)
+    _follow_theme(db_session, user_id, low.theme_watch_id)
+    _make_theme_match(db_session, title="High relevance", relevance_score=5)
+
+    body = client.get("/dashboard", headers=headers).json()
+
+    assert [m["title"] for m in body["top_theme_matches"]] == ["High relevance", "Low relevance"]

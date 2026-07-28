@@ -140,7 +140,13 @@
       "companiesRateLimited_one": "{{count}} company",
       "companiesRateLimited_other": "{{count}} companies",
       "highSkipRateWarning": "Unusually high share of articles judged low-relevance this run ({{percent}}%).",
-      "reviewSkippedArticles": "Review skipped articles →"
-    }
+      "reviewSkippedArticles": "Review skipped articles →",
+      "themesChecked_one": ", checked {{count}} topic",
+      "themesChecked_other": ", checked {{count}} topics",
+      "themeMatchesCreatedText_one": ", created {{count}} topic match",
+      "themeMatchesCreatedText_other": ", created {{count}} topic matches",
+      "fetchingTheme": "Fetching topic “{{theme}}” ({{position}}/{{total}})"
+    },
+    "addCompanyOrThemeFirst": "Add a target company or a topic first"
   }
 }

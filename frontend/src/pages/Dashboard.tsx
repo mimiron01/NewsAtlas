@@ -3,7 +3,14 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
-import type { DashboardSummary, IngestionRunStatus, Signal, TargetCompany, WorkspaceSettings } from "../api/types";
+import type {
+  DashboardSummary,
+  IngestionRunStatus,
+  Signal,
+  TargetCompany,
+  ThemeWatch,
+  WorkspaceSettings,
+} from "../api/types";
 import Skeleton from "../components/Skeleton";
 import SetupChecklist from "../components/SetupChecklist";
 import SignalRow from "../components/SignalRow";
@@ -21,6 +28,7 @@ export default function Dashboard() {
   const isAdmin = useIsAdmin();
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [companies, setCompanies] = useState<TargetCompany[]>([]);
+  const [themes, setThemes] = useState<ThemeWatch[]>([]);
   const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,6 +54,9 @@ export default function Dashboard() {
   useEffect(() => {
     loadDashboard();
     api.get<TargetCompany[]>("/target-companies").then(setCompanies).catch(() => undefined);
+    // Topics count as fetchable work too — a user tracking only topics must still be able
+    // to start a run (see hasSomethingToFetch below).
+    api.get<ThemeWatch[]>("/theme-watches").then(setThemes).catch(() => undefined);
     // /settings is admin-only; regular users can't view or fix the company profile anyway,
     // so skip the call rather than eat a 403 on every page load.
     if (isAdmin) {
@@ -153,9 +164,20 @@ export default function Dashboard() {
   // satisfied for them rather than gating the checklist on data they'll never fetch.
   const hasCompanyProfile = isAdmin ? Boolean(settings?.offering_description.trim()) : true;
   const hasTargetCompany = companies.length > 0;
-  const hasAnySignals = Boolean(summary && (summary.top_signals.length > 0 || summary.new_signal_count > 0));
+  const hasTheme = themes.length > 0;
+  // A run fetches for companies *and* topics, so either one on its own is enough work to
+  // justify the button. Gating on companies alone left a topics-only user unable to fetch
+  // anything at all.
+  const hasSomethingToFetch = hasTargetCompany || hasTheme;
+  const hasAnySignals = Boolean(
+    summary &&
+      (summary.top_signals.length > 0 ||
+        summary.new_signal_count > 0 ||
+        summary.top_theme_matches.length > 0 ||
+        summary.new_theme_match_count > 0)
+  );
   const settingsReady = !isAdmin || settings !== null;
-  const showChecklist = settingsReady && (!hasCompanyProfile || !hasTargetCompany || !hasAnySignals);
+  const showChecklist = settingsReady && (!hasCompanyProfile || !hasSomethingToFetch || !hasAnySignals);
 
   if (loadError) {
     return <p className="error-text">{loadError}</p>;
@@ -179,8 +201,8 @@ export default function Dashboard() {
         <button
           type="button"
           onClick={handleRunIngestion}
-          disabled={isRunningIngestion || !hasTargetCompany}
-          title={hasTargetCompany ? undefined : t("feed.addTargetCompanyFirst", { ns: "signals" })}
+          disabled={isRunningIngestion || !hasSomethingToFetch}
+          title={hasSomethingToFetch ? undefined : t("feed.addCompanyOrThemeFirst", { ns: "signals" })}
         >
           {isRunningIngestion
             ? t("feed.fetching", { ns: "signals", percent: ingestionStatus?.progress_percent ?? 0 })
@@ -205,6 +227,12 @@ export default function Dashboard() {
           <strong>{summary.favorite_count}</strong>
           <span>{t("stats.favorites")}</span>
         </Link>
+        {hasTheme && (
+          <Link to="/themes" className="dashboard-stat">
+            <strong>{summary.new_theme_match_count}</strong>
+            <span>{t("stats.newThemeMatches")}</span>
+          </Link>
+        )}
         <a href="#open-todos-panel" className="dashboard-stat">
           <strong>{summary.open_todo_count}</strong>
           <span>{t("stats.openTodos")}</span>
@@ -220,7 +248,7 @@ export default function Dashboard() {
       {showChecklist && (
         <SetupChecklist
           hasCompanyProfile={hasCompanyProfile}
-          hasTargetCompany={hasTargetCompany}
+          hasTargetCompany={hasSomethingToFetch}
           hasSignals={hasAnySignals}
         />
       )}
@@ -245,6 +273,36 @@ export default function Dashboard() {
           </ul>
         )}
       </div>
+
+      {/* Only rendered for users who actually follow a topic, so a company-only
+          workspace's dashboard is unchanged. */}
+      {hasTheme && (
+        <div className="panel-card">
+          <div className="feed-toolbar">
+            <h3>{t("topThemeMatches")}</h3>
+            <Link to="/themes" className="link-button">
+              {t("viewAllThemeMatches")}
+            </Link>
+          </div>
+          {summary.top_theme_matches.length === 0 ? (
+            <p className="subtitle">{t("noThemeMatchesYet")}</p>
+          ) : (
+            <ul className="dashboard-mini-list">
+              {summary.top_theme_matches.map((match) => (
+                <li key={match.id}>
+                  <a href={match.url} target="_blank" rel="noreferrer">
+                    {match.title}
+                  </a>
+                  <span className="subtitle">
+                    {match.theme_watch_name}
+                    {match.relevance_score !== null && ` · ${match.relevance_score}/5`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <div className="dashboard-panels">
         <div className="panel-card">

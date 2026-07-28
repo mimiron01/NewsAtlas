@@ -140,7 +140,13 @@
       "companiesRateLimited_one": "{{count}} Unternehmen",
       "companiesRateLimited_other": "{{count}} Unternehmen",
       "highSkipRateWarning": "Ungewöhnlich hoher Anteil an Artikeln mit geringer Relevanz in diesem Lauf ({{percent}} %).",
-      "reviewSkippedArticles": "Übersprungene Artikel prüfen →"
-    }
+      "reviewSkippedArticles": "Übersprungene Artikel prüfen →",
+      "themesChecked_one": ", {{count}} Thema geprüft",
+      "themesChecked_other": ", {{count}} Themen geprüft",
+      "themeMatchesCreatedText_one": ", {{count}} Themen-Treffer erstellt",
+      "themeMatchesCreatedText_other": ", {{count}} Themen-Treffer erstellt",
+      "fetchingTheme": "Thema „{{theme}}“ wird abgerufen ({{position}}/{{total}})"
+    },
+    "addCompanyOrThemeFirst": "Fügen Sie zuerst ein Zielunternehmen oder ein Thema hinzu"
   }
 }

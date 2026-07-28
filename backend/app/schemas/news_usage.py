@@ -8,7 +8,10 @@ from app.models.article import ArticleSource
 
 class NewsSourceUsageEntry(BaseModel):
     call_type: str
+    # Mutually exclusive: a call is made on behalf of one company or one theme. Both None
+    # for a pre-attribution historical row.
     target_company_name: str | None
+    theme_watch_name: str | None = None
     requests_used: int
     articles_returned: int
     created_at: datetime

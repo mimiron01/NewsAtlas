@@ -6,6 +6,21 @@ from pydantic import BaseModel, Field, field_validator
 from app.services.news_query import is_valid_source_hostname
 
 
+class PublicWorkspaceSettingsResponse(BaseModel):
+    """Non-sensitive workspace capability flags, readable by any authenticated user (see
+    GET /settings/public). Add a field here only if every user genuinely needs it to
+    understand the app's behavior — this response deliberately carries no API-key status,
+    no provider quotas, and no AI configuration."""
+
+    google_news_rss_enabled: bool
+    google_news_rss_country: str
+    google_news_rss_language: str
+    # Not a workspace setting but a deployment constant (app config) — surfaced here
+    # because the frontend renders the per-topic fetch cooldown as a live countdown, and
+    # hardcoding the duration would silently drift from the server's real limit.
+    manual_trigger_cooldown_seconds: int
+
+
 class WorkspaceSettingsResponse(BaseModel):
     id: uuid.UUID
     company_name: str

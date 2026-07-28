@@ -8,16 +8,25 @@ from app.models.signal import Signal, SignalStatus
 from app.models.signal_favorite import SignalFavorite
 from app.models.signal_todo import SignalTodo
 from app.models.target_company import TargetCompany
+from app.models.theme_match import ThemeMatch
 from app.models.user import User, UserRole
 from app.schemas.dashboard import DashboardSummary
 from app.schemas.signal_todo import SignalTodoWithContext
 from app.services.signal_queries import base_signal_query, scope_to_follows, signal_row_to_response
+from app.services.theme_match_queries import (
+    base_theme_match_query,
+    scope_to_theme_follows,
+    theme_match_row_to_response,
+)
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 TOP_SIGNALS_LIMIT = 8
 RECENT_FAVORITES_LIMIT = 5
 OPEN_TODOS_LIMIT = 5
+# Smaller than TOP_SIGNALS_LIMIT: topics are a secondary panel on the dashboard, with the
+# full list one click away on the Themes page.
+TOP_THEME_MATCHES_LIMIT = 5
 
 
 @router.get("", response_model=DashboardSummary)
@@ -98,8 +107,26 @@ def get_dashboard(
         for todo, article, target_company in open_todo_rows
     ]
 
+    # Theme matches, scoped and filtered exactly like the signal queries above: only themes
+    # this user follows, muted follows excluded, skipped rows (duplicate/triaged_out/
+    # ai_error) never shown. A user following no themes gets 0/[] and the frontend hides
+    # the topic tiles entirely.
+    theme_query = scope_to_theme_follows(
+        base_theme_match_query(db), db, current_user, include_muted=False
+    ).filter(ThemeMatch.skip_reason.is_(None))
+    new_theme_match_count = theme_query.filter(ThemeMatch.status == SignalStatus.NEW).count()
+    top_theme_rows = (
+        theme_query.filter(ThemeMatch.status.in_([SignalStatus.NEW, SignalStatus.REVIEWED]))
+        .order_by(ThemeMatch.relevance_score.desc().nullslast(), ThemeMatch.fetched_at.desc())
+        .limit(TOP_THEME_MATCHES_LIMIT)
+        .all()
+    )
+    top_theme_matches = [theme_match_row_to_response(*row) for row in top_theme_rows]
+
     return DashboardSummary(
         top_signals=top_signals,
+        new_theme_match_count=new_theme_match_count,
+        top_theme_matches=top_theme_matches,
         new_signal_count=new_signal_count,
         favorite_count=favorite_count,
         recent_favorites=recent_favorites,

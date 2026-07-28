@@ -5,7 +5,8 @@
     "newSignals": "New signals",
     "favorites": "Favorites",
     "openTodos": "Open todos",
-    "skipped": "Skipped — review them"
+    "skipped": "Skipped — review them",
+    "newThemeMatches": "New topic matches"
   },
   "topSignals": "Top signals",
   "viewAllSignals": "View all signals →",
@@ -17,5 +18,8 @@
   "markTodoComplete": "Mark \"{{text}}\" complete",
   "loadFailed": "Failed to load dashboard",
   "favoriteUpdateFailed": "Failed to update favorite",
-  "todoUpdateFailed": "Failed to update todo"
+  "todoUpdateFailed": "Failed to update todo",
+  "topThemeMatches": "Top topic matches",
+  "viewAllThemeMatches": "View all topic matches →",
+  "noThemeMatchesYet": "No topic matches yet. Fetch new signals, or start a fetch for a single topic on the Topics page."
 }

@@ -15,7 +15,6 @@
   "save": "Save settings",
   "clearing": "Clearing...",
   "clearOverride": "Clear in-app override",
-
   "company": {
     "title": "Company profile",
     "subtitle": "This description is given to the AI model so it can explain why each news signal matters for your business and draft relevant outreach snippets.",
@@ -42,7 +41,6 @@
     "maxActiveThemeWatches": "Max active theme watches",
     "maxActiveThemeWatchesHint": "Hard ceiling on how many theme watches can be active workspace-wide at once. Pause or delete one to free up room for another."
   },
-
   "targets": {
     "title": "My companies",
     "subtitle": "Add the companies you want news signals for. Keywords/aliases help match more articles.",
@@ -118,7 +116,6 @@
       "errorRow": "Row {{row}}: {{reason}}"
     }
   },
-
   "sources": {
     "title": "News sources",
     "subtitle": "Which providers ingestion pulls from, each with its own enforced rate limit — a source stops being called for the rest of a run once its limit is reached, rather than only logging the overage afterward. Usage against each limit is shown inline below it.",
@@ -132,7 +129,9 @@
       "type": "Type",
       "company": "Company",
       "requests": "Requests",
-      "articles": "Articles"
+      "articles": "Articles",
+      "attributedTo": "Company / topic",
+      "themeAttribution": "Topic: {{name}}"
     },
     "requestsToday": "{{used}} / {{limit}} requests today",
     "requestsLastMinute": "{{used}} / {{limit}} in the last minute",
@@ -160,7 +159,6 @@
     "clearNewsdataKeyToast": "In-app NewsData.io API key override cleared.",
     "clearNewsdataKeyFailed": "Failed to clear API key"
   },
-
   "ai": {
     "title": "AI configuration",
     "subtitle": "Controls how Mistral is used to summarize articles — which models are called, how aggressively duplicate coverage is filtered, and which API key is used.",
@@ -175,7 +173,6 @@
     "clearKeyToast": "In-app API key override cleared.",
     "clearKeyFailed": "Failed to clear API key"
   },
-
   "usage": {
     "title": "AI usage",
     "subtitle": "Mistral token usage over the last {{days}} days, broken down by pipeline stage so you can see the cost impact of duplicate-skipping and triage filtering.",
@@ -197,7 +194,6 @@
       "summarize": "Full summarization (large model)"
     }
   },
-
   "users": {
     "title": "Users",
     "subtitle": "Promote or demote users. Admins manage workspace settings and can assign companies to any user.",
@@ -221,7 +217,6 @@
     "assignFailed": "Failed to assign company",
     "assignButton": "Assign company"
   },
-
   "review": {
     "title": "Skipped articles",
     "subtitle": "Articles the ingestion pipeline fetched but did not turn into a signal because the triage pre-filter judged them low-relevance, along with its stated reason. Create a signal anyway if it got one wrong.",
@@ -235,7 +230,6 @@
     "limitedDetail": "Limited detail",
     "limitedDetailTitle": "This source only ever provides a headline, no article snippet or body text — the triage judgment above was made from the headline alone."
   },
-
   "logs": {
     "title": "Ingestion logs",
     "subtitle": "History of every \"Fetch new signals\" run, manual or scheduled, including any errors encountered while pulling from a news source or summarizing an article.",
@@ -264,6 +258,11 @@
     "signalsCreated_other": "{{count}} signals created",
     "duplicatesSkipped_one": "{{count}} duplicate",
     "duplicatesSkipped_other": "{{count}} duplicates",
-    "triagedOut": "{{count}} triaged out"
+    "triagedOut": "{{count}} triaged out",
+    "themeScopedRun": "Single topic",
+    "themesProcessed_one": "{{processed}}/{{total}} topic",
+    "themesProcessed_other": "{{processed}}/{{total}} topics",
+    "themeMatchesCreated_one": "{{count}} topic match created",
+    "themeMatchesCreated_other": "{{count}} topic matches created"
   }
 }

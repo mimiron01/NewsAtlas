@@ -228,3 +228,36 @@ def test_settings_require_admin(client):
     headers = _user_headers(client)
     assert client.get("/settings", headers=headers).status_code == 403
     assert client.put("/settings", json=_full_update_payload(), headers=headers).status_code == 403
+
+
+# --- GET /settings/public ----------------------------------------------------------
+
+
+def test_public_settings_readable_by_non_admin(client):
+    """The admin-only GET /settings left a non-admin with no way to learn that Google News
+    RSS (the only source themes can use) is switched off — which is why their topics
+    silently returned nothing."""
+    # _user_headers signs the admin up first, so this covers both roles.
+    member_headers = _user_headers(client)
+
+    assert client.get("/settings", headers=member_headers).status_code == 403
+
+    resp = client.get("/settings/public", headers=member_headers)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["google_news_rss_enabled"] is False
+    assert body["google_news_rss_country"] == "US"
+    assert body["google_news_rss_language"] == "en"
+    # Nothing sensitive leaks through the non-admin door: no key status, no quotas, no AI
+    # configuration.
+    assert body["manual_trigger_cooldown_seconds"] > 0
+    assert set(body) == {
+        "google_news_rss_enabled",
+        "google_news_rss_country",
+        "google_news_rss_language",
+        "manual_trigger_cooldown_seconds",
+    }
+
+
+def test_public_settings_requires_auth(client):
+    assert client.get("/settings/public").status_code == 401

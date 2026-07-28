@@ -197,7 +197,7 @@ def test_execute_ingestion_run_marks_row_cancelled_with_partial_counts(db_sessio
         errors=[],
     )
     monkeypatch.setattr(
-        "app.services.ingestion_runs.run_ingestion", lambda db, progress=None: fake_result
+        "app.services.ingestion_runs.run_ingestion", lambda db, progress=None, theme_watch_id=None: fake_result
     )
 
     execute_ingestion_run(run.id)
@@ -210,6 +210,7 @@ def test_execute_ingestion_run_marks_row_cancelled_with_partial_counts(db_sessio
 
 def test_progress_percent_caps_below_100_while_running():
     run = IngestionRun(trigger="manual", status=STATUS_RUNNING, companies_total=4, companies_processed=1,
+                        themes_total=0, themes_processed=0,
                         articles_total_this_company=2, articles_processed_this_company=1)
     # (1 + 0.5) / 4 = 37%
     assert progress_percent(run) == 37
@@ -220,9 +221,43 @@ def test_progress_percent_is_100_once_finished():
     assert progress_percent(run) == 100
 
 
-def test_progress_percent_is_zero_with_no_active_companies():
-    run = IngestionRun(trigger="scheduled", status=STATUS_RUNNING, companies_total=0)
+def test_progress_percent_is_zero_with_no_work_at_all():
+    run = IngestionRun(
+        trigger="scheduled", status=STATUS_RUNNING, companies_total=0, themes_total=0
+    )
     assert progress_percent(run) == 0
+
+
+def test_progress_percent_counts_themes_when_there_are_no_companies():
+    """A themes-only workspace used to sit at a frozen 0% for the whole run, because the
+    percentage divided by companies_total alone."""
+    run = IngestionRun(
+        trigger="manual",
+        status=STATUS_RUNNING,
+        companies_total=0,
+        companies_processed=0,
+        themes_total=4,
+        themes_processed=1,
+        articles_total_this_company=2,
+        articles_processed_this_company=1,
+    )
+    # (1 + 0.5) / 4 = 37%
+    assert progress_percent(run) == 37
+
+
+def test_progress_percent_spans_companies_and_themes_together():
+    run = IngestionRun(
+        trigger="scheduled",
+        status=STATUS_RUNNING,
+        companies_total=2,
+        companies_processed=2,
+        themes_total=2,
+        themes_processed=1,
+        articles_total_this_company=0,
+        articles_processed_this_company=0,
+    )
+    # 3 of 4 total units done
+    assert progress_percent(run) == 75
 
 
 def test_execute_ingestion_run_marks_row_completed(db_session, monkeypatch):
@@ -235,7 +270,7 @@ def test_execute_ingestion_run_marks_row_completed(db_session, monkeypatch):
         signals_created=1, errors=[],
     )
     monkeypatch.setattr(
-        "app.services.ingestion_runs.run_ingestion", lambda db, progress=None: fake_result
+        "app.services.ingestion_runs.run_ingestion", lambda db, progress=None, theme_watch_id=None: fake_result
     )
     # execute_ingestion_run closes the session it opens (SessionLocal()) — patched here to
     # return db_session directly so this test can inspect the row afterward without a
@@ -255,7 +290,7 @@ def test_execute_ingestion_run_marks_row_failed_on_unexpected_exception(db_sessi
     monkeypatch.setattr("app.services.ingestion_runs.SessionLocal", lambda: db_session)
     monkeypatch.setattr(db_session, "close", lambda: None)
 
-    def _boom(db, progress=None):
+    def _boom(db, progress=None, theme_watch_id=None):
         raise RuntimeError("db exploded")
 
     monkeypatch.setattr("app.services.ingestion_runs.run_ingestion", _boom)
