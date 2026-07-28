@@ -24,6 +24,8 @@ from app.models.user import User, UserRole
 from app.schemas.news_usage import BackfillTriggerResult
 from app.schemas.target_company import (
     CompanyFollowerResponse,
+    TargetCompanyBulkDeleteRequest,
+    TargetCompanyBulkDeleteResult,
     TargetCompanyCreate,
     TargetCompanyImportResult,
     TargetCompanyResponse,
@@ -197,6 +199,44 @@ async def import_target_companies_csv(
         skipped=skipped,
         errors=errors,
     )
+
+
+@router.post("/bulk-delete", response_model=TargetCompanyBulkDeleteResult)
+def bulk_delete_target_companies(
+    payload: TargetCompanyBulkDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> TargetCompanyBulkDeleteResult:
+    """Bulk variant of DELETE /{target_company_id} for the "Meine Unternehmen" table's
+    multi-select — applies the same per-company admin-hard-delete vs. non-admin-unfollow
+    branching as the single-delete endpoint, just batched into one commit. IDs that don't
+    exist or that the caller doesn't follow are counted as not_found rather than failing
+    the whole batch, since the frontend's selection is built from a list the caller has
+    open, and a stale row shouldn't block the rest of the selection from being removed."""
+    deleted = 0
+    not_found = 0
+    for target_company_id in payload.target_company_ids:
+        company = db.get(TargetCompany, target_company_id)
+        if company is None:
+            not_found += 1
+            continue
+        if current_user.role == UserRole.ADMIN:
+            db.delete(company)
+            deleted += 1
+            log_event(
+                "admin_company_deleted",
+                user_id=str(current_user.id),
+                company_id=str(target_company_id),
+            )
+            continue
+        follow = get_follow(db, current_user.id, target_company_id)
+        if follow is None:
+            not_found += 1
+            continue
+        remove_follow(db, current_user.id, target_company_id)
+        deleted += 1
+    db.commit()
+    return TargetCompanyBulkDeleteResult(deleted=deleted, not_found=not_found)
 
 
 @router.patch("/{target_company_id}", response_model=TargetCompanyResponse)

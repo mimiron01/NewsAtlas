@@ -2,7 +2,12 @@ import { FormEvent, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
-import type { BackfillTriggerResult, TargetCompany, WorkspaceSettings } from "../api/types";
+import type {
+  BackfillTriggerResult,
+  TargetCompany,
+  TargetCompanyBulkDeleteResult,
+  WorkspaceSettings,
+} from "../api/types";
 import TagInput from "../components/TagInput";
 import TargetCompanyCsvImport from "../components/TargetCompanyCsvImport";
 import { useAuth } from "../context/AuthContext";
@@ -26,6 +31,9 @@ export default function SettingsTargets() {
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmingBulk, setConfirmingBulk] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [editName, setEditName] = useState("");
   const [editKeywords, setEditKeywords] = useState<string[]>([]);
   const [editIndustry, setEditIndustry] = useState("");
@@ -47,6 +55,14 @@ export default function SettingsTargets() {
   }
 
   useEffect(loadCompanies, [t]);
+
+  useEffect(() => {
+    const validIds = new Set(companies.map((c) => c.id));
+    setSelectedIds((prev) => {
+      const next = new Set(Array.from(prev).filter((id) => validIds.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [companies]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -158,6 +174,45 @@ export default function SettingsTargets() {
     }
   }
 
+  function toggleSelect(companyId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(companyId)) {
+        next.delete(companyId);
+      } else {
+        next.add(companyId);
+      }
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((prev) => (prev.size === companies.length ? new Set() : new Set(companies.map((c) => c.id))));
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(selectedIds);
+    setIsBulkDeleting(true);
+    try {
+      const result = await api.post<TargetCompanyBulkDeleteResult>("/target-companies/bulk-delete", {
+        target_company_ids: ids,
+      });
+      showToast(
+        isAdmin
+          ? t("targets.bulkDeletedToast", { count: result.deleted })
+          : t("targets.bulkUnfollowedToast", { count: result.deleted }),
+        "success"
+      );
+      setSelectedIds(new Set());
+      loadCompanies();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("targets.bulkRemoveFailed"), "error");
+    } finally {
+      setIsBulkDeleting(false);
+      setConfirmingBulk(false);
+    }
+  }
+
   async function triggerBackfill(company: TargetCompany) {
     setPendingId(company.id);
     try {
@@ -226,134 +281,201 @@ export default function SettingsTargets() {
       {isAdmin && <TargetCompanyCsvImport onImported={loadCompanies} />}
 
       <div className="panel-card">
-        <h3>{t("targets.trackedCompanies", { count: companies.length })}</h3>
-        {companies.length === 0 && <p className="subtitle">{t("targets.noCompaniesYet")}</p>}
-        <ul className="target-list">
-          {companies.map((company) =>
-            editingId === company.id ? (
-              <li key={company.id} className="editing">
-                <form className="target-edit-form" onSubmit={(e) => saveEdit(e, company)}>
-                  <div className="field-row">
-                    <label>
-                      {t("targets.companyName")}
-                      <input
-                        value={editName}
-                        onChange={(e) => setEditName(e.target.value)}
-                        required
-                      />
-                    </label>
-                    <label>
-                      {t("targets.industryOptional")}
-                      <input value={editIndustry} onChange={(e) => setEditIndustry(e.target.value)} />
-                    </label>
-                  </div>
-                  <label>
-                    {t("targets.keywords")}
-                    <TagInput
-                      tags={editKeywords}
-                      onChange={setEditKeywords}
-                      placeholder={t("targets.keywordsPlaceholder")}
-                    />
-                    <span className="field-hint">{t("targets.keywordsHint")}</span>
-                  </label>
-                  <label>
-                    {t("targets.sourceAllowlist")}
-                    <TagInput
-                      tags={editSourceAllowlist}
-                      onChange={setEditSourceAllowlist}
-                      placeholder={t("targets.sourceAllowlistPlaceholder")}
-                    />
-                    <span className="field-hint">{t("targets.sourceAllowlistHint")}</span>
-                  </label>
-                  <div className="actions">
-                    <button type="submit" disabled={pendingId === company.id}>
-                      {t("targets.save")}
-                    </button>
-                    <button type="button" onClick={cancelEdit} disabled={pendingId === company.id}>
-                      {t("targets.cancel")}
-                    </button>
-                  </div>
-                </form>
-              </li>
-            ) : (
-              <li key={company.id} className={company.is_active ? "" : "inactive"}>
-                <div>
-                  <strong>{company.name}</strong>
-                  {company.industry && <span className="tag">{company.industry}</span>}
-                  {company.is_muted && <span className="tag">{t("targets.muted")}</span>}
-                  {company.keywords.length > 0 && (
-                    <div className="keywords">{company.keywords.join(", ")}</div>
-                  )}
-                  {company.id === justCreatedId && company.backfilled_at === null && (
-                    <div className="field-hint">{t("targets.backfilling")}</div>
-                  )}
-                </div>
-                <div className="actions">
-                  {isAdmin && backfillEnabled && company.backfilled_at === null && company.id !== justCreatedId && (
-                    <button
-                      type="button"
-                      disabled={pendingId === company.id}
-                      onClick={() => triggerBackfill(company)}
-                      title={t("targets.backfillTitle")}
-                    >
-                      {t("targets.backfillHistory")}
-                    </button>
-                  )}
-                  {canEdit(company) && (
-                    <button
-                      type="button"
-                      disabled={pendingId === company.id}
-                      onClick={() => startEdit(company)}
-                    >
-                      {t("targets.edit")}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    disabled={pendingId === company.id}
-                    onClick={() => toggleMute(company)}
-                  >
-                    {company.is_muted ? t("targets.unmute") : t("targets.mute")}
+        <div className="feed-toolbar">
+          <h3>{t("targets.trackedCompanies", { count: companies.length })}</h3>
+          {selectedIds.size > 0 && (
+            <div className="bulk-actions">
+              <span className="subtitle">{t("targets.selectedCount", { count: selectedIds.size })}</span>
+              {confirmingBulk ? (
+                <>
+                  <button type="button" className="danger" disabled={isBulkDeleting} onClick={handleBulkDelete}>
+                    {t("targets.confirmAction", { action: removeLabel().toLowerCase() })}
                   </button>
-                  {canEdit(company) && (
-                    <button
-                      type="button"
-                      disabled={pendingId === company.id}
-                      onClick={() => toggleActive(company)}
-                    >
-                      {company.is_active ? t("targets.pause") : t("targets.resume")}
-                    </button>
-                  )}
-                  {confirmingId === company.id ? (
-                    <>
-                      <button
-                        type="button"
-                        className="danger"
-                        disabled={pendingId === company.id}
-                        onClick={() => remove(company)}
-                      >
-                        {t("targets.confirmAction", { action: removeLabel().toLowerCase() })}
-                      </button>
-                      <button type="button" onClick={() => setConfirmingId(null)}>
-                        {t("targets.cancel")}
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      className="danger"
-                      title={confirmCopy(company)}
-                      onClick={() => setConfirmingId(company.id)}
-                    >
-                      {removeLabel()}
-                    </button>
-                  )}
-                </div>
-                {confirmingId === company.id && <p className="subtitle">{confirmCopy(company)}</p>}
-              </li>
-            )
+                  <button type="button" onClick={() => setConfirmingBulk(false)} disabled={isBulkDeleting}>
+                    {t("targets.cancel")}
+                  </button>
+                </>
+              ) : (
+                <button type="button" className="danger" onClick={() => setConfirmingBulk(true)}>
+                  {isAdmin
+                    ? t("targets.bulkDelete", { count: selectedIds.size })
+                    : t("targets.bulkUnfollow", { count: selectedIds.size })}
+                </button>
+              )}
+            </div>
           )}
-        </ul>
+        </div>
+        {confirmingBulk && (
+          <p className="subtitle">
+            {isAdmin
+              ? t("targets.confirmBulkDeleteAdmin", { count: selectedIds.size })
+              : t("targets.confirmBulkUnfollow", { count: selectedIds.size })}
+          </p>
+        )}
+        {companies.length === 0 && <p className="subtitle">{t("targets.noCompaniesYet")}</p>}
+        {companies.length > 0 && (
+          <div className="company-table-wrap">
+            <table className="company-table">
+              <thead>
+                <tr>
+                  <th className="checkbox-cell">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.size === companies.length}
+                      onChange={toggleSelectAll}
+                      aria-label={t("targets.selectAll")}
+                    />
+                  </th>
+                  <th>{t("targets.columnCompany")}</th>
+                  <th>{t("targets.columnStatus")}</th>
+                  <th>{t("targets.columnActions")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {companies.map((company) =>
+                  editingId === company.id ? (
+                    <tr key={company.id} className="editing">
+                      <td colSpan={4}>
+                        <form className="target-edit-form" onSubmit={(e) => saveEdit(e, company)}>
+                          <div className="field-row">
+                            <label>
+                              {t("targets.companyName")}
+                              <input
+                                value={editName}
+                                onChange={(e) => setEditName(e.target.value)}
+                                required
+                              />
+                            </label>
+                            <label>
+                              {t("targets.industryOptional")}
+                              <input value={editIndustry} onChange={(e) => setEditIndustry(e.target.value)} />
+                            </label>
+                          </div>
+                          <label>
+                            {t("targets.keywords")}
+                            <TagInput
+                              tags={editKeywords}
+                              onChange={setEditKeywords}
+                              placeholder={t("targets.keywordsPlaceholder")}
+                            />
+                            <span className="field-hint">{t("targets.keywordsHint")}</span>
+                          </label>
+                          <label>
+                            {t("targets.sourceAllowlist")}
+                            <TagInput
+                              tags={editSourceAllowlist}
+                              onChange={setEditSourceAllowlist}
+                              placeholder={t("targets.sourceAllowlistPlaceholder")}
+                            />
+                            <span className="field-hint">{t("targets.sourceAllowlistHint")}</span>
+                          </label>
+                          <div className="actions">
+                            <button type="submit" disabled={pendingId === company.id}>
+                              {t("targets.save")}
+                            </button>
+                            <button type="button" onClick={cancelEdit} disabled={pendingId === company.id}>
+                              {t("targets.cancel")}
+                            </button>
+                          </div>
+                        </form>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={company.id} className={company.is_active ? "" : "inactive"}>
+                      <td className="checkbox-cell">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(company.id)}
+                          onChange={() => toggleSelect(company.id)}
+                          aria-label={t("targets.selectCompany", { name: company.name })}
+                        />
+                      </td>
+                      <td>
+                        <strong>{company.name}</strong>
+                        {company.industry && <span className="tag">{company.industry}</span>}
+                        {company.is_muted && <span className="tag">{t("targets.muted")}</span>}
+                        {company.keywords.length > 0 && (
+                          <div className="keywords">{company.keywords.join(", ")}</div>
+                        )}
+                        {company.id === justCreatedId && company.backfilled_at === null && (
+                          <div className="field-hint">{t("targets.backfilling")}</div>
+                        )}
+                      </td>
+                      <td>{company.is_active ? t("targets.statusActive") : t("targets.statusPaused")}</td>
+                      <td>
+                        <div className="actions">
+                          {isAdmin &&
+                            backfillEnabled &&
+                            company.backfilled_at === null &&
+                            company.id !== justCreatedId && (
+                              <button
+                                type="button"
+                                disabled={pendingId === company.id}
+                                onClick={() => triggerBackfill(company)}
+                                title={t("targets.backfillTitle")}
+                              >
+                                {t("targets.backfillHistory")}
+                              </button>
+                            )}
+                          {canEdit(company) && (
+                            <button
+                              type="button"
+                              disabled={pendingId === company.id}
+                              onClick={() => startEdit(company)}
+                            >
+                              {t("targets.edit")}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            disabled={pendingId === company.id}
+                            onClick={() => toggleMute(company)}
+                          >
+                            {company.is_muted ? t("targets.unmute") : t("targets.mute")}
+                          </button>
+                          {canEdit(company) && (
+                            <button
+                              type="button"
+                              disabled={pendingId === company.id}
+                              onClick={() => toggleActive(company)}
+                            >
+                              {company.is_active ? t("targets.pause") : t("targets.resume")}
+                            </button>
+                          )}
+                          {confirmingId === company.id ? (
+                            <>
+                              <button
+                                type="button"
+                                className="danger"
+                                disabled={pendingId === company.id}
+                                onClick={() => remove(company)}
+                              >
+                                {t("targets.confirmAction", { action: removeLabel().toLowerCase() })}
+                              </button>
+                              <button type="button" onClick={() => setConfirmingId(null)}>
+                                {t("targets.cancel")}
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              className="danger"
+                              title={confirmCopy(company)}
+                              onClick={() => setConfirmingId(company.id)}
+                            >
+                              {removeLabel()}
+                            </button>
+                          )}
+                        </div>
+                        {confirmingId === company.id && <p className="subtitle">{confirmCopy(company)}</p>}
+                      </td>
+                    </tr>
+                  )
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
