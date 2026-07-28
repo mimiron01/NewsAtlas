@@ -59,6 +59,12 @@ class IngestionRun(Base, UUIDPrimaryKeyMixin):
     triaged_out: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     by_source: Mapped[dict[str, int]] = mapped_column(JSON, nullable=False, default=dict)
     rate_limited: Mapped[dict[str, int]] = mapped_column(JSON, nullable=False, default=dict)
+    # ThemeWatch results, populated once the run finishes (see
+    # docs/theme-search-planning.html §5) — no live per-theme progress columns in v1
+    # (unlike companies_processed/articles_processed_this_company above); themes are
+    # processed as one atomic step after the company loop.
+    theme_matches_created: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    themes_processed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # Appended to live, as each error happens, not just assembled at the end — so a run
     # that never reaches a settled state still shows what went wrong so far.
     errors: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)

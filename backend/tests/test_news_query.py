@@ -2,6 +2,7 @@ from app.services.news_query import (
     article_mentions_company,
     build_google_news_query,
     build_or_query,
+    build_theme_query,
     is_safe_article_url,
     is_valid_source_hostname,
 )
@@ -121,3 +122,22 @@ def test_is_valid_source_hostname_rejects_scheme_and_path():
     assert not is_valid_source_hostname("reuters.com ")
     assert not is_valid_source_hostname("not a domain")
     assert not is_valid_source_hostname("justaword")
+
+
+def test_build_theme_query_ors_all_terms_with_no_anchor_name():
+    assert build_theme_query(["Automotive", "EV battery"]) == 'Automotive OR "EV battery"'
+
+
+def test_build_theme_query_dedupes_terms_case_insensitively():
+    assert build_theme_query(["Series B", "series b", "Seed round"]) == '"Series B" OR "Seed round"'
+
+
+def test_build_theme_query_adds_site_clause_when_sources_given():
+    assert (
+        build_theme_query(["Automotive"], ["reuters.com", "techcrunch.com"])
+        == "(Automotive) (site:reuters.com OR site:techcrunch.com)"
+    )
+
+
+def test_build_theme_query_no_sources_omits_site_clause():
+    assert build_theme_query(["Automotive"], []) == "Automotive"

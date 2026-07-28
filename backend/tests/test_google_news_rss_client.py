@@ -110,3 +110,29 @@ def test_fetch_articles_includes_site_restriction_in_query_url(monkeypatch):
         name="Acme", keywords=[], since=now - timedelta(days=1), sources=["reuters.com"]
     )
     assert "site%3Areuters.com" in captured["url"]
+
+
+def test_fetch_articles_uses_query_override_verbatim_when_given(monkeypatch):
+    client = GoogleNewsRSSClient(country="US", language="en")
+    now = datetime.now(timezone.utc)
+
+    class EmptyFeed:
+        bozo = False
+        entries: list = []
+
+        def get(self, key, default=None):
+            return getattr(self, key, default)
+
+    captured = {}
+
+    def fake_parse(url):
+        captured["url"] = url
+        return EmptyFeed()
+
+    monkeypatch.setattr("app.services.google_news_rss_client.feedparser.parse", fake_parse)
+
+    client.fetch_articles(
+        since=now - timedelta(days=1), query_override='Automotive OR "EV battery"'
+    )
+    assert "Automotive" in captured["url"]
+    assert "EV+battery" in captured["url"] or "EV%20battery" in captured["url"]

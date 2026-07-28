@@ -21,6 +21,14 @@ class WorkspaceSettings(Base, UUIDPrimaryKeyMixin):
     # a single busy company or an overly broad keyword list. 0 disables the cap
     # (unlimited), matching the newsdata_backfill_days "0 = off" convention below.
     max_articles_per_company_per_run: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    # Same "0 = unlimited" cap, but for ThemeWatch ingestion (see
+    # docs/theme-search-planning.html §9) — a theme's query is inherently broader than a
+    # named company's keyword list, so it needs its own budget rather than sharing this one.
+    max_articles_per_theme_per_run: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    # Ceiling on total active ThemeWatch rows per workspace, enforced in POST
+    # /theme-watches — uncapped concurrent themes is a bigger cost blast radius than
+    # uncapped companies ever was, since each one fans out into more candidate articles.
+    max_active_theme_watches: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

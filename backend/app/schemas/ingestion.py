@@ -21,6 +21,12 @@ class IngestionRunResult(BaseModel):
     # already reached before the call would have been made (no request was sent).
     rate_limited: dict[str, int] = Field(default_factory=dict)
     errors: list[str]
+    # ThemeWatch results (see docs/theme-search-planning.html §5) — a ThemeMatch isn't a
+    # Signal, so it gets its own counter rather than folding into signals_created;
+    # theme-path duplicates/triaged-out articles do fold into duplicates_skipped/
+    # triaged_out above, since those are the same kind of event regardless of path.
+    theme_matches_created: int = 0
+    themes_processed: int = 0
 
 
 class IngestionRunStatusResponse(BaseModel):
@@ -52,5 +58,9 @@ class IngestionRunStatusResponse(BaseModel):
     rate_limited: dict[str, int] = Field(default_factory=dict)
     errors: list[str] = Field(default_factory=list)
     fatal_error: str | None
+    # Final-result-only, like the rest of this block — no live per-theme progress in v1
+    # (see docs/theme-search-planning.html §5 and the IngestionRun model comment).
+    theme_matches_created: int = 0
+    themes_processed: int = 0
 
     model_config = {"from_attributes": True}

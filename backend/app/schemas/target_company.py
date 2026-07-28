@@ -3,30 +3,15 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.services.news_query import is_valid_source_hostname
-
-# A company can be a "Tier 1 supplier"-style multi-word phrase — 100 chars comfortably
-# covers legitimate use while capping the cost/DB-bloat/prompt-injection surface a huge
-# array of huge strings would otherwise open (see docs/v1-release-roadmap.html §5).
-_MAX_KEYWORDS = 20
-_MAX_KEYWORD_LENGTH = 100
+from app.schemas.common_validators import validate_source_allowlist, validate_term_list
 
 
 def _validate_keywords(value: list[str]) -> list[str]:
-    if len(value) > _MAX_KEYWORDS:
-        raise ValueError(f"at most {_MAX_KEYWORDS} keywords are allowed")
-    for keyword in value:
-        if len(keyword) > _MAX_KEYWORD_LENGTH:
-            raise ValueError(f"each keyword must be at most {_MAX_KEYWORD_LENGTH} characters")
-    return value
+    return validate_term_list(value)
 
 
 def _validate_source_allowlist(value: list[str]) -> list[str]:
-    cleaned = [domain.strip().lower() for domain in value]
-    for domain in cleaned:
-        if not is_valid_source_hostname(domain):
-            raise ValueError(f"{domain!r} is not a valid bare hostname (no scheme, no path)")
-    return cleaned
+    return validate_source_allowlist(value)
 
 
 class TargetCompanyCreate(BaseModel):

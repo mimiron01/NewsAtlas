@@ -30,12 +30,20 @@ class GoogleNewsRSSClient:
     def fetch_articles(
         self,
         *,
-        name: str,
-        keywords: list[str],
+        name: str | None = None,
+        keywords: list[str] | None = None,
         since: datetime,
         sources: list[str] | None = None,
+        query_override: str | None = None,
     ) -> list[NewsArticle]:
-        query = build_google_news_query(name, keywords, sources)
+        """Builds the query from name/keywords via build_google_news_query() as usual —
+        unless query_override is given, in which case it's used verbatim. Theme ingestion
+        (see docs/theme-search-planning.html §3) has no company name to anchor a query to,
+        so it passes a pre-built query (build_theme_query()) here instead."""
+        if query_override is not None:
+            query = query_override
+        else:
+            query = build_google_news_query(name or "", keywords or [], sources)
         ceid = f"{self.country}:{self.language}"
         url = f"{self.BASE_URL}?q={quote(query)}&hl={self.language}&gl={self.country}&ceid={quote(ceid)}"
 

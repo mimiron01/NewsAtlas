@@ -73,6 +73,21 @@ def build_google_news_query(name: str, keywords: list[str], sources: list[str] |
     return base
 
 
+def build_theme_query(query_terms: list[str], sources: list[str] | None = None) -> str:
+    """Pure OR of a theme's own query terms — unlike build_google_news_query, there's no
+    company name to require, so this is what that function would degrade to if a company
+    had no name, generalized to the case where there's never a name at all (see
+    docs/theme-search-planning.html §3).
+    """
+    terms = _quote_terms(query_terms)
+    base = " OR ".join(terms)
+    if sources:
+        site_clause = " OR ".join(f"site:{domain.strip()}" for domain in sources if domain.strip())
+        if site_clause:
+            base = f"({base}) ({site_clause})"
+    return base
+
+
 def is_safe_article_url(url: str | None) -> bool:
     """Only ever accept http(s) URLs — these get rendered as clickable links in the
     dashboard and in digest emails, so a javascript:/data: URL from a malicious or
