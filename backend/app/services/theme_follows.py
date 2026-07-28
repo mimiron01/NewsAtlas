@@ -16,6 +16,8 @@ def get_or_create_theme(
     industry: str | None,
     created_by: uuid.UUID,
     google_news_source_allowlist: list[str] | None = None,
+    google_news_country: str | None = None,
+    google_news_language: str | None = None,
 ) -> ThemeWatch:
     """Case-insensitive dedupe by name — mirrors get_or_create_company exactly (see
     docs/theme-search-planning.html §1: shared catalog, same dedupe convention)."""
@@ -32,6 +34,8 @@ def get_or_create_theme(
         industry=industry,
         created_by=created_by,
         google_news_source_allowlist=google_news_source_allowlist or [],
+        google_news_country=google_news_country,
+        google_news_language=google_news_language,
     )
     db.add(theme)
     db.flush()
@@ -92,6 +96,9 @@ def to_response(
         industry=theme.industry,
         is_active=theme.is_active,
         google_news_source_allowlist=theme.google_news_source_allowlist,
+        google_news_country=theme.google_news_country,
+        google_news_language=theme.google_news_language,
+        last_manual_run_at=theme.last_manual_run_at,
         created_by=theme.created_by,
         is_muted=follow.is_muted if follow is not None else None,
         follower_count=follower_count(db, theme.id),

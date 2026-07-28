@@ -117,7 +117,10 @@ export const ARTICLE_SOURCE_LABELS: Record<ArticleSource, string> = {
 
 export interface NewsSourceUsageEntry {
   call_type: string;
+  // Mutually exclusive: a call is made on behalf of one company or one topic. Both null
+  // for a historical row logged before topic attribution existed.
   target_company_name: string | null;
+  theme_watch_name: string | null;
   requests_used: number;
   articles_returned: number;
   created_at: string;
@@ -255,6 +258,10 @@ export interface DashboardSummary {
   dismissed_signal_count: number;
   // Always 0 for non-admins — the underlying skipped-articles queue is admin-only.
   skipped_article_count: number;
+  // Theme-watch equivalents of new_signal_count/top_signals, follow-scoped and
+  // mute-respecting the same way. 0/[] for a user who follows no topics.
+  new_theme_match_count: number;
+  top_theme_matches: ThemeMatch[];
 }
 
 export type IngestionRunStatusValue = "running" | "completed" | "failed" | "cancelled";
@@ -268,14 +275,20 @@ export interface IngestionRunStatus {
   // its next checkpoint — status is still "running" in this window.
   cancel_requested: boolean;
   trigger: IngestionTrigger;
+  // Set only for a single-topic run started from the Themes page; null for an ordinary
+  // full run over every company and topic.
+  theme_watch_id: string | null;
   started_at: string;
   finished_at: string | null;
   progress_percent: number;
 
   current_step: IngestionStep | null;
   current_company_name: string | null;
+  current_theme_name: string | null;
   companies_total: number;
   companies_processed: number;
+  // Shared by both phases: while themes are being processed these count that theme's
+  // matches, not a company's articles.
   articles_total_this_company: number;
   articles_processed_this_company: number;
 
@@ -289,10 +302,20 @@ export interface IngestionRunStatus {
   errors: string[];
   fatal_error: string | null;
 
-  // Final-result only — no live per-theme progress granularity in v1 (see
-  // docs/theme-search-planning.html §7).
-  theme_matches_created: number;
+  // themes_total/themes_processed are live, like the company counters above;
+  // theme_matches_created settles once the run finishes.
+  themes_total: number;
   themes_processed: number;
+  theme_matches_created: number;
+}
+
+/** Non-sensitive workspace capability flags, readable by any authenticated user
+ *  (GET /settings/public) — the admin-only WorkspaceSettings is a superset. */
+export interface PublicWorkspaceSettings {
+  google_news_rss_enabled: boolean;
+  google_news_rss_country: string;
+  google_news_rss_language: string;
+  manual_trigger_cooldown_seconds: number;
 }
 
 export interface SkippedArticle {
@@ -341,6 +364,13 @@ export interface ThemeWatch {
   industry: string | null;
   is_active: boolean;
   google_news_source_allowlist: string[];
+  // null = inherit the workspace-wide Google News edition. A topic about a national
+  // market ("Startups DE") needs its own edition, since the workspace default can only
+  // ever match one market.
+  google_news_country: string | null;
+  google_news_language: string | null;
+  // Drives the per-topic fetch button's cooldown countdown.
+  last_manual_run_at: string | null;
   created_by: string | null;
   // Per-follow fields: null when the requester (an admin using ?scope=all) doesn't
   // themselves follow this theme.

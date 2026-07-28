@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -70,23 +71,37 @@ def get_or_create_workspace_settings(db: Session) -> WorkspaceSettings:
     return settings
 
 
-def enforce_manual_trigger_cooldown(
-    db: Session, workspace_settings: WorkspaceSettings, field_name: str, cooldown_seconds: int
-) -> None:
+def enforce_trigger_cooldown(db: Session, row, field_name: str, cooldown_seconds: int) -> None:
     """Rejects the call with 429 if this trigger last ran within cooldown_seconds, regardless
     of who's calling — the cooldown is global, not per-user/IP (see M5 in the security review:
     this protects the operator's NewsAPI/Mistral/SMTP quota and cost, not the caller).
+
+    Duck-typed on `row` so the same rule can be clocked against any ORM row holding a
+    "last run at" timestamp: the workspace settings singleton for workspace-wide triggers,
+    or an individual ThemeWatch for the per-theme fetch (whose cost is one Google News
+    request, so it earns its own clock rather than sharing the workspace-wide one).
     """
-    last_run = getattr(workspace_settings, field_name)
+    last_run = getattr(row, field_name)
     now = datetime.now(timezone.utc)
     if last_run is not None:
         elapsed = (now - last_run).total_seconds()
         if elapsed < cooldown_seconds:
-            retry_after = int(cooldown_seconds - elapsed)
+            # Rounded up, floored at 1: the frontend renders this verbatim as a countdown,
+            # and truncating would let it display "0s" (or a bare "wait") while the call is
+            # in fact still blocked.
+            retry_after = max(1, math.ceil(cooldown_seconds - elapsed))
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=f"Please wait {retry_after}s before triggering this again.",
                 headers={"Retry-After": str(retry_after)},
             )
-    setattr(workspace_settings, field_name, now)
+    setattr(row, field_name, now)
     db.commit()
+
+
+def enforce_manual_trigger_cooldown(
+    db: Session, workspace_settings: WorkspaceSettings, field_name: str, cooldown_seconds: int
+) -> None:
+    """Workspace-wide variant of enforce_trigger_cooldown — kept as its own named function
+    since that's what the ingestion/digest/promotion endpoints already call."""
+    enforce_trigger_cooldown(db, workspace_settings, field_name, cooldown_seconds)

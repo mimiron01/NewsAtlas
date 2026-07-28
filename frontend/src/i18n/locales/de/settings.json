@@ -15,7 +15,6 @@
   "save": "Einstellungen speichern",
   "clearing": "Wird entfernt...",
   "clearOverride": "In-App-Override entfernen",
-
   "company": {
     "title": "Unternehmensprofil",
     "subtitle": "Diese Beschreibung wird dem KI-Modell zur Verfügung gestellt, damit es erklären kann, warum jedes News-Signal für Ihr Unternehmen relevant ist, und passende Kontakt-Textbausteine entwerfen kann.",
@@ -42,7 +41,6 @@
     "maxActiveThemeWatches": "Max. aktive Theme Watches",
     "maxActiveThemeWatchesHint": "Feste Obergrenze, wie viele Theme Watches workspace-weit gleichzeitig aktiv sein können. Pausieren oder löschen Sie einen, um Platz für einen weiteren zu schaffen."
   },
-
   "targets": {
     "title": "Meine Unternehmen",
     "subtitle": "Fügen Sie die Unternehmen hinzu, für die Sie News-Signale erhalten möchten. Schlüsselwörter/Aliasse helfen, mehr Artikel zuzuordnen.",
@@ -118,7 +116,6 @@
       "errorRow": "Zeile {{row}}: {{reason}}"
     }
   },
-
   "sources": {
     "title": "Nachrichtenquellen",
     "subtitle": "Von welchen Anbietern der Abruf Daten bezieht, jeweils mit eigenem durchgesetzten Ratenlimit — eine Quelle wird für den Rest eines Laufs nicht mehr aufgerufen, sobald ihr Limit erreicht ist, statt die Überschreitung erst im Nachhinein zu protokollieren. Die Nutzung gegenüber jedem Limit wird direkt darunter angezeigt.",
@@ -132,7 +129,9 @@
       "type": "Typ",
       "company": "Unternehmen",
       "requests": "Anfragen",
-      "articles": "Artikel"
+      "articles": "Artikel",
+      "attributedTo": "Unternehmen / Thema",
+      "themeAttribution": "Thema: {{name}}"
     },
     "requestsToday": "{{used}} / {{limit}} Anfragen heute",
     "requestsLastMinute": "{{used}} / {{limit}} in der letzten Minute",
@@ -160,7 +159,6 @@
     "clearNewsdataKeyToast": "In-App-Override des NewsData.io-API-Schlüssels entfernt.",
     "clearNewsdataKeyFailed": "API-Schlüssel konnte nicht entfernt werden"
   },
-
   "ai": {
     "title": "KI-Konfiguration",
     "subtitle": "Steuert, wie Mistral zur Zusammenfassung von Artikeln verwendet wird — welche Modelle aufgerufen werden, wie aggressiv doppelte Berichterstattung gefiltert wird und welcher API-Schlüssel verwendet wird.",
@@ -175,7 +173,6 @@
     "clearKeyToast": "In-App-Override des API-Schlüssels entfernt.",
     "clearKeyFailed": "API-Schlüssel konnte nicht entfernt werden"
   },
-
   "usage": {
     "title": "KI-Nutzung",
     "subtitle": "Mistral-Token-Nutzung der letzten {{days}} Tage, aufgeschlüsselt nach Pipeline-Phase, damit Sie die Kostenauswirkung von übersprungenen Duplikaten und Triage-Filterung sehen können.",
@@ -197,7 +194,6 @@
       "summarize": "Vollständige Zusammenfassung (großes Modell)"
     }
   },
-
   "users": {
     "title": "Benutzer",
     "subtitle": "Benutzer befördern oder herabstufen. Admins verwalten die Arbeitsbereich-Einstellungen und können jedem Benutzer Unternehmen zuweisen.",
@@ -221,7 +217,6 @@
     "assignFailed": "Unternehmen konnte nicht zugewiesen werden",
     "assignButton": "Unternehmen zuweisen"
   },
-
   "review": {
     "title": "Übersprungene Artikel",
     "subtitle": "Artikel, die der Abruf gefunden, aber nicht in ein Signal umgewandelt hat, weil der Triage-Vorfilter sie als wenig relevant eingestuft hat — inklusive der genannten Begründung. Erstellen Sie trotzdem ein Signal, falls die Einschätzung daneben lag.",
@@ -235,7 +230,6 @@
     "limitedDetail": "Eingeschränkte Details",
     "limitedDetailTitle": "Diese Quelle liefert nur eine Überschrift, keinen Artikelausschnitt oder Fließtext — die obige Triage-Einschätzung basiert allein auf der Überschrift."
   },
-
   "logs": {
     "title": "Abrufprotokolle",
     "subtitle": "Verlauf jedes „Neue Signale abrufen“-Laufs, manuell oder geplant, einschließlich aller Fehler beim Abrufen von einer Nachrichtenquelle oder beim Zusammenfassen eines Artikels.",
@@ -264,6 +258,11 @@
     "signalsCreated_other": "{{count}} Signale erstellt",
     "duplicatesSkipped_one": "{{count}} Duplikat",
     "duplicatesSkipped_other": "{{count}} Duplikate",
-    "triagedOut": "{{count}} durch Triage aussortiert"
+    "triagedOut": "{{count}} durch Triage aussortiert",
+    "themeScopedRun": "Nur ein Thema",
+    "themesProcessed_one": "{{processed}}/{{total}} Thema",
+    "themesProcessed_other": "{{processed}}/{{total}} Themen",
+    "themeMatchesCreated_one": "{{count}} Themen-Treffer erstellt",
+    "themeMatchesCreated_other": "{{count}} Themen-Treffer erstellt"
   }
 }

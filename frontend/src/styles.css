@@ -537,6 +537,14 @@ button.danger { background: var(--danger-solid); }
 }
 .snippet-tab.active { background: var(--accent); color: white; border-color: transparent; }
 
+/* Follows .setup-checklist's convention of marking a panel by its border colour rather
+   than a filled background, so a warning reads as urgent without shouting. */
+.warning-banner {
+  border: 1px solid var(--danger);
+  background: var(--danger-soft-bg);
+}
+.warning-banner .subtitle { margin: 6px 0 0; }
+
 .setup-checklist { border: 1px solid var(--accent); }
 .checklist-steps { list-style: none; padding: 0; margin: 8px 0 0; }
 .checklist-steps li {

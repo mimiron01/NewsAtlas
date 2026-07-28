@@ -10,13 +10,14 @@
       "linkLabel": "Unternehmensprofil einrichten"
     },
     "targetCompany": {
-      "label": "Ein Zielunternehmen hinzufügen",
-      "body": "Wählen Sie die Unternehmen aus, für die Sie News-Signale erhalten möchten.",
-      "linkLabel": "Zielunternehmen hinzufügen"
+      "label": "Unternehmen oder Thema hinzufügen",
+      "body": "Wählen Sie Unternehmen aus, die Sie verfolgen möchten — oder ein Thema, um eine ganze Branche zu beobachten.",
+      "linkLabel": "Unternehmen hinzufügen",
+      "themeLinkLabel": "Thema hinzufügen"
     },
     "firstSignals": {
       "label": "Ihre ersten Signale abrufen",
-      "body": "Klicken Sie unten auf „Neue Signale abrufen“, sobald Sie ein Zielunternehmen hinzugefügt haben."
+      "body": "Klicken Sie unten auf „Neue Signale abrufen“, sobald Sie ein Unternehmen oder ein Thema hinzugefügt haben."
     }
   }
 }

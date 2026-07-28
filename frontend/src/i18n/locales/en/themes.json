@@ -10,7 +10,12 @@
     "sourceAllowlist": "Trusted sources for this theme (optional)",
     "sourceAllowlistPlaceholder": "Type a domain (e.g. techcrunch.com) and press Enter",
     "sourceAllowlistHint": "Adds to (never replaces) the workspace-wide trusted-source list for Google News RSS.",
-    "addButton": "Add theme watch"
+    "addButton": "Add theme watch",
+    "country": "Country (optional)",
+    "language": "Language (optional)",
+    "inherits": "Workspace default ({{value}})",
+    "inheritsGeneric": "Workspace default",
+    "editionHint": "Google News returns different results per country/language. For a topic about the German market, set DE and de. Leave blank to inherit the workspace default."
   },
   "trackedThemes": "Tracked themes ({{count}})",
   "noThemesYet": "No theme watches yet.",
@@ -45,12 +50,30 @@
     "allThemes": "All themes",
     "statusLabel": "Status",
     "loadFailed": "Failed to load theme matches",
-    "noMatchesYet": "No matches yet. Add a theme watch above, then fetch new signals from the Signals page.",
+    "noMatchesYet": "No matches yet. Add a topic above, then click “Fetch now” on it in the list.",
     "updateFailed": "Failed to update match",
     "trackCompany": "Track this company",
     "trackCompanyFailed": "Failed to track company",
     "trackedToast": "Now tracking \"{{name}}\".",
     "extractedCompany": "Mentions: {{name}}",
     "alreadyTracked": "Already tracking {{name}}"
+  },
+  "sourceDisabled": {
+    "title": "Google News RSS is disabled",
+    "bodyAdmin": "Topics can only fetch news via Google News RSS. While that source is disabled, your topics will not produce any matches.",
+    "bodyMember": "Topics can only fetch news via Google News RSS. While that source is disabled, your topics will not produce any matches. Please ask an admin to enable it.",
+    "link": "Go to news sources"
+  },
+  "run": {
+    "button": "Fetch now",
+    "buttonCooldown": "Fetch now ({{seconds}}s)",
+    "startedToast": "Fetching news for “{{name}}”.",
+    "failed": "Could not start the fetch",
+    "progressTheme": "Fetching topic “{{name}}”…",
+    "progressGeneric": "Fetch in progress…",
+    "blockedSourceDisabled": "Google News RSS is disabled — topics cannot fetch anything.",
+    "blockedPaused": "This topic is paused. Resume it to fetch news.",
+    "blockedRunning": "A fetch is already running. Wait for it to finish.",
+    "blockedCooldown": "Please wait {{seconds}}s before fetching this topic again."
   }
 }

@@ -25,7 +25,7 @@ def test_run_now_invokes_ingestion_pipeline(client, monkeypatch):
         signals_created=1,
         errors=[],
     )
-    monkeypatch.setattr("app.services.ingestion_runs.run_ingestion", lambda db, progress=None: fake_result)
+    monkeypatch.setattr("app.services.ingestion_runs.run_ingestion", lambda db, progress=None, theme_watch_id=None: fake_result)
 
     resp = client.post("/ingestion/run-now", headers=headers)
     assert resp.status_code == 202

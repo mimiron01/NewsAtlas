@@ -27,6 +27,13 @@ class NewsSourceUsageLog(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     target_company_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("target_companies.id", ondelete="SET NULL"), nullable=True
     )
+    # Set instead of target_company_id for a theme's fetch — the two are mutually
+    # exclusive, since a call is made either on behalf of one company or one theme. Without
+    # this, theme fetches logged target_company_id=None and the Settings usage view could
+    # only show them as anonymous rows with no attribution at all.
+    theme_watch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("theme_watches.id", ondelete="SET NULL"), nullable=True
+    )
     # Credit/request cost of the call as reported by the provider (NewsData.io's response
     # includes a per-call credit cost; NewsAPI.org/Google News RSS default to 1).
     requests_used: Mapped[int] = mapped_column(Integer, nullable=False, default=1)

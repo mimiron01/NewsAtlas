@@ -10,7 +10,12 @@
     "sourceAllowlist": "Vertrauenswürdige Quellen für dieses Thema (optional)",
     "sourceAllowlistPlaceholder": "Domain eingeben (z. B. techcrunch.com) und Enter drücken",
     "sourceAllowlistHint": "Ergänzt die workspace-weite Liste vertrauenswürdiger Quellen für Google News RSS (ersetzt sie nicht).",
-    "addButton": "Theme Watch hinzufügen"
+    "addButton": "Theme Watch hinzufügen",
+    "country": "Land (optional)",
+    "language": "Sprache (optional)",
+    "inherits": "Workspace-Standard ({{value}})",
+    "inheritsGeneric": "Workspace-Standard",
+    "editionHint": "Google News liefert je Land/Sprache unterschiedliche Ergebnisse. Für ein Thema über den deutschen Markt setzen Sie DE und de. Leer lassen, um den Workspace-Standard zu übernehmen."
   },
   "trackedThemes": "Verfolgte Themen ({{count}})",
   "noThemesYet": "Noch keine Theme Watches.",
@@ -45,12 +50,30 @@
     "allThemes": "Alle Themen",
     "statusLabel": "Status",
     "loadFailed": "Treffer konnten nicht geladen werden",
-    "noMatchesYet": "Noch keine Treffer. Fügen Sie oben einen Theme Watch hinzu und rufen Sie dann auf der Signale-Seite neue Signale ab.",
+    "noMatchesYet": "Noch keine Treffer. Fügen Sie oben ein Thema hinzu und klicken Sie dann in der Themenliste auf „Jetzt abrufen“.",
     "updateFailed": "Treffer konnte nicht aktualisiert werden",
     "trackCompany": "Dieses Unternehmen verfolgen",
     "trackCompanyFailed": "Unternehmen konnte nicht verfolgt werden",
     "trackedToast": "Verfolgt jetzt „{{name}}“.",
     "extractedCompany": "Erwähnt: {{name}}",
     "alreadyTracked": "Verfolgt bereits {{name}}"
+  },
+  "sourceDisabled": {
+    "title": "Google News RSS ist deaktiviert",
+    "bodyAdmin": "Themen können nur über Google News RSS Nachrichten abrufen. Solange diese Quelle deaktiviert ist, liefern Ihre Themen keine Treffer.",
+    "bodyMember": "Themen können nur über Google News RSS Nachrichten abrufen. Solange diese Quelle deaktiviert ist, liefern Ihre Themen keine Treffer. Bitte wenden Sie sich an einen Admin.",
+    "link": "Zu den Nachrichtenquellen"
+  },
+  "run": {
+    "button": "Jetzt abrufen",
+    "buttonCooldown": "Jetzt abrufen ({{seconds}}s)",
+    "startedToast": "Abruf für „{{name}}“ gestartet.",
+    "failed": "Abruf konnte nicht gestartet werden",
+    "progressTheme": "Thema „{{name}}“ wird abgerufen …",
+    "progressGeneric": "Abruf läuft …",
+    "blockedSourceDisabled": "Google News RSS ist deaktiviert — Themen können nichts abrufen.",
+    "blockedPaused": "Dieses Thema ist pausiert. Setzen Sie es fort, um Nachrichten abzurufen.",
+    "blockedRunning": "Es läuft bereits ein Abruf. Bitte warten Sie, bis er abgeschlossen ist.",
+    "blockedCooldown": "Bitte warten Sie noch {{seconds}}s, bevor Sie dieses Thema erneut abrufen."
   }
 }

@@ -1,10 +1,19 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
 import { ARTICLE_SOURCE_LABELS } from "../api/types";
-import type { SignalStatus, TargetCompany, ThemeMatch, ThemeWatch } from "../api/types";
+import type {
+  IngestionRunStatus,
+  PublicWorkspaceSettings,
+  SignalStatus,
+  TargetCompany,
+  ThemeMatch,
+  ThemeWatch,
+} from "../api/types";
 import TagInput from "../components/TagInput";
+import ThemeRunButton from "../components/ThemeRunButton";
 import { STATUS_TRANSITION_VALUES } from "../constants/signalStatus";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -12,6 +21,7 @@ import { useIsAdmin } from "../hooks/useIsAdmin";
 import { usePageTitle } from "../hooks/usePageTitle";
 
 const MATCH_STATUSES: SignalStatus[] = ["new", "reviewed", "archived", "dismissed"];
+const POLL_INTERVAL_MS = 1500;
 
 export default function ThemesPage() {
   const { t } = useTranslation(["themes", "signals"]);
@@ -25,6 +35,8 @@ export default function ThemesPage() {
   const [queryTerms, setQueryTerms] = useState<string[]>([]);
   const [industry, setIndustry] = useState("");
   const [sourceAllowlist, setSourceAllowlist] = useState<string[]>([]);
+  const [country, setCountry] = useState("");
+  const [language, setLanguage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -33,6 +45,8 @@ export default function ThemesPage() {
   const [editQueryTerms, setEditQueryTerms] = useState<string[]>([]);
   const [editIndustry, setEditIndustry] = useState("");
   const [editSourceAllowlist, setEditSourceAllowlist] = useState<string[]>([]);
+  const [editCountry, setEditCountry] = useState("");
+  const [editLanguage, setEditLanguage] = useState("");
 
   const [matches, setMatches] = useState<ThemeMatch[]>([]);
   const [matchThemeFilter, setMatchThemeFilter] = useState("");
@@ -41,8 +55,34 @@ export default function ThemesPage() {
   const [matchesError, setMatchesError] = useState<string | null>(null);
   const [trackingId, setTrackingId] = useState<string | null>(null);
 
+  const [publicSettings, setPublicSettings] = useState<PublicWorkspaceSettings | null>(null);
+  const [ingestionStatus, setIngestionStatus] = useState<IngestionRunStatus | null>(null);
+  // Tracks whether *this page load* watched a run go through "running", so a long-finished
+  // run from before the page opened doesn't trigger a spurious reload on arrival.
+  const sawRunningRef = useRef(false);
+  const isRunningIngestion = ingestionStatus?.status === "running";
+  // Google News RSS is the only source topics can use, so everything on this page is inert
+  // without it. Treated as available until the flags load, so the UI doesn't flash a
+  // warning it may immediately retract.
+  const googleNewsDisabled = publicSettings !== null && !publicSettings.google_news_rss_enabled;
+  const cooldownSeconds = publicSettings?.manual_trigger_cooldown_seconds ?? 60;
+
   function canEdit(theme: ThemeWatch): boolean {
     return isAdmin || (user !== null && theme.created_by === user.id);
+  }
+
+  // Placeholders spell out what "leave blank" actually resolves to, so the inherited
+  // edition is visible rather than implied by an empty box.
+  function workspaceEditionPlaceholder(): string {
+    return publicSettings
+      ? t("themes:addTheme.inherits", { value: publicSettings.google_news_rss_country })
+      : t("themes:addTheme.inheritsGeneric");
+  }
+
+  function workspaceLanguagePlaceholder(): string {
+    return publicSettings
+      ? t("themes:addTheme.inherits", { value: publicSettings.google_news_rss_language })
+      : t("themes:addTheme.inheritsGeneric");
   }
 
   function loadThemes() {
@@ -71,6 +111,63 @@ export default function ThemesPage() {
   useEffect(loadThemes, [t]);
   useEffect(loadMatches, [matchThemeFilter, matchStatusFilter, t]);
 
+  useEffect(() => {
+    api
+      .get<PublicWorkspaceSettings>("/settings/public")
+      .then(setPublicSettings)
+      .catch(() => undefined);
+  }, []);
+
+  async function pollIngestionStatus() {
+    try {
+      const result = await api.get<IngestionRunStatus | null>("/ingestion/status");
+      if (result?.status === "running") {
+        sawRunningRef.current = true;
+      }
+      setIngestionStatus(result);
+      // A finished run is the only moment new matches can have appeared, so this is where
+      // the feed refreshes itself instead of leaving the user to reload the page.
+      if (sawRunningRef.current && result && result.status !== "running") {
+        sawRunningRef.current = false;
+        loadMatches();
+        loadThemes();
+      }
+    } catch {
+      // Transient poll failure — the next tick (or the next page load) picks it back up.
+    }
+  }
+
+  // Resumes tracking a run already in flight (page reloaded mid-fetch, a scheduled run
+  // happens to be going, or another user started one) rather than only reacting to this
+  // browser's own click.
+  useEffect(() => {
+    pollIngestionStatus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!isRunningIngestion) return;
+    const interval = window.setInterval(pollIngestionStatus, POLL_INTERVAL_MS);
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRunningIngestion]);
+
+  async function runTheme(theme: ThemeWatch) {
+    setPendingId(theme.id);
+    try {
+      const result = await api.post<IngestionRunStatus>(`/theme-watches/${theme.id}/run-now`);
+      sawRunningRef.current = true;
+      setIngestionStatus(result);
+      showToast(t("themes:run.startedToast", { name: theme.name }), "success");
+      // Refreshes last_manual_run_at so this theme's cooldown countdown starts immediately.
+      loadThemes();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("themes:run.failed"), "error");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
   async function handleAddTheme(event: FormEvent) {
     event.preventDefault();
     setIsSubmitting(true);
@@ -80,11 +177,16 @@ export default function ThemesPage() {
         query_terms: queryTerms,
         industry: industry || null,
         google_news_source_allowlist: sourceAllowlist,
+        // "" is the "workspace default" option; the backend stores it as null/inherit.
+        google_news_country: country,
+        google_news_language: language,
       });
       setName("");
       setQueryTerms([]);
       setIndustry("");
       setSourceAllowlist([]);
+      setCountry("");
+      setLanguage("");
       showToast(t("themes:addedToast"), "success");
       loadThemes();
     } catch (err) {
@@ -107,6 +209,8 @@ export default function ThemesPage() {
     setEditQueryTerms(theme.query_terms);
     setEditIndustry(theme.industry ?? "");
     setEditSourceAllowlist(theme.google_news_source_allowlist);
+    setEditCountry(theme.google_news_country ?? "");
+    setEditLanguage(theme.google_news_language ?? "");
   }
 
   function cancelEdit() {
@@ -122,6 +226,8 @@ export default function ThemesPage() {
         query_terms: editQueryTerms,
         industry: editIndustry || null,
         google_news_source_allowlist: editSourceAllowlist,
+        google_news_country: editCountry,
+        google_news_language: editLanguage,
       });
       setEditingId(null);
       showToast(t("themes:updatedToast", { name: editName }), "success");
@@ -227,6 +333,36 @@ export default function ThemesPage() {
 
   return (
     <div>
+      {googleNewsDisabled && (
+        <div className="panel-card warning-banner">
+          <strong>{t("themes:sourceDisabled.title")}</strong>
+          <p className="subtitle">
+            {isAdmin ? t("themes:sourceDisabled.bodyAdmin") : t("themes:sourceDisabled.bodyMember")}
+          </p>
+          {isAdmin && (
+            <Link to="/settings/sources" className="link-button">
+              {t("themes:sourceDisabled.link")} →
+            </Link>
+          )}
+        </div>
+      )}
+
+      {isRunningIngestion && ingestionStatus && (
+        <div className="panel-card">
+          <p className="subtitle">
+            {ingestionStatus.current_theme_name
+              ? t("themes:run.progressTheme", { name: ingestionStatus.current_theme_name })
+              : t("themes:run.progressGeneric")}
+          </p>
+          <div className="progress-bar">
+            <div
+              className="progress-bar-fill"
+              style={{ width: `${ingestionStatus.progress_percent}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       <form className="panel-card" onSubmit={handleAddTheme}>
         <h2>{t("themes:title")}</h2>
         <p className="subtitle">{t("themes:subtitle")}</p>
@@ -258,6 +394,25 @@ export default function ThemesPage() {
           />
           <span className="field-hint">{t("themes:addTheme.sourceAllowlistHint")}</span>
         </label>
+        <div className="field-row">
+          <label>
+            {t("themes:addTheme.country")}
+            <input
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              placeholder={workspaceEditionPlaceholder()}
+            />
+          </label>
+          <label>
+            {t("themes:addTheme.language")}
+            <input
+              value={language}
+              onChange={(e) => setLanguage(e.target.value)}
+              placeholder={workspaceLanguagePlaceholder()}
+            />
+          </label>
+        </div>
+        <span className="field-hint">{t("themes:addTheme.editionHint")}</span>
         <button type="submit" disabled={isSubmitting || queryTerms.length === 0}>
           {t("themes:addTheme.addButton")}
         </button>
@@ -299,6 +454,25 @@ export default function ThemesPage() {
                     />
                     <span className="field-hint">{t("themes:addTheme.sourceAllowlistHint")}</span>
                   </label>
+                  <div className="field-row">
+                    <label>
+                      {t("themes:addTheme.country")}
+                      <input
+                        value={editCountry}
+                        onChange={(e) => setEditCountry(e.target.value)}
+                        placeholder={workspaceEditionPlaceholder()}
+                      />
+                    </label>
+                    <label>
+                      {t("themes:addTheme.language")}
+                      <input
+                        value={editLanguage}
+                        onChange={(e) => setEditLanguage(e.target.value)}
+                        placeholder={workspaceLanguagePlaceholder()}
+                      />
+                    </label>
+                  </div>
+                  <span className="field-hint">{t("themes:addTheme.editionHint")}</span>
                   <div className="actions">
                     <button type="submit" disabled={pendingId === theme.id || editQueryTerms.length === 0}>
                       {t("themes:save")}
@@ -316,11 +490,26 @@ export default function ThemesPage() {
                   {theme.industry && <span className="tag">{theme.industry}</span>}
                   {theme.is_muted && <span className="tag">{t("themes:muted")}</span>}
                   {!theme.is_active && <span className="tag">{t("themes:paused")}</span>}
+                  {(theme.google_news_country || theme.google_news_language) && (
+                    <span className="tag">
+                      {[theme.google_news_country, theme.google_news_language]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </span>
+                  )}
                   {theme.query_terms.length > 0 && (
                     <div className="keywords">{theme.query_terms.join(", ")}</div>
                   )}
                 </div>
                 <div className="actions">
+                  <ThemeRunButton
+                    theme={theme}
+                    cooldownSeconds={cooldownSeconds}
+                    isRunning={isRunningIngestion}
+                    googleNewsDisabled={googleNewsDisabled}
+                    isPending={pendingId === theme.id}
+                    onRun={runTheme}
+                  />
                   {canEdit(theme) && (
                     <button type="button" disabled={pendingId === theme.id} onClick={() => startEdit(theme)}>
                       {t("themes:edit")}

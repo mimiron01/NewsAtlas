@@ -42,12 +42,20 @@ class IngestionRun(Base, UUIDPrimaryKeyMixin):
     # get_running_run() (status == "running") keeps working unchanged while a cancel is
     # pending but not yet observed.
     cancel_requested: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Set only for a single-theme run started from the Themes page (POST
+    # /theme-watches/{id}/run-now). NULL means the ordinary full run: every active company
+    # followed by every active theme. Kept on the run itself so the Logs view can tell the
+    # two apart, and so the frontend can decide whether a run in flight is "its" run.
+    theme_watch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("theme_watches.id", ondelete="SET NULL"), nullable=True
+    )
 
     # --- Live progress, updated in place while status == "running" (see ProgressTracker) ---
     companies_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     companies_processed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     current_step: Mapped[str | None] = mapped_column(String(16), nullable=True)
     current_company_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    current_theme_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     articles_total_this_company: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     articles_processed_this_company: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
@@ -59,10 +67,11 @@ class IngestionRun(Base, UUIDPrimaryKeyMixin):
     triaged_out: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     by_source: Mapped[dict[str, int]] = mapped_column(JSON, nullable=False, default=dict)
     rate_limited: Mapped[dict[str, int]] = mapped_column(JSON, nullable=False, default=dict)
-    # ThemeWatch results, populated once the run finishes (see
-    # docs/theme-search-planning.html §5) — no live per-theme progress columns in v1
-    # (unlike companies_processed/articles_processed_this_company above); themes are
-    # processed as one atomic step after the company loop.
+    # ThemeWatch counters. themes_total is live progress (set before the theme loop starts,
+    # alongside companies_total) so the progress bar can account for the theme phase
+    # instead of dividing by companies alone; themes_processed is updated live per theme
+    # and also survives as the final count.
+    themes_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     theme_matches_created: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     themes_processed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     # Appended to live, as each error happens, not just assembled at the end — so a run

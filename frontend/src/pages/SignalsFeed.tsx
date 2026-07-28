@@ -4,7 +4,14 @@ import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
 import { ARTICLE_SOURCE_LABELS } from "../api/types";
-import type { IngestionRunStatus, Signal, SignalStatus, TargetCompany, WorkspaceSettings } from "../api/types";
+import type {
+  IngestionRunStatus,
+  Signal,
+  SignalStatus,
+  TargetCompany,
+  ThemeWatch,
+  WorkspaceSettings,
+} from "../api/types";
 import Skeleton from "../components/Skeleton";
 import SetupChecklist from "../components/SetupChecklist";
 import SignalRow from "../components/SignalRow";
@@ -27,6 +34,7 @@ export default function SignalsFeed() {
   const [searchParams] = useSearchParams();
   const [signals, setSignals] = useState<Signal[]>([]);
   const [companies, setCompanies] = useState<TargetCompany[]>([]);
+  const [themes, setThemes] = useState<ThemeWatch[]>([]);
   const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
   const [companyFilter, setCompanyFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<SignalStatus | "">(
@@ -97,8 +105,18 @@ export default function SignalsFeed() {
     }
     if (status.current_step === "waiting") {
       return t("feed.ingestion.waitingForRateLimit", {
-        company: status.current_company_name ?? t("feed.ingestion.defaultCompanyName"),
+        company: status.current_theme_name ?? status.current_company_name ?? t("feed.ingestion.defaultCompanyName"),
         companyProgress,
+      });
+    }
+    // The theme phase runs after every company, and clears current_company_name when it
+    // starts — without this branch the UI kept naming the last company processed while it
+    // was really working through topics.
+    if (status.current_theme_name) {
+      return t("feed.ingestion.fetchingTheme", {
+        theme: status.current_theme_name,
+        position: Math.min(status.themes_processed + 1, Math.max(status.themes_total, 1)),
+        total: Math.max(status.themes_total, 1),
       });
     }
     if (status.current_company_name) {
@@ -126,6 +144,7 @@ export default function SignalsFeed() {
 
   useEffect(() => {
     api.get<TargetCompany[]>("/target-companies").then(setCompanies).catch(() => undefined);
+    api.get<ThemeWatch[]>("/theme-watches").then(setThemes).catch(() => undefined);
     // /settings is admin-only; regular users can't view or fix the company profile anyway,
     // so skip the call rather than eat a 403 on every page load.
     if (isAdmin) {
@@ -279,8 +298,12 @@ export default function SignalsFeed() {
   // satisfied for them rather than gating the checklist on data they'll never fetch.
   const hasCompanyProfile = isAdmin ? Boolean(settings?.offering_description.trim()) : true;
   const hasTargetCompany = companies.length > 0;
+  // A run covers companies *and* topics, so either alone is enough to fetch. Gating on
+  // companies left a topics-only user unable to start a run at all.
+  const hasSomethingToFetch = hasTargetCompany || themes.length > 0;
   const settingsReady = !isAdmin || settings !== null;
-  const showChecklist = settingsReady && (!hasCompanyProfile || !hasTargetCompany || signals.length === 0);
+  const showChecklist =
+    settingsReady && (!hasCompanyProfile || !hasSomethingToFetch || signals.length === 0);
 
   return (
     <div>
@@ -292,8 +315,8 @@ export default function SignalsFeed() {
         <button
           type="button"
           onClick={handleRunIngestion}
-          disabled={isRunningIngestion || !hasTargetCompany}
-          title={hasTargetCompany ? undefined : t("feed.addTargetCompanyFirst")}
+          disabled={isRunningIngestion || !hasSomethingToFetch}
+          title={hasSomethingToFetch ? undefined : t("feed.addCompanyOrThemeFirst")}
         >
           {isRunningIngestion
             ? t("feed.fetching", { percent: ingestionStatus?.progress_percent ?? 0 })
@@ -304,7 +327,7 @@ export default function SignalsFeed() {
       {showChecklist && (
         <SetupChecklist
           hasCompanyProfile={hasCompanyProfile}
-          hasTargetCompany={hasTargetCompany}
+          hasTargetCompany={hasSomethingToFetch}
           hasSignals={signals.length > 0}
         />
       )}
@@ -353,8 +376,16 @@ export default function SignalsFeed() {
         <div className="panel-card">
           <p className="subtitle">
             {t("feed.ingestion.companiesChecked", { count: ingestionStatus.companies_total })}
+            {/* Only mentioned once topics are actually part of the run, so a company-only
+                workspace's summary reads exactly as it did before. */}
+            {ingestionStatus.themes_total > 0 &&
+              t("feed.ingestion.themesChecked", { count: ingestionStatus.themes_total })}
             {t("feed.ingestion.articlesFound", { count: ingestionStatus.articles_new })}
             {t("feed.ingestion.signalsCreatedText", { count: ingestionStatus.signals_created })}
+            {ingestionStatus.themes_total > 0 &&
+              t("feed.ingestion.themeMatchesCreatedText", {
+                count: ingestionStatus.theme_matches_created,
+              })}
             {(ingestionStatus.duplicates_skipped > 0 || ingestionStatus.triaged_out > 0) && (
               <>
                 {" "}

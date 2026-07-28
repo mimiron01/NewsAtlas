@@ -35,17 +35,32 @@ class GoogleNewsRSSClient:
         since: datetime,
         sources: list[str] | None = None,
         query_override: str | None = None,
+        country: str | None = None,
+        language: str | None = None,
     ) -> list[NewsArticle]:
         """Builds the query from name/keywords via build_google_news_query() as usual —
         unless query_override is given, in which case it's used verbatim. Theme ingestion
         (see docs/theme-search-planning.html §3) has no company name to anchor a query to,
-        so it passes a pre-built query (build_theme_query()) here instead."""
+        so it passes a pre-built query (build_theme_query()) here instead.
+
+        country/language override this client's workspace-wide edition for a single call.
+        Google News is edition-scoped: the same query against ceid=US:en and ceid=DE:de
+        returns substantially different results, so a theme tracking a national market
+        ("Startups DE") needs its own edition without forcing every other caller sharing
+        this client instance onto it. Per-call rather than per-client so the instance (and
+        its rate-limit accounting) stays shared across companies and themes alike.
+        """
         if query_override is not None:
             query = query_override
         else:
             query = build_google_news_query(name or "", keywords or [], sources)
-        ceid = f"{self.country}:{self.language}"
-        url = f"{self.BASE_URL}?q={quote(query)}&hl={self.language}&gl={self.country}&ceid={quote(ceid)}"
+        effective_country = country or self.country
+        effective_language = language or self.language
+        ceid = f"{effective_country}:{effective_language}"
+        url = (
+            f"{self.BASE_URL}?q={quote(query)}&hl={effective_language}"
+            f"&gl={effective_country}&ceid={quote(ceid)}"
+        )
 
         try:
             feed = feedparser.parse(url)

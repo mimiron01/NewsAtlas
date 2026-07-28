@@ -1,3 +1,4 @@
+import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Protocol
@@ -108,8 +109,17 @@ def run_ingestion(
     google_news_client: GoogleNewsRSSClient | None = None,
     newsdata_client: NewsDataClient | None = None,
     progress: IngestionProgress | None = None,
+    theme_watch_id: uuid.UUID | None = None,
 ) -> IngestionRunResult:
+    """Full run by default: every active target company, then every active theme watch.
+
+    Passing theme_watch_id scopes the run down to that single theme and skips the company
+    loop entirely — this is what the Themes page's per-theme "fetch now" button triggers
+    (see api/theme_watches.py). Default None keeps every existing caller (the scheduler,
+    the workspace-wide manual trigger) on exactly the previous behavior.
+    """
     progress = progress or _NULL_PROGRESS
+    scoped_to_theme = theme_watch_id is not None
     app_settings = get_settings()
     workspace_settings = get_or_create_workspace_settings(db)
     refresh_feedback_note(db, workspace_settings)
@@ -153,8 +163,19 @@ def run_ingestion(
     lookback_hours = max(workspace_settings.ingestion_interval_hours * 2, MIN_LOOKBACK_HOURS)
     since = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
 
-    target_companies = db.query(TargetCompany).filter(TargetCompany.is_active.is_(True)).all()
-    progress.update(companies_total=len(target_companies))
+    # A theme-scoped run never touches companies, so the company loop below iterates an
+    # empty list rather than being wrapped in a conditional — keeps the counter/progress
+    # bookkeeping that follows on exactly one code path.
+    target_companies = (
+        []
+        if scoped_to_theme
+        else db.query(TargetCompany).filter(TargetCompany.is_active.is_(True)).all()
+    )
+    theme_watches_query = db.query(ThemeWatch).filter(ThemeWatch.is_active.is_(True))
+    if scoped_to_theme:
+        theme_watches_query = theme_watches_query.filter(ThemeWatch.id == theme_watch_id)
+    theme_watches = theme_watches_query.all()
+    progress.update(companies_total=len(target_companies), themes_total=len(theme_watches))
 
     articles_fetched = 0
     articles_new = 0
@@ -212,13 +233,27 @@ def run_ingestion(
     # themes with (themes have no other provider in v1).
     theme_matches_created = 0
     themes_processed = 0
-    if not cancelled:
+    if not cancelled and theme_watches:
         google_news_client_for_themes = next(
             (client for source, client in providers if source == ArticleSource.GOOGLE_NEWS_RSS),
             None,
         )
-        if google_news_client_for_themes is not None:
-            theme_watches = db.query(ThemeWatch).filter(ThemeWatch.is_active.is_(True)).all()
+        if google_news_client_for_themes is None:
+            # Google News RSS is the only theme provider (see
+            # docs/theme-search-planning.html §1), so a workspace with it disabled fetches
+            # nothing at all for its themes. This used to be a silent no-op: the run
+            # completed "successfully", themes_processed stayed 0, and nothing anywhere
+            # told the user why their topic never produced a single match. Recording it as
+            # a run error puts it in the Logs view, the feed's run summary, and the
+            # Themes page instead.
+            _record_error(
+                errors,
+                progress,
+                f"{len(theme_watches)} active theme(s) were skipped: Google News RSS is "
+                "disabled for this workspace, and it is the only news source themes can "
+                "use. Enable it under Settings > News sources.",
+            )
+        else:
             for idx, theme_watch in enumerate(theme_watches, start=1):
                 if progress.should_cancel():
                     cancelled = True
@@ -238,12 +273,19 @@ def run_ingestion(
                 triaged_out += theme_outcome.triaged_out
                 errors.extend(theme_outcome.errors)
                 themes_processed = idx
+                # Same unconditional-update rule as the company loop above: whichever
+                # early-exit path _ingest_theme_watch took internally, the theme counter
+                # must not stall or the progress bar freezes mid-run.
+                progress.update(themes_processed=idx)
 
                 if theme_outcome.cancelled:
                     cancelled = True
                     break
 
+        progress.update(current_theme_name=None, current_step=None)
+
     return IngestionRunResult(
+        themes_total=len(theme_watches),
         target_companies_processed=companies_processed,
         cancelled=cancelled,
         articles_fetched=articles_fetched,
@@ -300,7 +342,7 @@ def _ingest_target_company(
 
         if status is not HeadroomStatus.OK:
             outcome.rate_limited[source.value] = outcome.rate_limited.get(source.value, 0) + 1
-            log_rate_limited(db, source=source, target_company_id=target_company.id)
+            log_rate_limited(db, source=source, target_company_id=target_company.id, theme_watch_id=None)
             continue
 
         try:
@@ -363,6 +405,14 @@ def _ingest_target_company(
             continue
         existing = db.query(Article).filter(Article.url == fetched.url).first()
         if existing is not None:
+            continue
+        # The other half of the cross-path URL dedupe required by
+        # docs/theme-search-planning.html §6. The theme path has always checked Article.url
+        # before creating a ThemeMatch; without this mirror-image check the guarantee held
+        # in only one direction, so the same wire-service story would surface twice — once
+        # as a theme match and once as a company signal — purely depending on which loop
+        # happened to fetch it first.
+        if db.query(ThemeMatch).filter(ThemeMatch.url == fetched.url).first() is not None:
             continue
         seen_urls.add(fetched.url)
         deduped_items.append((source, fetched))
@@ -494,12 +544,22 @@ def _ingest_theme_watch(
     """Mirrors _ingest_target_company, sized down to the single-provider (Google News
     RSS only) theme path — see docs/theme-search-planning.html §5."""
     outcome = _ThemeIngestOutcome()
+    progress.update(
+        current_theme_name=theme_watch.name,
+        # Cleared so the UI stops attributing the theme phase's progress to whichever
+        # company happened to be processed last.
+        current_company_name=None,
+        current_step="fetching",
+        articles_total_this_company=0,
+        articles_processed_this_company=0,
+    )
 
     per_minute_limit, _ = _rate_limit_config(workspace_settings, ArticleSource.GOOGLE_NEWS_RSS)
     rate_status = check_headroom(
         db, ArticleSource.GOOGLE_NEWS_RSS, per_minute_limit=per_minute_limit, per_day_limit=None
     )
     if rate_status is HeadroomStatus.MINUTE_LIMITED:
+        progress.update(current_step="waiting")
         if wait_for_minute_headroom(
             db,
             ArticleSource.GOOGLE_NEWS_RSS,
@@ -507,11 +567,23 @@ def _ingest_theme_watch(
             should_cancel=progress.should_cancel,
         ):
             rate_status = HeadroomStatus.OK
+        progress.update(current_step="fetching")
         if progress.should_cancel():
             outcome.cancelled = True
             return outcome
     if rate_status is not HeadroomStatus.OK:
-        log_rate_limited(db, source=ArticleSource.GOOGLE_NEWS_RSS, target_company_id=None)
+        log_rate_limited(
+            db, source=ArticleSource.GOOGLE_NEWS_RSS, target_company_id=None,
+            theme_watch_id=theme_watch.id,
+        )
+        # Recorded as an error, not skipped silently — otherwise a rate-limited theme is
+        # indistinguishable from a theme that simply found no news.
+        _record_error(
+            outcome.errors,
+            progress,
+            f"[theme:{theme_watch.name}] skipped: Google News RSS rate limit reached "
+            f"({per_minute_limit}/min).",
+        )
         return outcome
 
     # Union, not override — same convention as the company path (v1 roadmap §2.3).
@@ -523,7 +595,14 @@ def _ingest_theme_watch(
     )
     query = build_theme_query(theme_watch.query_terms, sources)
     try:
-        fetched = google_news_client.fetch_articles(since=since, query_override=query)
+        fetched = google_news_client.fetch_articles(
+            since=since,
+            query_override=query,
+            # None falls back to the client's workspace-wide edition inside
+            # fetch_articles — NULL on the theme means "inherit", not "no edition".
+            country=theme_watch.google_news_country,
+            language=theme_watch.google_news_language,
+        )
     except NewsClientError as exc:
         _record_error(
             outcome.errors, progress, f"[theme:{theme_watch.name}] google_news_rss fetch failed: {exc}"
@@ -535,6 +614,7 @@ def _ingest_theme_watch(
         source=ArticleSource.GOOGLE_NEWS_RSS,
         call_type="latest",
         target_company_id=None,
+        theme_watch_id=theme_watch.id,
         requests_used=1,
         articles_returned=len(fetched),
     )
@@ -585,6 +665,7 @@ def _ingest_theme_watch(
         db.add(match)
         new_matches.append(match)
     db.commit()
+    progress.update(current_step="summarizing", articles_total_this_company=len(new_matches))
 
     created, duplicates_here, triaged_out_here, batch_errors, batch_cancelled = (
         _process_new_theme_matches(
@@ -663,6 +744,7 @@ def _process_new_theme_matches(
                 _skip_theme_match(db, match, "duplicate")
                 duplicates_skipped += 1
                 candidates.insert(0, match)
+                progress.update(articles_processed_this_company=position + 1)
                 continue
             candidates.insert(0, match)
 
@@ -689,6 +771,7 @@ def _process_new_theme_matches(
             if triage is not None and not triage.relevant:
                 _skip_theme_match(db, match, "triaged_out", triage_reason=triage.reason)
                 triaged_out += 1
+                progress.update(articles_processed_this_company=position + 1)
                 continue
 
         try:
@@ -709,6 +792,7 @@ def _process_new_theme_matches(
             _record_error(
                 errors, progress, f"[theme:{theme_watch.name}] summarization failed for {match.url}: {exc}"
             )
+            progress.update(articles_processed_this_company=position + 1)
             continue
 
         match.summary = result.summary
@@ -736,6 +820,7 @@ def _process_new_theme_matches(
 
         db.commit()
         matches_created += 1
+        progress.update(articles_processed_this_company=position + 1)
 
     return matches_created, duplicates_skipped, triaged_out, errors, cancelled
 

@@ -1,19 +1,29 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_admin
 from app.core.audit import log_event
+from app.core.config import get_settings
+from app.core.limiter import limiter
 from app.db.session import get_db
+from app.models.ingestion_run import TRIGGER_MANUAL
 from app.models.theme_follow import ThemeFollow
 from app.models.theme_watch import ThemeWatch
 from app.models.user import User, UserRole
+from app.schemas.ingestion import IngestionRunStatusResponse
 from app.schemas.theme_watch import (
     ThemeFollowerResponse,
     ThemeWatchCreate,
     ThemeWatchResponse,
     ThemeWatchUpdate,
+)
+from app.services.ingestion_runs import (
+    create_run,
+    execute_ingestion_run,
+    get_running_run,
+    to_status_response,
 )
 from app.services.theme_follows import (
     ensure_follow,
@@ -22,7 +32,10 @@ from app.services.theme_follows import (
     remove_follow,
     to_response,
 )
-from app.services.workspace_settings import get_or_create_workspace_settings
+from app.services.workspace_settings import (
+    enforce_trigger_cooldown,
+    get_or_create_workspace_settings,
+)
 
 router = APIRouter(prefix="/theme-watches", tags=["theme-watches"])
 
@@ -86,6 +99,8 @@ def create_theme_watch(
         industry=payload.industry,
         created_by=current_user.id,
         google_news_source_allowlist=payload.google_news_source_allowlist,
+        google_news_country=payload.google_news_country,
+        google_news_language=payload.google_news_language,
     )
     follow = ensure_follow(
         db, user_id=current_user.id, theme_watch_id=theme.id, assigned_by=current_user.id
@@ -177,6 +192,78 @@ def toggle_mute(
     db.commit()
     db.refresh(follow)
     return to_response(db, theme, follow)
+
+
+@router.post("/{theme_watch_id}/run-now", response_model=IngestionRunStatusResponse, status_code=202)
+@limiter.limit("20/hour")
+def run_theme_now(
+    theme_watch_id: uuid.UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> IngestionRunStatusResponse:
+    """Fetches news for this one theme only, without waiting for the next scheduled run or
+    triggering a full pass over every target company.
+
+    Open to any follower of the theme (not admin-only): the same people who can create a
+    theme and edit its query terms are the ones who need to see whether a query change
+    actually works, and iterating on a query via "wait up to N hours for the scheduler" is
+    not a workable loop. The cost is bounded the same way the full run is — one Google News
+    request plus at most max_articles_per_theme_per_run summarizations.
+    """
+    theme = _get_or_404(db, theme_watch_id)
+    if current_user.role != UserRole.ADMIN and get_follow(db, current_user.id, theme_watch_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not following this theme"
+        )
+    if not theme.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This theme is paused. Resume it before fetching news for it.",
+        )
+
+    workspace_settings = get_or_create_workspace_settings(db)
+    if not workspace_settings.google_news_rss_enabled:
+        # Fails loudly instead of starting a run that provably cannot fetch anything —
+        # Google News RSS is the only news source themes can use.
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Google News RSS is disabled for this workspace, and it is the only news "
+                "source themes can use. Enable it under Settings > News sources."
+            ),
+        )
+
+    # A run already in flight (this theme's, another theme's, or a full one) is handed back
+    # as-is rather than started alongside — same rule as POST /ingestion/run-now, and it
+    # keeps the frontend's single progress bar honest. Checked before the cooldown is
+    # stamped so a click that merely joins an existing run doesn't burn this theme's clock.
+    existing_run = get_running_run(db)
+    if existing_run is not None:
+        return to_status_response(existing_run)
+
+    # Per-theme clock, deliberately not the workspace-wide last_manual_ingestion_at: one
+    # theme's fetch shouldn't lock out another theme's, nor the full-run button.
+    enforce_trigger_cooldown(
+        db, theme, "last_manual_run_at", get_settings().manual_trigger_cooldown_seconds
+    )
+
+    run = create_run(
+        db,
+        trigger=TRIGGER_MANUAL,
+        triggered_by_user_id=current_user.id,
+        theme_watch_id=theme.id,
+    )
+    background_tasks.add_task(execute_ingestion_run, run.id)
+    log_event(
+        "theme_manual_run_triggered",
+        request=request,
+        actor_id=str(current_user.id),
+        theme_watch_id=str(theme_watch_id),
+        run_id=str(run.id),
+    )
+    return to_status_response(run)
 
 
 @router.get("/{theme_watch_id}/followers", response_model=list[ThemeFollowerResponse])
