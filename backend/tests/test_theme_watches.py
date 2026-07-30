@@ -1,6 +1,6 @@
 from app.services.workspace_settings import get_or_create_workspace_settings
 
-from tests.conftest import auth_headers, signup
+from tests.conftest import admin_headers, auth_headers, signup
 
 
 def test_create_list_update_delete_theme_watch(client):
@@ -205,3 +205,53 @@ def test_google_news_source_allowlist_rejects_non_hostname(client):
     )
     assert resp.status_code == 422
 
+
+
+def test_theme_source_selection_round_trips(client):
+    """news_sources distinguishes null (inherit the workspace default) from an explicit
+    list, so both states have to survive create/update rather than collapsing."""
+    headers = admin_headers(client)
+    created = client.post(
+        "/theme-watches",
+        json={"name": "Automotive", "query_terms": ["EV battery"]},
+        headers=headers,
+    ).json()
+    assert created["news_sources"] is None
+
+    updated = client.patch(
+        f"/theme-watches/{created['id']}",
+        json={"news_sources": ["newsapi", "google_news_rss"]},
+        headers=headers,
+    ).json()
+    assert updated["news_sources"] == ["newsapi", "google_news_rss"]
+
+    reverted = client.patch(
+        f"/theme-watches/{created['id']}", json={"news_sources": None}, headers=headers
+    ).json()
+    assert reverted["news_sources"] is None
+
+
+def test_theme_rejects_an_unknown_news_source(client):
+    resp = client.post(
+        "/theme-watches",
+        json={"name": "Bad", "query_terms": ["x"], "news_sources": ["bing_news"]},
+        headers=admin_headers(client),
+    )
+    assert resp.status_code == 422
+
+
+def test_theme_allowlist_distinguishes_inherit_from_unrestricted(client):
+    headers = admin_headers(client)
+    created = client.post(
+        "/theme-watches",
+        json={"name": "Automotive", "query_terms": ["EV battery"]},
+        headers=headers,
+    ).json()
+    assert created["google_news_source_allowlist"] is None
+
+    unrestricted = client.patch(
+        f"/theme-watches/{created['id']}",
+        json={"google_news_source_allowlist": []},
+        headers=headers,
+    ).json()
+    assert unrestricted["google_news_source_allowlist"] == []

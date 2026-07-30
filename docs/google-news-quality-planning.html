@@ -186,7 +186,7 @@
 <p class="subtitle">What can technically be improved in the Google News RSS ingestion path so the signals it produces actually fit — a code-grounded audit plus a phased implementation plan</p>
 
 <div class="meta">
-  <div><strong>Status:</strong> Planning (2026-07-30). Research and design only — no code has been written for this doc.</div>
+  <div><strong>Status:</strong> <strong>Implemented</strong> (2026-07-30). All seven phases have shipped — see the implementation notes in <a href="#checklist">§17</a> for the two places the implementation deliberately departed from this plan. The document is kept as written so the reasoning behind each decision stays readable; it is a record of why, not a to-do list.</div>
   <div><strong>Reported symptom (this conversation):</strong> too much irrelevant noise. Articles arrive that aren't really about the target company, or have no business angle. This is a <em>precision</em> complaint, and the phase ordering below reflects that.</div>
   <div><strong>Builds on:</strong>
     <a href="news-source-expansion-planning.html">news-source-expansion-planning.html</a> §7.2/§15 (the original <code>GoogleNewsRSSClient</code> spec and its open questions),
@@ -195,7 +195,7 @@
     <a href="theme-search-planning.html">theme-search-planning.html</a> §3/§5/§6 (the theme path, which shares this client)
   </div>
   <div><strong>Codebase grounded against:</strong> commit <code>d5233ad</code> on <code>main</code>. Everything described as "current state" was read in the tree at that commit, with file:line references.</div>
-  <div><strong>Verification caveat:</strong> the research environment has no outbound egress to <code>news.google.com</code> (the agent proxy denies CONNECT), so <em>no claim below was tested against the live feed</em>. Behavioural claims about Google's query syntax come from external documentation (see <a href="#external">§4</a>) and are flagged <span class="tag">verify</span> where a spike must confirm them before implementation depends on them.</div>
+  <div><strong>Verification caveat:</strong> the environment has no outbound egress to <code>news.google.com</code> (the agent proxy denies CONNECT), so <em>no claim below was tested against the live feed</em>, before or after implementation. The spikes in <a href="#spikes">§16</a> remain outstanding and should be run before trusting the query-syntax assumptions in production. Behavioural claims about Google's query syntax come from external documentation (see <a href="#external">§4</a>) and are flagged <span class="tag">verify</span> where a spike must confirm them before implementation depends on them.</div>
 </div>
 
 <nav class="toc">
@@ -751,6 +751,18 @@ deny_sites  = workspace.denylist + (entity.denylist or [])   # union, unchanged<
 </ul>
 
 <h2 id="checklist">17. Implementation checklist</h2>
+
+<div class="ok-box"><strong>Shipped 2026-07-30.</strong> Every item below is implemented and covered by tests (508 passing). The Alembic chain runs clean on an empty database, and both data backfills in the Phase 2 migration were verified against real rows: <code>context_terms</code> is populated from <code>keywords</code> with <code>aliases</code> left empty, and an entity that already had an allowlist keeps its <em>effective</em> list via the union backfill.</div>
+
+<div class="assumption"><strong>Deliberate departures from this plan, both narrowing what it said:</strong>
+<ul>
+  <li><strong>§11.4's theme term guard uses prefix-stemmed token matching, not verbatim substring matching.</strong> The plan recorded verbatim matching as an assumption to validate; it failed immediately on ordinary inflection — "EV batteries" does not contain "EV battery" — and in German, where compounds and cases are the norm, it would have rejected far more than it kept. Comparing token stems keeps the check free and deterministic. Identity matching (<code>article_mentions_company</code>) keeps the stricter verbatim rule, because a loose match there means attributing a story to the wrong company.</li>
+  <li><strong>§8.3 ships without a configuration knob.</strong> An earlier revision of this document specified a workspace <code>article_dedupe_scope</code> setting; per-company URL dedupe is simply the correct behaviour, so it ships unconditionally. If the extra AI spend matters, the lever is the existing per-company cap.</li>
+</ul>
+</div>
+
+<p>One implementation detail worth recording, because it isn't obvious from the plan: the usage row is now written <strong>once per provider at the end of an entity's fetch</strong> rather than at the fetch boundary. Grounding, dedupe and the cap all discard candidates after the fetch returns, and a drop breakdown that stops at the boundary answers none of the questions §5 exists to answer.</p>
+
 <ul class="checklist">
   <li><strong>Phase 0</strong> — usage-log columns + migration; funnel counters through client and ingestion; preview endpoint; Settings UI for query/funnel; i18n strings.</li>
   <li><strong>Spikes S1–S5</strong> — run against the live feed, record answers in this doc before Phase 1 lands.</li>

@@ -107,7 +107,12 @@ def create_target_company(
         db,
         name=payload.name,
         aliases=payload.aliases,
-        context_terms=payload.context_terms,
+        # Passed as None when the client didn't send the field at all, so a legacy
+        # `keywords`-only payload falls through to it instead of being masked by this
+        # field's empty-list default.
+        context_terms=(
+            payload.context_terms if "context_terms" in payload.model_fields_set else None
+        ),
         keywords=payload.keywords,
         exclusion_terms=payload.exclusion_terms,
         industry=payload.industry,

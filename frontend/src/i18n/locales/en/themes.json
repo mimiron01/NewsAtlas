@@ -15,7 +15,17 @@
     "language": "Language (optional)",
     "inherits": "Workspace default ({{value}})",
     "inheritsGeneric": "Workspace default",
-    "editionHint": "Google News returns different results per country/language. For a topic about the German market, set DE and de. Leave blank to inherit the workspace default."
+    "editionHint": "Google News returns different results per country/language. For a topic about the German market, set DE and de. Leave blank to inherit the workspace default.",
+    "exclusionTerms": "Never match (optional)",
+    "exclusionTermsPlaceholder": "e.g. Formel 1 — press Enter after each",
+    "exclusionTermsHint": "Words that mean an article isn't what this topic is about. A topic's search is broad, so this is usually the most effective way to tighten it.",
+    "sourceDenylist": "Blocked sources (optional)",
+    "sourceDenylistPlaceholder": "Type a domain to block and press Enter",
+    "sourceDenylistHint": "Added to the workspace-wide blocked list — it can't remove entries from it.",
+    "newsSources": "News sources for this topic",
+    "newsSourcesInherit": "Use the workspace default",
+    "newsSourcesCustom": "Choose sources",
+    "newsSourcesHint": "A source must also be enabled under Settings → News sources to be used. Paid sources give topics real article text instead of only headlines, but a topic's search is broad — watch the cost."
   },
   "trackedThemes": "Tracked themes ({{count}})",
   "noThemesYet": "No theme watches yet.",

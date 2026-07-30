@@ -114,7 +114,22 @@
       "resultSummary": "{{created}} erstellt, {{skipped}} als Duplikate übersprungen, {{errors}} fehlerhaft.",
       "skippedRow": "Zeile {{row}}: „{{name}}“ übersprungen ({{reason}})",
       "errorRow": "Zeile {{row}}: {{reason}}"
-    }
+    },
+    "aliases": "Weitere Namen für dieses Unternehmen",
+    "aliasesPlaceholder": "z. B. HWA, HWA Team — jeweils mit Enter bestätigen",
+    "aliasesHint": "Schreibweisen, unter denen das Unternehmen in den Nachrichten auftaucht. Nur diese gelten als Identifikation: Ein Artikel, der lediglich auf einen Themenbegriff unten passt, wird dem Unternehmen nie zugeordnet.",
+    "contextTerms": "Themenbegriffe (optional)",
+    "contextTermsPlaceholder": "z. B. Motorsport, Rennsport — jeweils mit Enter bestätigen",
+    "contextTermsHint": "Grenzt die Suche auf Nachrichten ein, die auch diese Themen berühren. Leer lassen, um alles über das Unternehmen zu erhalten — Begriffe nur ergänzen, wenn zu viel Unpassendes ankommt.",
+    "exclusionTerms": "Nie zutreffend (optional)",
+    "exclusionTermsPlaceholder": "z. B. Aktie — jeweils mit Enter bestätigen",
+    "exclusionTermsHint": "Wörter, die anzeigen, dass ein Artikel nicht gemeint ist — hilfreich, wenn der Name mit einem Börsenkürzel, einem Sportverein oder einem anderen Unternehmen kollidiert.",
+    "allowlistInherit": "Workspace-Standard verwenden",
+    "allowlistAll": "Alles durchsuchen",
+    "allowlistCustom": "Nur diese Quellen",
+    "allowlistInheritHint": "Folgt den vertrauenswürdigen Quellen aus Einstellungen → Nachrichtenquellen.",
+    "allowlistAllHint": "Ignoriert den Workspace-Standard und durchsucht für dieses Unternehmen ganz Google News.",
+    "allowlistCustomHint": "Ersetzt den Workspace-Standard. Für dieses Unternehmen werden nur diese Domains durchsucht."
   },
   "sources": {
     "title": "Nachrichtenquellen",
@@ -131,7 +146,8 @@
       "requests": "Anfragen",
       "articles": "Artikel",
       "attributedTo": "Unternehmen / Thema",
-      "themeAttribution": "Thema: {{name}}"
+      "themeAttribution": "Thema: {{name}}",
+      "query": "Abfrage / Verworfen"
     },
     "requestsToday": "{{used}} / {{limit}} Anfragen heute",
     "requestsLastMinute": "{{used}} / {{limit}} in der letzten Minute",
@@ -141,7 +157,26 @@
       "language": "Sprache",
       "sourceAllowlist": "Vertrauenswürdige Quellen (Workspace-Standard)",
       "sourceAllowlistPlaceholder": "Domain eingeben (z. B. reuters.com) und Enter drücken",
-      "sourceAllowlistHint": "Optional. Wenn gesetzt, werden Google-News-RSS-Ergebnisse für jedes Unternehmen auf diese Domains beschränkt, zuzüglich der Domains, die ein Unternehmen selbst hinzufügt. Leer lassen, um ganz Google News zu durchsuchen."
+      "sourceAllowlistHint": "Optionaler Workspace-Standard. Ein Unternehmen oder Thema mit eigener Liste ersetzt diese, statt sie zu ergänzen; eine leere Liste beim Unternehmen durchsucht ganz Google News. Leer lassen, um standardmäßig nicht einzuschränken.",
+      "sourceDenylist": "Gesperrte Quellen (workspaceweit)",
+      "sourceDenylistPlaceholder": "Domain zum Sperren eingeben (z. B. msn.com) und Enter drücken",
+      "sourceDenylistHint": "Werden nirgends akzeptiert. Anders als bei der Liste oben können Unternehmen und Themen hier nur ergänzen, nie entfernen.",
+      "timeOperator": "Nur aktuelle Nachrichten suchen",
+      "timeOperatorHint": "Fügt jeder Google-News-Abfrage einen Aktualitätsfilter hinzu, damit Google innerhalb Ihres Zeitfensters sortiert statt nach zeitloser Relevanz. Ohne ihn liefert der Feed überwiegend Älteres. Nur abschalten, wenn die Ergebnisse schlechter werden.",
+      "queryStrategy": "Abfragestrategie",
+      "queryStrategySingle": "Eine Abfrage pro Unternehmen",
+      "queryStrategySplit": "Zusätzlich nur nach dem Namen suchen",
+      "queryStrategyHint": "„Zusätzlich nur nach dem Namen suchen“ startet eine zweite Abfrage ohne die Kontextbegriffe, damit auch Meldungen gefunden werden, die diese nicht enthalten. Kostet eine zusätzliche Anfrage pro Unternehmen und Lauf.",
+      "resolveUrls": "Links zum Verlag auflösen",
+      "resolveUrlsHint": "Folgt der Google-Weiterleitung zur echten Artikel-URL. Macht Links in Digest-E-Mails dauerhaft und lässt dieselbe Meldung aus zwei Quellen als eine erkennen.",
+      "fetchSnippets": "Artikelzusammenfassungen abrufen",
+      "fetchSnippetsHint": "Liest die Zusammenfassung des Verlags von der Artikelseite, damit die KI echten Text statt nur einer Überschrift bewertet. Erfordert die Linkauflösung oben. Der Server kontaktiert dabei Verlagsseiten direkt.",
+      "enrichmentFetches": "Max. Artikelabrufe / Lauf",
+      "enrichmentSeconds": "Max. Sekunden für Abrufe / Lauf",
+      "themeSources": "Quellen für Themen",
+      "themeSourcesHint": "Themen waren bisher auf Google News beschränkt. Eine Quelle muss zusätzlich oben aktiviert sein. Kostenpflichtige Quellen liefern Themen echten Artikeltext, aber die Suche eines Themas ist breit — die Kosten im Blick behalten.",
+      "themeRequestBudget": "Max. Anfragen / Lauf für Themen",
+      "themeRequestBudgetHint": "0 = unbegrenzt. Unternehmen werden vor Themen abgerufen; das hier verhindert, dass Themen das Tageskontingent einer kostenpflichtigen Quelle aufbrauchen."
     },
     "newsdata": {
       "hint": "Kostenpflichtige API — nutzt vollständige Artikelinhalte als Grundlage, native Duplikaterkennung, native Stimmungs-/Tag-Analyse und einen einmaligen historischen Nachlade-Vorgang beim Hinzufügen eines Unternehmens.",
@@ -157,7 +192,30 @@
     "usingEnvKey": "Verwendet einen Schlüssel aus der Umgebungsvariable des Servers{{suffix}}.",
     "endingIn": ", endet auf ...{{last4}}",
     "clearNewsdataKeyToast": "In-App-Override des NewsData.io-API-Schlüssels entfernt.",
-    "clearNewsdataKeyFailed": "API-Schlüssel konnte nicht entfernt werden"
+    "clearNewsdataKeyFailed": "API-Schlüssel konnte nicht entfernt werden",
+    "preview": {
+      "title": "Abfrage testen",
+      "hint": "Führt eine echte Google-News-Suche aus und zeigt das Ergebnis, ohne KI-Budget zu verbrauchen. Damit lassen sich die Begriffe eines Unternehmens vor dem Speichern ausprobieren.",
+      "namePlaceholder": "Firmenname (oder leer lassen und Themenbegriffe nutzen)",
+      "run": "Test starten",
+      "running": "Suche läuft…",
+      "resultQuery": "Gesendete Abfrage",
+      "resultCounts": "{{raw}} geliefert, {{kept}} würden übernommen",
+      "truncated": "Zu lang — einige Begriffe wurden vor dem Senden entfernt. Bitte die Begriffslisten kürzen.",
+      "empty": "Keine Ergebnisse.",
+      "outcomeKept": "übernommen",
+      "outcomeNotGrounded": "verworfen: nennt das Unternehmen nicht"
+    },
+    "precision": {
+      "title": "Quellenqualität (letzte 30 Tage)",
+      "hint": "Verlage sortiert danach, wie viel von ihrem Material verworfen wurde. Ein hoher Anteil spricht meist dafür, die Quelle zu sperren.",
+      "empty": "Noch nicht genug Daten — füllt sich nach einigen Abrufläufen.",
+      "articles": "Abgerufen",
+      "kept": "Übernommen",
+      "discarded": "Verworfen",
+      "block": "Quelle sperren",
+      "blocked": "Gesperrt"
+    }
   },
   "ai": {
     "title": "KI-Konfiguration",

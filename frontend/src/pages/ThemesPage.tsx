@@ -12,6 +12,8 @@ import type {
   ThemeMatch,
   ThemeWatch,
 } from "../api/types";
+import SourceAllowlistField from "../components/SourceAllowlistField";
+import ThemeSourceSelector from "../components/ThemeSourceSelector";
 import TagInput from "../components/TagInput";
 import ThemeRunButton from "../components/ThemeRunButton";
 import { STATUS_TRANSITION_VALUES } from "../constants/signalStatus";
@@ -34,7 +36,12 @@ export default function ThemesPage() {
   const [name, setName] = useState("");
   const [queryTerms, setQueryTerms] = useState<string[]>([]);
   const [industry, setIndustry] = useState("");
-  const [sourceAllowlist, setSourceAllowlist] = useState<string[]>([]);
+  // null = inherit the workspace allowlist (see SourceAllowlistField).
+  const [sourceAllowlist, setSourceAllowlist] = useState<string[] | null>(null);
+  const [sourceDenylist, setSourceDenylist] = useState<string[]>([]);
+  // null = inherit the workspace's theme sources.
+  const [newsSources, setNewsSources] = useState<string[] | null>(null);
+  const [exclusionTerms, setExclusionTerms] = useState<string[]>([]);
   const [country, setCountry] = useState("");
   const [language, setLanguage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,7 +51,10 @@ export default function ThemesPage() {
   const [editName, setEditName] = useState("");
   const [editQueryTerms, setEditQueryTerms] = useState<string[]>([]);
   const [editIndustry, setEditIndustry] = useState("");
-  const [editSourceAllowlist, setEditSourceAllowlist] = useState<string[]>([]);
+  const [editSourceAllowlist, setEditSourceAllowlist] = useState<string[] | null>(null);
+  const [editSourceDenylist, setEditSourceDenylist] = useState<string[]>([]);
+  const [editNewsSources, setEditNewsSources] = useState<string[] | null>(null);
+  const [editExclusionTerms, setEditExclusionTerms] = useState<string[]>([]);
   const [editCountry, setEditCountry] = useState("");
   const [editLanguage, setEditLanguage] = useState("");
 
@@ -177,6 +187,9 @@ export default function ThemesPage() {
         query_terms: queryTerms,
         industry: industry || null,
         google_news_source_allowlist: sourceAllowlist,
+        google_news_source_denylist: sourceDenylist,
+        news_sources: newsSources,
+        exclusion_terms: exclusionTerms,
         // "" is the "workspace default" option; the backend stores it as null/inherit.
         google_news_country: country,
         google_news_language: language,
@@ -184,7 +197,10 @@ export default function ThemesPage() {
       setName("");
       setQueryTerms([]);
       setIndustry("");
-      setSourceAllowlist([]);
+      setSourceAllowlist(null);
+      setSourceDenylist([]);
+      setNewsSources(null);
+      setExclusionTerms([]);
       setCountry("");
       setLanguage("");
       showToast(t("themes:addedToast"), "success");
@@ -209,6 +225,9 @@ export default function ThemesPage() {
     setEditQueryTerms(theme.query_terms);
     setEditIndustry(theme.industry ?? "");
     setEditSourceAllowlist(theme.google_news_source_allowlist);
+    setEditSourceDenylist(theme.google_news_source_denylist);
+    setEditNewsSources(theme.news_sources);
+    setEditExclusionTerms(theme.exclusion_terms);
     setEditCountry(theme.google_news_country ?? "");
     setEditLanguage(theme.google_news_language ?? "");
   }
@@ -226,6 +245,9 @@ export default function ThemesPage() {
         query_terms: editQueryTerms,
         industry: editIndustry || null,
         google_news_source_allowlist: editSourceAllowlist,
+        google_news_source_denylist: editSourceDenylist,
+        news_sources: editNewsSources,
+        exclusion_terms: editExclusionTerms,
         google_news_country: editCountry,
         google_news_language: editLanguage,
       });
@@ -386,13 +408,24 @@ export default function ThemesPage() {
           <span className="field-hint">{t("themes:addTheme.queryTermsHint")}</span>
         </label>
         <label>
-          {t("themes:addTheme.sourceAllowlist")}
+          {t("themes:addTheme.exclusionTerms")}
           <TagInput
-            tags={sourceAllowlist}
-            onChange={setSourceAllowlist}
-            placeholder={t("themes:addTheme.sourceAllowlistPlaceholder")}
+            tags={exclusionTerms}
+            onChange={setExclusionTerms}
+            placeholder={t("themes:addTheme.exclusionTermsPlaceholder")}
           />
-          <span className="field-hint">{t("themes:addTheme.sourceAllowlistHint")}</span>
+          <span className="field-hint">{t("themes:addTheme.exclusionTermsHint")}</span>
+        </label>
+        <ThemeSourceSelector value={newsSources} onChange={setNewsSources} />
+        <SourceAllowlistField value={sourceAllowlist} onChange={setSourceAllowlist} />
+        <label>
+          {t("themes:addTheme.sourceDenylist")}
+          <TagInput
+            tags={sourceDenylist}
+            onChange={setSourceDenylist}
+            placeholder={t("themes:addTheme.sourceDenylistPlaceholder")}
+          />
+          <span className="field-hint">{t("themes:addTheme.sourceDenylistHint")}</span>
         </label>
         <div className="field-row">
           <label>
@@ -446,13 +479,27 @@ export default function ThemesPage() {
                     <span className="field-hint">{t("themes:addTheme.queryTermsHint")}</span>
                   </label>
                   <label>
-                    {t("themes:addTheme.sourceAllowlist")}
+                    {t("themes:addTheme.exclusionTerms")}
                     <TagInput
-                      tags={editSourceAllowlist}
-                      onChange={setEditSourceAllowlist}
-                      placeholder={t("themes:addTheme.sourceAllowlistPlaceholder")}
+                      tags={editExclusionTerms}
+                      onChange={setEditExclusionTerms}
+                      placeholder={t("themes:addTheme.exclusionTermsPlaceholder")}
                     />
-                    <span className="field-hint">{t("themes:addTheme.sourceAllowlistHint")}</span>
+                    <span className="field-hint">{t("themes:addTheme.exclusionTermsHint")}</span>
+                  </label>
+                  <ThemeSourceSelector value={editNewsSources} onChange={setEditNewsSources} />
+                  <SourceAllowlistField
+                    value={editSourceAllowlist}
+                    onChange={setEditSourceAllowlist}
+                  />
+                  <label>
+                    {t("themes:addTheme.sourceDenylist")}
+                    <TagInput
+                      tags={editSourceDenylist}
+                      onChange={setEditSourceDenylist}
+                      placeholder={t("themes:addTheme.sourceDenylistPlaceholder")}
+                    />
+                    <span className="field-hint">{t("themes:addTheme.sourceDenylistHint")}</span>
                   </label>
                   <div className="field-row">
                     <label>

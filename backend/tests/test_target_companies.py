@@ -372,3 +372,95 @@ def test_followers_endpoint_is_admin_only(client):
     assert ok.status_code == 200
     assert len(ok.json()) == 1
     assert ok.json()[0]["email"] == "rep@proair.com"
+
+
+def test_company_terms_split_round_trips_and_derives_keywords(client):
+    """keywords stays in the response as a derived field, so existing clients and the CSV
+    export keep working while the split fields are the source of truth."""
+    headers = auth_headers(client)
+    created = client.post(
+        "/target-companies",
+        json={
+            "name": "Acme Corp",
+            "aliases": ["Acme"],
+            "context_terms": ["Motorsport"],
+            "exclusion_terms": ["Aktie"],
+        },
+        headers=headers,
+    ).json()
+
+    assert created["aliases"] == ["Acme"]
+    assert created["context_terms"] == ["Motorsport"]
+    assert created["exclusion_terms"] == ["Aktie"]
+    # Derived: aliases first, then context terms. Exclusions are deliberately absent —
+    # they'd otherwise broaden the provider query and steer the AI toward the very
+    # subject the user asked to avoid.
+    assert created["keywords"] == ["Acme", "Motorsport"]
+
+
+def test_legacy_keywords_payload_still_works_and_lands_in_context_terms(client):
+    """Older clients still PATCH `keywords`; it maps to the role keywords actually played
+    in the query rather than overwriting the derived column."""
+    headers = auth_headers(client)
+    created = client.post(
+        "/target-companies", json={"name": "Acme Corp", "keywords": ["Motorsport"]}, headers=headers
+    ).json()
+
+    assert created["context_terms"] == ["Motorsport"]
+    assert created["aliases"] == []
+    assert created["keywords"] == ["Motorsport"]
+
+
+def test_company_allowlist_has_three_distinct_states(client):
+    headers = auth_headers(client)
+    created = client.post("/target-companies", json={"name": "Acme"}, headers=headers).json()
+    assert created["google_news_source_allowlist"] is None
+
+    unrestricted = client.patch(
+        f"/target-companies/{created['id']}",
+        json={"google_news_source_allowlist": []},
+        headers=headers,
+    ).json()
+    assert unrestricted["google_news_source_allowlist"] == []
+
+    custom = client.patch(
+        f"/target-companies/{created['id']}",
+        json={"google_news_source_allowlist": ["heise.de"]},
+        headers=headers,
+    ).json()
+    assert custom["google_news_source_allowlist"] == ["heise.de"]
+
+    # An omitted field must not disturb it — only an explicit null reverts to inheriting.
+    untouched = client.patch(
+        f"/target-companies/{created['id']}", json={"industry": "Manufacturing"}, headers=headers
+    ).json()
+    assert untouched["google_news_source_allowlist"] == ["heise.de"]
+
+    reverted = client.patch(
+        f"/target-companies/{created['id']}",
+        json={"google_news_source_allowlist": None},
+        headers=headers,
+    ).json()
+    assert reverted["google_news_source_allowlist"] is None
+
+
+def test_company_edition_override_round_trips(client):
+    headers = auth_headers(client)
+    created = client.post(
+        "/target-companies",
+        json={"name": "Acme", "google_news_country": "de", "google_news_language": "DE"},
+        headers=headers,
+    ).json()
+
+    # Normalized to Google's expected casing regardless of how they were typed.
+    assert created["google_news_country"] == "DE"
+    assert created["google_news_language"] == "de"
+
+
+def test_company_edition_rejects_a_malformed_country(client):
+    resp = client.post(
+        "/target-companies",
+        json={"name": "Acme", "google_news_country": "D3!"},
+        headers=auth_headers(client),
+    )
+    assert resp.status_code == 422
