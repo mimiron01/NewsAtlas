@@ -231,7 +231,9 @@
 
 <div class="decision"><strong>Decision — the target-company term model is split into distinct roles.</strong> Today's single <code>keywords</code> list is doing two incompatible jobs at once (identity alias vs. topic narrower). It becomes <code>aliases</code> (identity), <code>context_terms</code> (narrowing), and <code>exclusion_terms</code> (negation). Migrations and UI changes are acceptable.</div>
 
-<div class="decision"><strong>Decision — article URLs are deduplicated per company, with the workspace setting as the default.</strong> A story naming two tracked companies must produce a signal for both, so <code>articles.url</code> becomes unique on <code>(target_company_id, url)</code>, governed by <code>workspace_settings.article_dedupe_scope</code> (default <code>company</code>). Full consequences in <a href="#phase3">§8.3</a>.</div>
+<div class="decision"><strong>Decision — article URLs are deduplicated per company.</strong> A story naming two tracked companies must produce a signal for both, so <code>articles.url</code> becomes unique on <code>(target_company_id, url)</code> and the pre-insert check becomes company-scoped. Full consequences in <a href="#phase3">§8.3</a>.</div>
+
+<div class="decision"><strong>Decision — the workspace source allowlist is a <em>default</em>, not a floor.</strong> An entity (company or theme) that sets its own allowlist <strong>replaces</strong> the workspace list rather than extending it. This supersedes the "union, not override" decision recorded in <a href="v1-release-roadmap.html">v1 roadmap §2.3</a>, for the reasons in <a href="#phase2">§7.6</a>. Denylists keep union semantics — the asymmetry is deliberate and explained there.</div>
 
 <div class="decision"><strong>Decision — the blast radius stays inside the Google News path.</strong> Following the precedent set by v1 roadmap §2.3, <code>build_or_query()</code> and the NewsAPI.org / NewsData.io clients are not touched. Where the new term fields must reach those providers and the AI prompts, they do so through a synchronized legacy <code>keywords</code> column (<a href="#phase2">§7.2</a>), not by rewriting those call sites.</div>
 
@@ -473,6 +475,33 @@ feed = feedparser.parse(response.content)</code></pre>
   <li><strong>Split queries (F7)</strong> — when a company has context terms, issue identity-only <em>and</em> identity+context as two requests and merge by URL. Workspace toggle <code>google_news_query_strategy</code> ∈ {<code>single</code>, <code>split</code>}, default <code>single</code>. Doubles request count (2 of 20/min), zero extra AI cost because the merged set still goes through the Phase 3 scorer and the existing cap.</li>
 </ul>
 </div>
+
+<div class="item">
+<h4>7.6 Allowlist becomes an overridable default; denylist stays a union</h4>
+<p>Today both <code>ingestion.py:517</code> (companies) and <code>:590</code> (themes) compute <code>union(workspace_allowlist, entity_allowlist)</code>, per the "union, not override" decision in <a href="v1-release-roadmap.html">v1 roadmap §2.3</a>. That decision is superseded here.</p>
+
+<div class="decision"><strong>Decision — an entity's own allowlist replaces the workspace allowlist; the workspace list is only the default for entities that don't set one.</strong>
+<pre><code>allow_sites = entity.allowlist if entity.allowlist is not None else workspace.allowlist
+deny_sites  = workspace.denylist + (entity.denylist or [])   # union, unchanged</code></pre></div>
+
+<p><strong>Why the union was wrong for allowlists.</strong> <code>site:</code> is a hard restriction, not a preference: everything outside the list is excluded outright. Under union, setting a workspace allowlist silently hard-restricts <em>every</em> company and theme in the workspace, and an entity can only ever widen — there is no way to say "this company is covered by trade press the workspace list doesn't include" without also polluting it for everyone else, and no way at all to search a company unrestricted once a workspace list exists. Override makes the workspace list what it reads like in the UI: a sensible default.</p>
+
+<p><strong>Why the union is right for denylists.</strong> A denylist subtracts rather than restricts, and "never accept this aggregator" is a workspace-wide policy an individual entity should not be able to silently drop. Union also fails safe: the worst case is slightly less coverage, whereas a dropped denylist entry reintroduces exactly the noise the entry was added to remove. The asymmetry is deliberate and should be stated in the UI help text, not just in code.</p>
+
+<div class="gap"><strong>Blocker — empty list and "unset" are currently the same value.</strong> The allowlist columns are <code>ARRAY(String), nullable=False, default=list</code>, so an entity with no allowlist and an entity that explicitly wants no site restriction are indistinguishable. Override semantics need to tell them apart, or a workspace allowlist becomes impossible to opt out of — the exact problem being fixed.</div>
+
+<p><strong>Fix:</strong> make <code>google_news_source_allowlist</code> nullable on <code>target_companies</code> and <code>theme_watches</code>, adopting the NULL-means-inherit convention already established by <code>ThemeWatch.google_news_country</code>/<code>_language</code> (<code>models/theme_watch.py:30-37</code>):</p>
+<table>
+  <tr><th>Value</th><th>Meaning</th><th>Effective allowlist</th></tr>
+  <tr><td><code>NULL</code></td><td>Inherit (the default for every entity)</td><td>Workspace list</td></tr>
+  <tr><td><code>[]</code></td><td>Explicitly unrestricted</td><td>None — no <code>site:</code> clause at all</td></tr>
+  <tr><td><code>["a.com", …]</code></td><td>Override</td><td>Exactly this list</td></tr>
+</table>
+
+<div class="decision"><strong>Decision — the migration backfills the union so no query changes on day one.</strong> Set each entity's allowlist to <code>NULL</code> where it is currently empty, and to <code>union(workspace, entity)</code> where it is non-empty. Every effective query is then byte-identical to before the migration, and override semantics govern only what users change afterwards. Without this backfill, every entity with its own list would silently narrow the moment the migration runs — a behaviour change arriving inside what is supposed to be a semantics change.</div>
+
+<p><strong>UI (<code>SettingsTargets.tsx</code>, theme form).</strong> The allowlist input needs three visible states, not two: inheriting (showing which workspace domains are in effect, read-only, with an "override" action), overriding (the entity's own tags, with a "revert to workspace default" action), and explicitly unrestricted. Without that, NULL-vs-<code>[]</code> is invisible to the user and the feature is unusable no matter how correct the backend is.</p>
+</div>
 </div>
 
 <h2 id="phase3">8. Phase 3 — Selection before AI spend</h2>
@@ -502,15 +531,15 @@ feed = feedparser.parse(response.content)</code></pre>
 
 <div class="item">
 <h4>8.3 Company-scoped URL dedupe (F12)</h4>
-<div class="decision"><strong>Decision (2026-07-30) — <code>articles.url</code> becomes unique per company, and the scope is a workspace setting.</strong> The unique constraint moves from <code>url</code> to <code>(target_company_id, url)</code>, and the pre-insert check at <code>ingestion.py:406</code> becomes company-scoped, so a story naming two tracked companies produces a signal for both instead of silently only for whichever the loop reached first. The behaviour is governed by <code>workspace_settings.article_dedupe_scope</code> ∈ {<code>company</code>, <code>workspace</code>}, defaulting to <code>company</code> — the workspace value is the default every company runs under.</div>
+<div class="decision"><strong>Decision (2026-07-30) — <code>articles.url</code> becomes unique per company.</strong> The unique constraint moves from <code>url</code> to <code>(target_company_id, url)</code>, and the pre-insert check at <code>ingestion.py:406</code> becomes company-scoped, so a story naming two tracked companies produces a signal for both instead of silently only for whichever the loop reached first.</div>
 <p>Consequences to handle in implementation:</p>
 <ul>
   <li><strong>Spend.</strong> This deliberately increases AI cost on exactly the stories most likely to matter to several targets. It is bounded by the existing per-company cap (<code>max_articles_per_company_per_run</code>), which applies independently per company, so the worst case is linear in the number of companies a single story names.</li>
-  <li><strong>Theme path.</strong> The cross-path rule in <a href="theme-search-planning.html">theme-search §6</a> — never create a <code>ThemeMatch</code> for a URL already covered by some company's <code>Article</code> — is unaffected: it is a global existence check, not a uniqueness constraint, and stays global under either scope setting.</li>
-  <li><strong>Migration.</strong> Dropping a unique index and adding a composite one is straightforward; existing rows already satisfy the weaker constraint, so no data cleanup is needed and the migration is reversible only if no duplicate-URL rows have been created since — note that in the downgrade path rather than pretending it round-trips.</li>
-  <li><strong>The <code>workspace</code> setting value</strong> preserves today's behaviour exactly, as an escape hatch if the spend turns out worse than expected. It does not restore the global unique <em>constraint</em> (that would break rows created while in <code>company</code> mode) — it only restores the global pre-insert <em>check</em>.</li>
+  <li><strong>Theme path.</strong> The cross-path rule in <a href="theme-search-planning.html">theme-search §6</a> — never create a <code>ThemeMatch</code> for a URL already covered by some company's <code>Article</code> — is unaffected: it is a global existence check, not a uniqueness constraint, and stays global.</li>
+  <li><strong>Migration.</strong> Dropping a unique index and adding a composite one is straightforward; existing rows already satisfy the weaker constraint, so no data cleanup is needed. The downgrade path is <em>not</em> truly reversible once duplicate-URL rows exist — say so in the migration rather than pretending it round-trips.</li>
+  <li><strong>Duplicate AI work across companies</strong> is still caught downstream: the same story ingested for two companies is embedded and summarized twice by design (each company gets its own outreach angle), but the per-company semantic dedupe is unaffected, since its candidate pool was already company-filtered (<code>ingestion.py:858-873</code>).</li>
 </ul>
-<div class="assumption"><strong>Assumption — no per-company override for this setting in v1.</strong> The repo's NULL-means-inherit convention (editions, <code>ThemeWatch</code>) would support one, but a per-company dedupe scope is a knob with no obvious use case: the whole point of company-scoped dedupe is that it applies across companies. Deferred until a real need appears.</div>
+<div class="assumption"><strong>Assumption — no configuration knob for this.</strong> Per-company dedupe is simply the correct behaviour, so it ships unconditionally rather than behind a setting. If the extra spend turns out to matter, the lever is the existing per-company cap, not a scope toggle.</div>
 </div>
 </div>
 
@@ -563,8 +592,8 @@ feed = feedparser.parse(response.content)</code></pre>
   <tr><td><code>theme_watches</code></td><td><code>exclusion_terms</code>, <code>google_news_source_denylist</code></td><td><code>ARRAY(String)</code>, default <code>[]</code></td><td>2</td></tr>
   <tr><td><code>workspace_settings</code></td><td><code>google_news_source_denylist</code></td><td><code>ARRAY(String)</code>, default <code>[]</code></td><td>2</td></tr>
   <tr><td><code>workspace_settings</code></td><td><code>google_news_query_strategy</code></td><td><code>String(16)</code>, default <code>"single"</code></td><td>2</td></tr>
+  <tr><td><code>target_companies</code>, <code>theme_watches</code></td><td><code>google_news_source_allowlist</code></td><td><code>ARRAY(String)</code> → <strong>nullable</strong> (NULL = inherit, <code>[]</code> = unrestricted); backfilled to the union of workspace + entity where non-empty, NULL where empty</td><td>2</td></tr>
   <tr><td><code>articles</code></td><td><code>url</code></td><td>unique → unique on <code>(target_company_id, url)</code></td><td>3</td></tr>
-  <tr><td><code>workspace_settings</code></td><td><code>article_dedupe_scope</code></td><td><code>String(16)</code>, default <code>"company"</code></td><td>3</td></tr>
   <tr><td><code>workspace_settings</code></td><td><code>google_news_resolve_urls_enabled</code>, <code>google_news_fetch_snippets_enabled</code></td><td><code>Boolean</code>, default false</td><td>4</td></tr>
   <tr><td><code>articles</code></td><td><code>canonical_url</code></td><td><code>Text</code>, nullable</td><td>4</td></tr>
   <tr><td><code>articles</code></td><td><code>content_enriched</code></td><td><code>Boolean</code>, default false</td><td>4</td></tr>
@@ -575,7 +604,7 @@ feed = feedparser.parse(response.content)</code></pre>
 <ul>
   <li><strong><code>POST /admin/news-sources/google-news/preview</code></strong> — new, admin-gated, rate-limited (§5.2).</li>
   <li><strong><code>GET</code>/<code>PUT /settings</code></strong> — the new workspace fields, following the existing <code>settingsPayload.ts</code> pattern.</li>
-  <li><strong><code>POST</code>/<code>PATCH /target-companies</code></strong> — aliases, context terms, exclusions, denylist, edition override, title-only flag. The response schema gains all of them; <code>keywords</code> stays in the response as a derived field.</li>
+  <li><strong><code>POST</code>/<code>PATCH /target-companies</code></strong> — aliases, context terms, exclusions, denylist, edition override, title-only flag. The response schema gains all of them; <code>keywords</code> stays in the response as a derived field. The allowlist becomes <code>list[str] | None</code> on both request and response, and the <code>PATCH</code> schema must distinguish "field absent" (leave as-is) from an explicit <code>null</code> (revert to inheriting) — the existing <code>*Update</code> schemas already use <code>None</code> as the sentinel for "not provided" (<code>schemas/target_company.py:39</code>), so this one field needs a different sentinel or <code>model_fields_set</code>.</li>
   <li><strong><code>SettingsTargets.tsx</code></strong> — the single keyword <code>TagInput</code> becomes three (Aliases / Context / Exclusions) with inline help explaining the distinction in one sentence each, plus optional edition selects and the preview button. Getting this copy right matters more than the code: the whole precision gain in Phase 2 depends on users understanding the split.</li>
   <li><strong><code>SourcesTab.tsx</code></strong> — workspace denylist input, time-operator and query-strategy toggles, the "Test query" panel, and the query/funnel detail in the recent-activity table.</li>
   <li><strong>i18n</strong> — every new string in both <code>en</code> and <code>de</code>, per <a href="german-i18n-planning.html">german-i18n-planning.html</a>.</li>
@@ -606,7 +635,9 @@ feed = feedparser.parse(response.content)</code></pre>
   <li><code>keywords</code> stays synchronized with <code>aliases + context_terms</code> across create and update.</li>
   <li>SSRF guard: private/loopback/link-local targets rejected, including on a redirect hop.</li>
   <li>Preview endpoint: admin-gated, rate-limited, writes no <code>articles</code> rows and makes no AI call.</li>
-  <li>Company-scoped dedupe: one article naming two tracked companies produces a <code>Signal</code> for both under <code>article_dedupe_scope="company"</code>, and exactly one (today's behaviour) under <code>"workspace"</code>; the theme path's global URL check still suppresses a <code>ThemeMatch</code> for that URL under either setting.</li>
+  <li>Company-scoped dedupe: one article naming two tracked companies produces a <code>Signal</code> for both; the theme path's global URL check still suppresses a <code>ThemeMatch</code> for that URL.</li>
+  <li>Allowlist resolution: NULL inherits the workspace list, <code>[]</code> emits no <code>site:</code> clause at all, a non-empty list replaces the workspace list entirely — and the denylist unions in every case.</li>
+  <li>Allowlist migration: an entity with an existing non-empty list produces a byte-identical query before and after the migration (union backfill), and an entity with an empty list becomes NULL and keeps inheriting.</li>
   <li>Existing NewsAPI.org / NewsData.io / theme tests unchanged and passing — the §1 blast-radius decision is only real if this holds.</li>
 </ul>
 <p><strong>Acceptance for the whole effort</strong> is measured, not asserted: with Phase 0 shipped first, record a baseline week of <code>drop_counts</code>, <code>triaged_out</code> and dismissal rates for Google News, then compare after each phase. "Fewer noisy signals" has to show up as a lower triaged-out + dismissed fraction at equal or higher signal volume.</p>
@@ -625,7 +656,6 @@ feed = feedparser.parse(response.content)</code></pre>
 </table>
 <p>Open product questions, deliberately not decided here:</p>
 <ul>
-  <li><strong>Allowlist semantics</strong> — the workspace allowlist is unioned into every company's query with no opt-out, so a workspace-level allowlist silently hard-restricts every company. Once denylists exist (which cover most of the same intent without the recall cost), consider whether the workspace allowlist should become a default that a company can override rather than one it can only extend.</li>
   <li><strong>Whether Google News stays the only theme provider</strong> — <code>ingestion.py:241-255</code> makes themes entirely dependent on it. Out of scope here, but every precision limit in this document is also a ceiling on the theme feed.</li>
 </ul>
 
@@ -634,8 +664,8 @@ feed = feedparser.parse(response.content)</code></pre>
   <li><strong>Phase 0</strong> — usage-log columns + migration; funnel counters through client and ingestion; preview endpoint; Settings UI for query/funnel; i18n strings.</li>
   <li><strong>Spikes S1–S5</strong> — run against the live feed, record answers in this doc before Phase 1 lands.</li>
   <li><strong>Phase 1</strong> — httpx fetch with timeout/UA/status handling and bounded retry; <code>when:</code> operator + toggle; per-company edition columns, schema, API, UI; canonical <code>hl</code>; word budget with documented drop order.</li>
-  <li><strong>Phase 2</strong> — four new term fields + migration backfilling <code>context_terms</code> from <code>keywords</code>; <code>keywords</code> synchronization; new builder; grounding guard on identity terms only; three-input UI with copy that explains the split; theme + workspace denylists; optional <code>intitle:</code> and split-query toggles.</li>
-  <li><strong>Phase 3</strong> — composite scorer replacing newest-N; title near-dup collapse before embedding; source-diversity cap; company-scoped URL dedupe (constraint migration + <code>article_dedupe_scope</code> setting).</li>
+  <li><strong>Phase 2</strong> — four new term fields + migration backfilling <code>context_terms</code> from <code>keywords</code>; <code>keywords</code> synchronization; new builder; grounding guard on identity terms only; three-input UI with copy that explains the split; theme + workspace denylists; optional <code>intitle:</code> and split-query toggles; allowlist made nullable with the union backfill, override resolution in both ingestion call sites, and the three-state allowlist UI.</li>
+  <li><strong>Phase 3</strong> — composite scorer replacing newest-N; title near-dup collapse before embedding; source-diversity cap; company-scoped URL dedupe (unique-constraint migration).</li>
   <li><strong>Spike S6</strong>, then <strong>Phase 4</strong> — SSRF-safe fetcher; URL resolution + <code>canonical_url</code>; snippet enrichment + <code>content_enriched</code>; <code>is_headline_only</code> update; UI/digest linking to the canonical URL; both toggles off by default.</li>
   <li><strong>Phase 5</strong> — per-domain precision aggregate; Settings panel with one-click denylisting.</li>
   <li>Update <code>README.md</code> and <code>docs/planning.html</code> to reflect the new term model and the enrichment toggles.</li>
