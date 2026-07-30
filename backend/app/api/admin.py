@@ -83,6 +83,8 @@ def assign_company(
     company = get_or_create_company(
         db,
         name=payload.name,
+        # Admin assignment still speaks the flat list; get_or_create_company routes it to
+        # context_terms, the role keywords actually played in the query (§7.2).
         keywords=payload.keywords,
         industry=payload.industry,
         created_by=current_admin.id,

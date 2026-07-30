@@ -22,11 +22,24 @@ class ThemeWatch(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     # fall back to, so an empty list would search nothing (see build_theme_query).
     query_terms: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
     industry: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    # Same additive/union semantics with workspace_settings.google_news_source_allowlist
-    # as TargetCompany.google_news_source_allowlist (v1 roadmap §2.3).
-    google_news_source_allowlist: Mapped[list[str]] = mapped_column(
+    # Same override semantics as TargetCompany.google_news_source_allowlist: NULL inherits
+    # the workspace list, [] is explicitly unrestricted, non-empty replaces it entirely
+    # (docs/google-news-quality-planning.html §7.6, superseding v1 roadmap §2.3's union).
+    google_news_source_allowlist: Mapped[list[str] | None] = mapped_column(
+        ARRAY(String), nullable=True, default=None
+    )
+    # Unioned with the workspace denylist, unlike the allowlist above (§7.6).
+    google_news_source_denylist: Mapped[list[str]] = mapped_column(
         ARRAY(String), nullable=False, default=list
     )
+    # Emitted as Google's -term. A theme's query terms are broad by construction, so
+    # negation is the main precision tool available to it.
+    exclusion_terms: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
+    # Which providers may serve this theme. NULL inherits
+    # workspace_settings.theme_news_sources. Themes were Google-News-only until
+    # docs/google-news-quality-planning.html §11 — a provider still has to be enabled
+    # workspace-wide to be called, so this can never resurrect a disabled source.
+    news_sources: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True, default=None)
     # Per-theme Google News edition override. NULL means "inherit the workspace-wide
     # google_news_rss_country/language" — deliberately NULL-as-inherit rather than copying
     # the workspace value at creation time, so changing the workspace default later still

@@ -22,6 +22,9 @@ def log_usage(
     theme_watch_id: uuid.UUID | None = None,
     requests_used: int = 1,
     articles_returned: int = 0,
+    query_text: str | None = None,
+    articles_raw: int = 0,
+    drop_counts: dict[str, int] | None = None,
     commit: bool = True,
 ) -> None:
     """Records an outbound call that actually went out. Read by the rate limiter
@@ -29,6 +32,11 @@ def log_usage(
 
     Exactly one of target_company_id/theme_watch_id is expected to be set — a call is made
     on behalf of one company or one theme, never both.
+
+    query_text/articles_raw/drop_counts are the Phase 0 funnel diagnostics (see
+    docs/google-news-quality-planning.html §5.1): what was actually asked for, how much
+    came back, and where the difference went. Callers that don't have them (or providers
+    that filter entirely server-side) simply omit them.
     """
     db.add(
         NewsSourceUsageLog(
@@ -38,6 +46,11 @@ def log_usage(
             theme_watch_id=theme_watch_id,
             requests_used=requests_used,
             articles_returned=articles_returned,
+            query_text=query_text,
+            articles_raw=articles_raw,
+            # Stored as NULL rather than {} when there's nothing to report, so "this call
+            # predates the instrumentation" stays distinguishable from "nothing dropped".
+            drop_counts=drop_counts or None,
         )
     )
     if commit:
@@ -151,6 +164,9 @@ def get_source_usage_stats(
                         "requests_used": row.requests_used,
                         "articles_returned": row.articles_returned,
                         "created_at": row.created_at,
+                        "query_text": row.query_text,
+                        "articles_raw": row.articles_raw,
+                        "drop_counts": row.drop_counts,
                     }
                     for row, company_name, theme_name in recent_rows
                 ],

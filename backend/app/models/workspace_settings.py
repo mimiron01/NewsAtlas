@@ -85,11 +85,68 @@ class WorkspaceSettings(Base, UUIDPrimaryKeyMixin):
     google_news_rss_max_requests_per_minute: Mapped[int] = mapped_column(
         Integer, nullable=False, default=20
     )
-    # Workspace-wide default trusted domains for Google News RSS, unioned with each
-    # target company's own google_news_source_allowlist (see TargetCompany) — a
-    # company's list only ever adds sources, never removes these defaults.
+    # Appends a Google `when:` freshness operator derived from the run's lookback window
+    # (see news_query.google_when_operator). On by default because the feed ranks by
+    # all-time relevance and is measurably stale-skewed without it; the toggle exists
+    # because Google documents none of this and the operator's interaction with site:
+    # clauses can only be confirmed empirically (docs/google-news-quality-planning.html §6.2).
+    google_news_time_operator_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True
+    )
+    # Workspace-wide *default* trusted domains for Google News RSS. An entity (company or
+    # theme) that sets its own allowlist replaces this list rather than extending it; NULL
+    # on the entity means "inherit this" (see TargetCompany.google_news_source_allowlist
+    # and docs/google-news-quality-planning.html §7.6).
     google_news_source_allowlist: Mapped[list[str]] = mapped_column(
         ARRAY(String), nullable=False, default=list
+    )
+    # Domains never accepted anywhere in the workspace, emitted as -site:. Unioned with
+    # each entity's own denylist rather than overridden by it — the asymmetry with the
+    # allowlist above is deliberate (§7.6).
+    google_news_source_denylist: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, default=list
+    )
+    # --- Article enrichment (docs/google-news-quality-planning.html §9) ---
+    # The only features in the app that make the backend fetch a URL chosen by a third
+    # party, so both are off by default and admin-gated; see services/safe_fetch.py for
+    # the SSRF guards that apply when they're on.
+    # Resolution turns a news.google.com redirect into the publisher URL (enables
+    # cross-source dedupe and durable digest links); snippet fetching additionally reads
+    # the publisher's own description so Google News rows stop being headline-only.
+    google_news_resolve_urls_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    google_news_fetch_snippets_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
+    # Ceilings on enrichment work per ingestion run. 0 = unlimited, same convention as the
+    # other caps, but leaving these at 0 with enrichment on is not recommended: a run's
+    # duration then depends on how fast other people's web servers are.
+    max_enrichment_fetches_per_run: Mapped[int] = mapped_column(Integer, nullable=False, default=50)
+    max_enrichment_seconds_per_run: Mapped[int] = mapped_column(Integer, nullable=False, default=120)
+
+    # "single" issues one compound query per company; "split" additionally issues an
+    # identity-only query and merges the results, so a company's context terms can't hide
+    # a story that doesn't happen to mention them. Costs one extra request per company
+    # per run against a self-imposed 20/min ceiling, so it stays opt-in.
+    google_news_query_strategy: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="single"
+    )
+
+    # Which providers theme watches may use by default (per-theme override lives on
+    # ThemeWatch.news_sources). Defaults to Google News RSS alone, which is exactly the
+    # behaviour themes had before multi-provider support, so nothing changes until an
+    # admin opts in — a broad topical query against a paid provider is the most expensive
+    # request shape in the system (docs/google-news-quality-planning.html §11.3).
+    theme_news_sources: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, default=lambda: ["google_news_rss"]
+    )
+    # Per-source ceiling on how many requests one ingestion run may spend on themes.
+    # Companies are processed before themes, so they already have natural priority on a
+    # shared daily quota; this stops a themes-heavy workspace draining what's left.
+    # 0 = unlimited, matching the convention used by the other caps above.
+    max_theme_requests_per_run_per_source: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
     )
 
     newsdata_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

@@ -25,9 +25,11 @@ class FakeNewsClient:
     def __init__(self, articles_by_company: dict[str, list[NewsArticle]]):
         self.articles_by_company = articles_by_company
         self.calls: list[str] = []
+        self.languages: list[str] = []
 
-    def fetch_articles(self, *, name, keywords, since):
+    def fetch_articles(self, *, name, keywords, since, language="en", query_override=None):
         self.calls.append(name)
+        self.languages.append(language)
         return self.articles_by_company.get(name, [])
 
 
@@ -115,7 +117,15 @@ class FailingAIClient:
 
 
 def _make_target_company(db_session, name="Acme Corp", is_active=True, industry=None) -> TargetCompany:
-    tc = TargetCompany(name=name, keywords=["Acme"], is_active=is_active, industry=industry)
+    tc = TargetCompany(
+        name=name,
+        # "Acme" is an alias of "Acme Corp", not a topic narrower — under the split term
+        # model that distinction is explicit, and only aliases satisfy the grounding guard.
+        aliases=["Acme"],
+        keywords=["Acme"],
+        is_active=is_active,
+        industry=industry,
+    )
     db_session.add(tc)
     db_session.commit()
     db_session.refresh(tc)
@@ -348,7 +358,7 @@ def test_ingestion_continues_after_news_fetch_error(db_session):
     _make_target_company(db_session, name="Working Co")
 
     class FailingThenWorkingNewsClient:
-        def fetch_articles(self, *, name, keywords, since):
+        def fetch_articles(self, *, name, keywords, since, language="en", query_override=None):
             if name == "Broken Co":
                 from app.services.news_client import NewsClientError
 

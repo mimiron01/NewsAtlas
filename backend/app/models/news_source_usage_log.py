@@ -1,7 +1,7 @@
 import uuid
 
-from sqlalchemy import Enum, ForeignKey, Integer, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Enum, ForeignKey, Integer, String, Text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -38,3 +38,20 @@ class NewsSourceUsageLog(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     # includes a per-call credit cost; NewsAPI.org/Google News RSS default to 1).
     requests_used: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     articles_returned: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
+    # --- Query/funnel diagnostics (see docs/google-news-quality-planning.html §5) ---
+    # The `q=` value actually sent, pre-encoding. Without this there is no way to answer
+    # "why did this company get bad results this run" after the fact — the query is built
+    # from a dozen inputs (name, aliases, context terms, exclusions, both allowlists, the
+    # time operator) and reconstructing it from those inputs later is guesswork.
+    # NULL for providers that don't build a query string of their own.
+    query_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Entries the provider returned *before* any client-side filtering. Deliberately
+    # distinct from articles_returned, which keeps its existing post-filter meaning — the
+    # gap between the two is exactly what drop_counts explains.
+    articles_raw: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # One key per pipeline stage that discarded a candidate, e.g.
+    # {"stale": 41, "unsafe_url": 0, "not_grounded": 12, "url_duplicate": 6, "over_cap": 22}.
+    # JSONB rather than columns because the stage list is expected to change as the
+    # pipeline does, and these are read for diagnosis, never joined or filtered on.
+    drop_counts: Mapped[dict[str, int] | None] = mapped_column(JSONB, nullable=True)

@@ -99,6 +99,9 @@ def create_theme_watch(
         industry=payload.industry,
         created_by=current_user.id,
         google_news_source_allowlist=payload.google_news_source_allowlist,
+        google_news_source_denylist=payload.google_news_source_denylist,
+        exclusion_terms=payload.exclusion_terms,
+        news_sources=payload.news_sources,
         google_news_country=payload.google_news_country,
         google_news_language=payload.google_news_language,
     )

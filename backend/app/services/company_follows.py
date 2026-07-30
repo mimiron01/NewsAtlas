@@ -6,18 +6,36 @@ from sqlalchemy.orm import Session
 from app.models.company_follow import CompanyFollow
 from app.models.target_company import TargetCompany
 from app.schemas.target_company import TargetCompanyResponse
+from app.services.target_company_terms import sync_keywords
 
 
 def get_or_create_company(
     db: Session,
     *,
     name: str,
-    keywords: list[str],
     industry: str | None,
     created_by: uuid.UUID,
+    aliases: list[str] | None = None,
+    context_terms: list[str] | None = None,
+    exclusion_terms: list[str] | None = None,
+    keywords: list[str] | None = None,
     google_news_source_allowlist: list[str] | None = None,
+    google_news_source_denylist: list[str] | None = None,
+    google_news_country: str | None = None,
+    google_news_language: str | None = None,
+    google_news_require_name_in_title: bool = False,
 ) -> TargetCompany:
-    """Case-insensitive dedupe by name, shared by self-serve create and admin assignment."""
+    """Case-insensitive dedupe by name, shared by self-serve create and admin assignment.
+
+    `keywords` is accepted for callers that still think in the old flat list (the CSV
+    importer, admin assignment) and is treated as context terms — the role keywords
+    actually played in the Google query. It's ignored when context_terms is given
+    explicitly, and the derived column is recomputed from the split fields either way
+    (see services/target_company_terms.py).
+
+    google_news_source_allowlist keeps None distinct from []: None means "inherit the
+    workspace list", [] means "explicitly unrestricted" (§7.6).
+    """
     existing = (
         db.query(TargetCompany)
         .filter(func.lower(TargetCompany.name) == name.strip().lower())
@@ -27,11 +45,18 @@ def get_or_create_company(
         return existing
     company = TargetCompany(
         name=name,
-        keywords=keywords,
+        aliases=aliases or [],
+        context_terms=context_terms if context_terms is not None else (keywords or []),
+        exclusion_terms=exclusion_terms or [],
         industry=industry,
         created_by=created_by,
-        google_news_source_allowlist=google_news_source_allowlist or [],
+        google_news_source_allowlist=google_news_source_allowlist,
+        google_news_source_denylist=google_news_source_denylist or [],
+        google_news_country=google_news_country,
+        google_news_language=google_news_language,
+        google_news_require_name_in_title=google_news_require_name_in_title,
     )
+    sync_keywords(company)
     db.add(company)
     db.flush()
     return company
@@ -99,9 +124,16 @@ def to_response(
         id=company.id,
         name=company.name,
         keywords=company.keywords,
+        aliases=company.aliases,
+        context_terms=company.context_terms,
+        exclusion_terms=company.exclusion_terms,
         industry=company.industry,
         is_active=company.is_active,
         google_news_source_allowlist=company.google_news_source_allowlist,
+        google_news_source_denylist=company.google_news_source_denylist,
+        google_news_country=company.google_news_country,
+        google_news_language=company.google_news_language,
+        google_news_require_name_in_title=company.google_news_require_name_in_title,
         created_by=company.created_by,
         is_muted=follow.is_muted if follow is not None else None,
         follower_count=follower_count(db, company.id),

@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ARRAY, DateTime, Enum, Float, ForeignKey, String, Text, func
+from sqlalchemy import ARRAY, Boolean, DateTime, Enum, Float, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -18,6 +18,7 @@ class ArticleSource(str, enum.Enum):
 
 class Article(Base, UUIDPrimaryKeyMixin):
     __tablename__ = "articles"
+    __table_args__ = (UniqueConstraint("target_company_id", "url", name="uq_articles_company_url"),)
 
     target_company_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("target_companies.id", ondelete="CASCADE"), nullable=False
@@ -31,7 +32,21 @@ class Article(Base, UUIDPrimaryKeyMixin):
     )
     source_name: Mapped[str] = mapped_column(String(255), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
-    url: Mapped[str] = mapped_column(Text, unique=True, index=True, nullable=False)
+    # Not globally unique: the same story can name two tracked companies, and each
+    # deserves its own signal with its own outreach angle. Uniqueness is enforced on
+    # (target_company_id, url) by a table constraint instead (see
+    # docs/google-news-quality-planning.html §8.3).
+    url: Mapped[str] = mapped_column(Text, index=True, nullable=False)
+    # The publisher URL behind a Google News redirect link, once resolved. NULL when
+    # resolution is disabled, failed, or wasn't needed (the other two providers already
+    # return publisher URLs). `url` keeps the provider's own link as provenance; this is
+    # what the dashboard and digest link to when present, and what cross-source dedupe
+    # compares on — a Google redirect URL never matches the same story's NewsAPI.org URL,
+    # so without this the two are ingested and summarized twice (finding F9).
+    canonical_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # True once snippet enrichment successfully attached real body text to a row that the
+    # provider only gave a headline for.
+    content_enriched: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Full article body — only ever populated for NewsData.io articles fetched with its
     # paid-tier full-content option; null for NewsAPI.org/Google News RSS, which only ever
@@ -67,9 +82,13 @@ class Article(Base, UUIDPrimaryKeyMixin):
 
     @property
     def is_headline_only(self) -> bool:
-        """True for Google News RSS articles: that feed's description field is always a
-        mechanical repeat of the title, never real snippet/body text, unlike NewsAPI.org
-        (real snippet) or NewsData.io (optional full_content). Used to tell the AI
-        triage/summarize prompts not to expect body content, and to label these signals
-        as lower-confidence in the UI."""
-        return self.source == ArticleSource.GOOGLE_NEWS_RSS
+        """True for Google News RSS articles that haven't been enriched: that feed's
+        description field is always a mechanical repeat of the title, never real
+        snippet/body text, unlike NewsAPI.org (real snippet) or NewsData.io (optional
+        full_content). Used to tell the AI triage/summarize prompts not to expect body
+        content, and to label these signals as lower-confidence in the UI.
+
+        Snippet enrichment (services/article_enrichment.py) can lift a Google News row out
+        of this state by fetching the publisher's own description, at which point the
+        prompts should stop being told there's nothing to quote."""
+        return self.source == ArticleSource.GOOGLE_NEWS_RSS and not self.content_enriched

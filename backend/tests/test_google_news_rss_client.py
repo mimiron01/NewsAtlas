@@ -1,6 +1,58 @@
 from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
+
+import httpx
+import pytest
 
 from app.services.google_news_rss_client import GoogleNewsRSSClient
+from app.services.news_client import NewsClientError
+
+
+def rss(items: list[dict]) -> bytes:
+    """Minimal but real Google-News-shaped RSS, so the tests exercise the actual parse
+    path rather than a stand-in for it."""
+    entries = []
+    for item in items:
+        published = item.get("published")
+        entries.append(
+            "<item>"
+            f"<title>{item['title']}</title>"
+            f"<link>{item['link']}</link>"
+            + (f"<description>{item['description']}</description>" if item.get("description") else "")
+            + (f"<pubDate>{format_datetime(published)}</pubDate>" if published else "")
+            + (
+                f'<source url="{item["source_url"]}">{item["source"]}</source>'
+                if item.get("source")
+                else ""
+            )
+            + "</item>"
+        )
+    return (
+        '<?xml version="1.0"?><rss version="2.0"><channel><title>News</title>'
+        + "".join(entries)
+        + "</channel></rss>"
+    ).encode()
+
+
+class FakeResponse:
+    def __init__(self, status_code=200, content=b"", encoding="utf-8"):
+        self.status_code = status_code
+        self.content = content
+        self.encoding = encoding
+
+
+def patch_get(monkeypatch, response, capture: list | None = None):
+    def fake_get(url, **kwargs):
+        if capture is not None:
+            capture.append({"url": url, **kwargs})
+        if isinstance(response, Exception):
+            raise response
+        return response(url) if callable(response) else response
+
+    monkeypatch.setattr("app.services.google_news_rss_client.httpx.get", fake_get)
+
+
+# --- Entry parsing ------------------------------------------------------------------
 
 
 def test_parse_entry_extracts_source_from_source_tag_and_strips_title_suffix():
@@ -57,82 +109,169 @@ def test_parse_entry_handles_missing_published_time():
     assert article.published_at is None
 
 
-def test_fetch_articles_filters_entries_older_than_since(monkeypatch):
+# --- Fetching -----------------------------------------------------------------------
+
+
+def test_fetch_articles_filters_entries_older_than_since_and_counts_the_drop(monkeypatch):
     client = GoogleNewsRSSClient(country="US", language="en")
     now = datetime.now(timezone.utc)
-
-    class FakeFeed:
-        bozo = False
-        entries = [
-            {
-                "title": "Recent - Outlet",
-                "link": "https://example.com/recent",
-                "published_parsed": now.timetuple(),
-            },
-            {
-                "title": "Old - Outlet",
-                "link": "https://example.com/old",
-                "published_parsed": (now - timedelta(days=5)).timetuple(),
-            },
-        ]
-
-        def get(self, key, default=None):
-            return getattr(self, key, default)
-
-    monkeypatch.setattr(
-        "app.services.google_news_rss_client.feedparser.parse", lambda url: FakeFeed()
+    patch_get(
+        monkeypatch,
+        FakeResponse(
+            content=rss(
+                [
+                    {"title": "Recent - Outlet", "link": "https://example.com/recent", "published": now},
+                    {
+                        "title": "Old - Outlet",
+                        "link": "https://example.com/old",
+                        "published": now - timedelta(days=5),
+                    },
+                ]
+            )
+        ),
     )
 
-    articles = client.fetch_articles(name="Acme", keywords=[], since=now - timedelta(days=1))
-    assert [a.title for a in articles] == ["Recent"]
+    outcome = client.fetch_articles(name="Acme", keywords=[], since=now - timedelta(days=1))
+
+    assert [a.title for a in outcome.articles] == ["Recent"]
+    # articles_raw is what Google returned; the gap to len(articles) is explained by
+    # drop_counts — that pairing is the whole point of the Phase 0 instrumentation.
+    assert outcome.articles_raw == 2
+    assert outcome.drop_counts["stale"] == 1
 
 
-def test_fetch_articles_includes_site_restriction_in_query_url(monkeypatch):
+def test_fetch_articles_reports_the_query_it_sent(monkeypatch):
     client = GoogleNewsRSSClient(country="US", language="en")
     now = datetime.now(timezone.utc)
+    patch_get(monkeypatch, FakeResponse(content=rss([])))
 
-    class EmptyFeed:
-        bozo = False
-        entries: list = []
-
-        def get(self, key, default=None):
-            return getattr(self, key, default)
-
-    captured = {}
-
-    def fake_parse(url):
-        captured["url"] = url
-        return EmptyFeed()
-
-    monkeypatch.setattr("app.services.google_news_rss_client.feedparser.parse", fake_parse)
-
-    client.fetch_articles(
-        name="Acme", keywords=[], since=now - timedelta(days=1), sources=["reuters.com"]
+    outcome = client.fetch_articles(
+        since=now - timedelta(days=1), query_override='Acme -site:msn.com', when="when:1d"
     )
-    assert "site%3Areuters.com" in captured["url"]
+
+    assert outcome.query_text == "Acme -site:msn.com when:1d"
+
+
+def test_fetch_articles_appends_the_when_operator_to_the_url(monkeypatch):
+    client = GoogleNewsRSSClient(country="US", language="en")
+    now = datetime.now(timezone.utc)
+    calls: list[dict] = []
+    patch_get(monkeypatch, FakeResponse(content=rss([])), capture=calls)
+
+    client.fetch_articles(since=now - timedelta(days=1), query_override="Acme", when="when:1d")
+
+    assert "when%3A1d" in calls[0]["url"]
 
 
 def test_fetch_articles_uses_query_override_verbatim_when_given(monkeypatch):
     client = GoogleNewsRSSClient(country="US", language="en")
     now = datetime.now(timezone.utc)
+    calls: list[dict] = []
+    patch_get(monkeypatch, FakeResponse(content=rss([])), capture=calls)
 
-    class EmptyFeed:
-        bozo = False
-        entries: list = []
+    client.fetch_articles(since=now - timedelta(days=1), query_override='Automotive OR "EV battery"')
 
-        def get(self, key, default=None):
-            return getattr(self, key, default)
+    assert "Automotive" in calls[0]["url"]
+    assert "EV%20battery" in calls[0]["url"]
 
-    captured = {}
 
-    def fake_parse(url):
-        captured["url"] = url
-        return EmptyFeed()
+def test_fetch_articles_builds_canonical_language_region_hl(monkeypatch):
+    """Google's documented canonical `hl` is a language-region tag, not a bare code."""
+    client = GoogleNewsRSSClient(country="DE", language="de")
+    calls: list[dict] = []
+    patch_get(monkeypatch, FakeResponse(content=rss([])), capture=calls)
 
-    monkeypatch.setattr("app.services.google_news_rss_client.feedparser.parse", fake_parse)
+    client.fetch_articles(since=datetime.now(timezone.utc) - timedelta(days=1), query_override="x")
 
-    client.fetch_articles(
-        since=now - timedelta(days=1), query_override='Automotive OR "EV battery"'
+    assert "hl=de-DE" in calls[0]["url"]
+    assert "gl=DE" in calls[0]["url"]
+    assert "ceid=DE%3Ade" in calls[0]["url"]
+
+
+def test_fetch_articles_passes_through_an_already_regioned_language(monkeypatch):
+    client = GoogleNewsRSSClient(country="BR", language="pt-BR")
+    calls: list[dict] = []
+    patch_get(monkeypatch, FakeResponse(content=rss([])), capture=calls)
+
+    client.fetch_articles(since=datetime.now(timezone.utc) - timedelta(days=1), query_override="x")
+
+    assert "hl=pt-BR" in calls[0]["url"]
+
+
+def test_fetch_articles_applies_the_configured_timeout(monkeypatch):
+    """The timeout used to be stored and never used, because feedparser did its own fetch
+    and has no timeout parameter — an unresponsive Google could hang a whole run."""
+    client = GoogleNewsRSSClient(country="US", language="en", timeout=3.5)
+    calls: list[dict] = []
+    patch_get(monkeypatch, FakeResponse(content=rss([])), capture=calls)
+
+    client.fetch_articles(since=datetime.now(timezone.utc) - timedelta(days=1), query_override="x")
+
+    assert calls[0]["timeout"] == 3.5
+    assert "NewsAtlas" in calls[0]["headers"]["User-Agent"]
+
+
+# --- Failure modes ------------------------------------------------------------------
+
+
+def test_fetch_articles_raises_on_throttling_instead_of_returning_empty(monkeypatch):
+    """A 429 must never look like "this company has no news" — that made throttling
+    invisible, run after run."""
+    client = GoogleNewsRSSClient(country="US", language="en")
+    monkeypatch.setattr("app.services.google_news_rss_client.time.sleep", lambda _s: None)
+    patch_get(monkeypatch, FakeResponse(status_code=429))
+
+    with pytest.raises(NewsClientError) as exc:
+        client.fetch_articles(
+            since=datetime.now(timezone.utc) - timedelta(days=1), query_override="x"
+        )
+    assert "429" in str(exc.value)
+
+
+def test_fetch_articles_retries_once_then_succeeds(monkeypatch):
+    client = GoogleNewsRSSClient(country="US", language="en")
+    monkeypatch.setattr("app.services.google_news_rss_client.time.sleep", lambda _s: None)
+    responses = [FakeResponse(status_code=503), FakeResponse(content=rss([]))]
+    patch_get(monkeypatch, lambda _url: responses.pop(0))
+
+    outcome = client.fetch_articles(
+        since=datetime.now(timezone.utc) - timedelta(days=1), query_override="x"
     )
-    assert "Automotive" in captured["url"]
-    assert "EV+battery" in captured["url"] or "EV%20battery" in captured["url"]
+
+    assert outcome.articles == []
+    assert responses == []
+
+
+def test_fetch_articles_does_not_retry_a_client_error(monkeypatch):
+    """A 4xx means the request itself is wrong; retrying just repeats it."""
+    client = GoogleNewsRSSClient(country="US", language="en")
+    attempts: list[dict] = []
+    patch_get(monkeypatch, FakeResponse(status_code=400), capture=attempts)
+
+    with pytest.raises(NewsClientError):
+        client.fetch_articles(
+            since=datetime.now(timezone.utc) - timedelta(days=1), query_override="x"
+        )
+    assert len(attempts) == 1
+
+
+def test_fetch_articles_raises_on_transport_error(monkeypatch):
+    client = GoogleNewsRSSClient(country="US", language="en")
+    monkeypatch.setattr("app.services.google_news_rss_client.time.sleep", lambda _s: None)
+    patch_get(monkeypatch, httpx.ConnectTimeout("timed out"))
+
+    with pytest.raises(NewsClientError):
+        client.fetch_articles(
+            since=datetime.now(timezone.utc) - timedelta(days=1), query_override="x"
+        )
+
+
+def test_fetch_articles_raises_when_a_200_is_not_valid_rss(monkeypatch):
+    """A consent interstitial or error page served with a 200 is still a failed fetch."""
+    client = GoogleNewsRSSClient(country="US", language="en")
+    patch_get(monkeypatch, FakeResponse(content=b"<html><body>Before you continue</body></html>"))
+
+    with pytest.raises(NewsClientError):
+        client.fetch_articles(
+            since=datetime.now(timezone.utc) - timedelta(days=1), query_override="x"
+        )

@@ -15,6 +15,12 @@ class NewsSourceUsageEntry(BaseModel):
     requests_used: int
     articles_returned: int
     created_at: datetime
+    # Phase 0 funnel diagnostics (docs/google-news-quality-planning.html §5.1). None on
+    # rows written before the instrumentation existed, and on providers that build no
+    # query string of their own.
+    query_text: str | None = None
+    articles_raw: int = 0
+    drop_counts: dict[str, int] | None = None
 
 
 class NewsSourceUsageStat(BaseModel):

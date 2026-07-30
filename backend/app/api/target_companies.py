@@ -39,6 +39,7 @@ from app.services.company_follows import (
     to_response,
 )
 from app.services.newsdata_backfill import run_backfill_for_company
+from app.services.target_company_terms import sync_keywords
 from app.services.target_company_import import (
     CsvImportError,
     import_target_companies,
@@ -105,10 +106,17 @@ def create_target_company(
     company = get_or_create_company(
         db,
         name=payload.name,
+        aliases=payload.aliases,
+        context_terms=payload.context_terms,
         keywords=payload.keywords,
+        exclusion_terms=payload.exclusion_terms,
         industry=payload.industry,
         created_by=current_user.id,
         google_news_source_allowlist=payload.google_news_source_allowlist,
+        google_news_source_denylist=payload.google_news_source_denylist,
+        google_news_country=payload.google_news_country,
+        google_news_language=payload.google_news_language,
+        google_news_require_name_in_title=payload.google_news_require_name_in_title,
     )
     follow = ensure_follow(
         db, user_id=current_user.id, target_company_id=company.id, assigned_by=current_user.id
@@ -260,9 +268,20 @@ def update_target_company(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only this company's creator or an admin can edit it",
         )
+    # exclude_unset is what makes the allowlist's two meanings of None distinguishable:
+    # an omitted field isn't in the dump at all, while an explicit null is present with
+    # value None and correctly reverts the company to inheriting the workspace list
+    # (docs/google-news-quality-planning.html §13).
     updates = payload.model_dump(exclude_unset=True)
+    # Legacy clients still PATCH `keywords`; route it to the role it actually played
+    # rather than letting it overwrite the derived column directly.
+    legacy_keywords = updates.pop("keywords", None)
+    if legacy_keywords is not None and "context_terms" not in updates:
+        updates["context_terms"] = legacy_keywords
     for field, value in updates.items():
         setattr(company, field, value)
+    if "aliases" in updates or "context_terms" in updates:
+        sync_keywords(company)
     db.commit()
     db.refresh(company)
     return to_response(db, company, follow)

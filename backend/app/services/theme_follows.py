@@ -16,6 +16,9 @@ def get_or_create_theme(
     industry: str | None,
     created_by: uuid.UUID,
     google_news_source_allowlist: list[str] | None = None,
+    google_news_source_denylist: list[str] | None = None,
+    exclusion_terms: list[str] | None = None,
+    news_sources: list[str] | None = None,
     google_news_country: str | None = None,
     google_news_language: str | None = None,
 ) -> ThemeWatch:
@@ -33,7 +36,12 @@ def get_or_create_theme(
         query_terms=query_terms,
         industry=industry,
         created_by=created_by,
-        google_news_source_allowlist=google_news_source_allowlist or [],
+        # None is preserved rather than coerced to []: for the allowlist those mean
+        # different things (inherit vs. explicitly unrestricted), unlike the denylist.
+        google_news_source_allowlist=google_news_source_allowlist,
+        google_news_source_denylist=google_news_source_denylist or [],
+        exclusion_terms=exclusion_terms or [],
+        news_sources=news_sources,
         google_news_country=google_news_country,
         google_news_language=google_news_language,
     )
@@ -96,6 +104,9 @@ def to_response(
         industry=theme.industry,
         is_active=theme.is_active,
         google_news_source_allowlist=theme.google_news_source_allowlist,
+        google_news_source_denylist=theme.google_news_source_denylist,
+        exclusion_terms=theme.exclusion_terms,
+        news_sources=theme.news_sources,
         google_news_country=theme.google_news_country,
         google_news_language=theme.google_news_language,
         last_manual_run_at=theme.last_manual_run_at,
