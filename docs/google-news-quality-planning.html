@@ -231,6 +231,8 @@
 
 <div class="decision"><strong>Decision — the target-company term model is split into distinct roles.</strong> Today's single <code>keywords</code> list is doing two incompatible jobs at once (identity alias vs. topic narrower). It becomes <code>aliases</code> (identity), <code>context_terms</code> (narrowing), and <code>exclusion_terms</code> (negation). Migrations and UI changes are acceptable.</div>
 
+<div class="decision"><strong>Decision — article URLs are deduplicated per company, with the workspace setting as the default.</strong> A story naming two tracked companies must produce a signal for both, so <code>articles.url</code> becomes unique on <code>(target_company_id, url)</code>, governed by <code>workspace_settings.article_dedupe_scope</code> (default <code>company</code>). Full consequences in <a href="#phase3">§8.3</a>.</div>
+
 <div class="decision"><strong>Decision — the blast radius stays inside the Google News path.</strong> Following the precedent set by v1 roadmap §2.3, <code>build_or_query()</code> and the NewsAPI.org / NewsData.io clients are not touched. Where the new term fields must reach those providers and the AI prompts, they do so through a synchronized legacy <code>keywords</code> column (<a href="#phase2">§7.2</a>), not by rewriting those call sites.</div>
 
 <h2 id="current">2. Current state</h2>
@@ -499,8 +501,16 @@ feed = feedparser.parse(response.content)</code></pre>
 </div>
 
 <div class="item">
-<h4>8.3 Decision needed: company-scoped URL dedupe (F12)</h4>
-<div class="assumption"><strong>Needs sign-off before implementing.</strong> Changing <code>articles.url</code> from globally unique to unique on <code>(target_company_id, url)</code> — and making the pre-insert check at <code>ingestion.py:406</code> company-scoped — lets a story naming two tracked companies produce a signal for both, which is correct behaviour. It also increases AI spend on exactly the stories most likely to be relevant to several targets, and it interacts with the theme path's cross-path dedupe rule (theme-search §6). Recommended, but it is a spend decision, not a bug fix, so it should be an explicit yes rather than something that arrives inside a "quality" change.</div>
+<h4>8.3 Company-scoped URL dedupe (F12)</h4>
+<div class="decision"><strong>Decision (2026-07-30) — <code>articles.url</code> becomes unique per company, and the scope is a workspace setting.</strong> The unique constraint moves from <code>url</code> to <code>(target_company_id, url)</code>, and the pre-insert check at <code>ingestion.py:406</code> becomes company-scoped, so a story naming two tracked companies produces a signal for both instead of silently only for whichever the loop reached first. The behaviour is governed by <code>workspace_settings.article_dedupe_scope</code> ∈ {<code>company</code>, <code>workspace</code>}, defaulting to <code>company</code> — the workspace value is the default every company runs under.</div>
+<p>Consequences to handle in implementation:</p>
+<ul>
+  <li><strong>Spend.</strong> This deliberately increases AI cost on exactly the stories most likely to matter to several targets. It is bounded by the existing per-company cap (<code>max_articles_per_company_per_run</code>), which applies independently per company, so the worst case is linear in the number of companies a single story names.</li>
+  <li><strong>Theme path.</strong> The cross-path rule in <a href="theme-search-planning.html">theme-search §6</a> — never create a <code>ThemeMatch</code> for a URL already covered by some company's <code>Article</code> — is unaffected: it is a global existence check, not a uniqueness constraint, and stays global under either scope setting.</li>
+  <li><strong>Migration.</strong> Dropping a unique index and adding a composite one is straightforward; existing rows already satisfy the weaker constraint, so no data cleanup is needed and the migration is reversible only if no duplicate-URL rows have been created since — note that in the downgrade path rather than pretending it round-trips.</li>
+  <li><strong>The <code>workspace</code> setting value</strong> preserves today's behaviour exactly, as an escape hatch if the spend turns out worse than expected. It does not restore the global unique <em>constraint</em> (that would break rows created while in <code>company</code> mode) — it only restores the global pre-insert <em>check</em>.</li>
+</ul>
+<div class="assumption"><strong>Assumption — no per-company override for this setting in v1.</strong> The repo's NULL-means-inherit convention (editions, <code>ThemeWatch</code>) would support one, but a per-company dedupe scope is a knob with no obvious use case: the whole point of company-scoped dedupe is that it applies across companies. Deferred until a real need appears.</div>
 </div>
 </div>
 
@@ -553,7 +563,8 @@ feed = feedparser.parse(response.content)</code></pre>
   <tr><td><code>theme_watches</code></td><td><code>exclusion_terms</code>, <code>google_news_source_denylist</code></td><td><code>ARRAY(String)</code>, default <code>[]</code></td><td>2</td></tr>
   <tr><td><code>workspace_settings</code></td><td><code>google_news_source_denylist</code></td><td><code>ARRAY(String)</code>, default <code>[]</code></td><td>2</td></tr>
   <tr><td><code>workspace_settings</code></td><td><code>google_news_query_strategy</code></td><td><code>String(16)</code>, default <code>"single"</code></td><td>2</td></tr>
-  <tr><td><code>articles</code></td><td><code>url</code></td><td>unique → unique on <code>(target_company_id, url)</code> <em>(needs sign-off, §8.3)</em></td><td>3</td></tr>
+  <tr><td><code>articles</code></td><td><code>url</code></td><td>unique → unique on <code>(target_company_id, url)</code></td><td>3</td></tr>
+  <tr><td><code>workspace_settings</code></td><td><code>article_dedupe_scope</code></td><td><code>String(16)</code>, default <code>"company"</code></td><td>3</td></tr>
   <tr><td><code>workspace_settings</code></td><td><code>google_news_resolve_urls_enabled</code>, <code>google_news_fetch_snippets_enabled</code></td><td><code>Boolean</code>, default false</td><td>4</td></tr>
   <tr><td><code>articles</code></td><td><code>canonical_url</code></td><td><code>Text</code>, nullable</td><td>4</td></tr>
   <tr><td><code>articles</code></td><td><code>content_enriched</code></td><td><code>Boolean</code>, default false</td><td>4</td></tr>
@@ -595,6 +606,7 @@ feed = feedparser.parse(response.content)</code></pre>
   <li><code>keywords</code> stays synchronized with <code>aliases + context_terms</code> across create and update.</li>
   <li>SSRF guard: private/loopback/link-local targets rejected, including on a redirect hop.</li>
   <li>Preview endpoint: admin-gated, rate-limited, writes no <code>articles</code> rows and makes no AI call.</li>
+  <li>Company-scoped dedupe: one article naming two tracked companies produces a <code>Signal</code> for both under <code>article_dedupe_scope="company"</code>, and exactly one (today's behaviour) under <code>"workspace"</code>; the theme path's global URL check still suppresses a <code>ThemeMatch</code> for that URL under either setting.</li>
   <li>Existing NewsAPI.org / NewsData.io / theme tests unchanged and passing — the §1 blast-radius decision is only real if this holds.</li>
 </ul>
 <p><strong>Acceptance for the whole effort</strong> is measured, not asserted: with Phase 0 shipped first, record a baseline week of <code>drop_counts</code>, <code>triaged_out</code> and dismissal rates for Google News, then compare after each phase. "Fewer noisy signals" has to show up as a lower triaged-out + dismissed fraction at equal or higher signal volume.</p>
@@ -613,7 +625,6 @@ feed = feedparser.parse(response.content)</code></pre>
 </table>
 <p>Open product questions, deliberately not decided here:</p>
 <ul>
-  <li><strong>Company-scoped URL uniqueness (§8.3)</strong> — a spend decision that needs an explicit yes.</li>
   <li><strong>Allowlist semantics</strong> — the workspace allowlist is unioned into every company's query with no opt-out, so a workspace-level allowlist silently hard-restricts every company. Once denylists exist (which cover most of the same intent without the recall cost), consider whether the workspace allowlist should become a default that a company can override rather than one it can only extend.</li>
   <li><strong>Whether Google News stays the only theme provider</strong> — <code>ingestion.py:241-255</code> makes themes entirely dependent on it. Out of scope here, but every precision limit in this document is also a ceiling on the theme feed.</li>
 </ul>
@@ -624,7 +635,7 @@ feed = feedparser.parse(response.content)</code></pre>
   <li><strong>Spikes S1–S5</strong> — run against the live feed, record answers in this doc before Phase 1 lands.</li>
   <li><strong>Phase 1</strong> — httpx fetch with timeout/UA/status handling and bounded retry; <code>when:</code> operator + toggle; per-company edition columns, schema, API, UI; canonical <code>hl</code>; word budget with documented drop order.</li>
   <li><strong>Phase 2</strong> — four new term fields + migration backfilling <code>context_terms</code> from <code>keywords</code>; <code>keywords</code> synchronization; new builder; grounding guard on identity terms only; three-input UI with copy that explains the split; theme + workspace denylists; optional <code>intitle:</code> and split-query toggles.</li>
-  <li><strong>Phase 3</strong> — composite scorer replacing newest-N; title near-dup collapse before embedding; source-diversity cap; company-scoped URL dedupe <em>if signed off</em>.</li>
+  <li><strong>Phase 3</strong> — composite scorer replacing newest-N; title near-dup collapse before embedding; source-diversity cap; company-scoped URL dedupe (constraint migration + <code>article_dedupe_scope</code> setting).</li>
   <li><strong>Spike S6</strong>, then <strong>Phase 4</strong> — SSRF-safe fetcher; URL resolution + <code>canonical_url</code>; snippet enrichment + <code>content_enriched</code>; <code>is_headline_only</code> update; UI/digest linking to the canonical URL; both toggles off by default.</li>
   <li><strong>Phase 5</strong> — per-domain precision aggregate; Settings panel with one-click denylisting.</li>
   <li>Update <code>README.md</code> and <code>docs/planning.html</code> to reflect the new term model and the enrichment toggles.</li>
