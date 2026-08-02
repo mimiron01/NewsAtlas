@@ -118,4 +118,5 @@ def to_response(
         is_muted=follow.is_muted if follow is not None else None,
         follower_count=follower_count(db, theme.id),
         created_from_template_id=theme.created_from_template_id,
+        ai_feedback_note=theme.ai_feedback_note,
     )

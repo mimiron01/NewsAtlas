@@ -518,6 +518,7 @@ class AIClient:
         article_title: str,
         article_description: str | None,
         industry: str | None = None,
+        feedback_note: str | None = None,
         headline_only: bool = False,
     ) -> tuple[TriageResult, MistralUsage]:
         """Same cheap-pre-filter/fail-open contract as triage_article, but checking
@@ -541,6 +542,9 @@ class AIClient:
         context_lines.append(
             f"Article description: {article_description or '(no description available)'}"
         )
+        if feedback_note:
+            context_lines.append("")
+            context_lines.append(f"Steering note from user feedback: {feedback_note}")
         messages = [
             {"role": "system", "content": system_content},
             {"role": "user", "content": "\n".join(context_lines)},
@@ -564,6 +568,7 @@ class AIClient:
         article_title: str,
         article_description: str | None,
         industry: str | None = None,
+        feedback_note: str | None = None,
         output_language: str = "en",
         headline_only: bool = False,
     ) -> tuple[ThemeArticleResult, MistralUsage]:
@@ -586,6 +591,9 @@ class AIClient:
         context_lines.append(
             f"Article description: {article_description or '(no description available)'}"
         )
+        if feedback_note:
+            context_lines.append("")
+            context_lines.append(f"Steering note from user feedback: {feedback_note}")
 
         system_content = _THEME_SYSTEM_PROMPT + _language_directive(output_language)
         if headline_only:

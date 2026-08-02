@@ -20,6 +20,7 @@ from app.schemas.theme_watch import (
     ThemeQueryPreviewResponse,
     ThemeWatchCreate,
     ThemeWatchResponse,
+    ThemeWatchStatsResponse,
     ThemeWatchUpdate,
 )
 from app.schemas.topic_template import SuggestedTopicResponse
@@ -41,6 +42,7 @@ from app.services.theme_follows import (
     remove_follow,
     to_response,
 )
+from app.services.theme_watch_stats import get_theme_watch_stats
 from app.services.topic_templates import list_active_templates
 from app.services.workspace_settings import (
     enforce_trigger_cooldown,
@@ -427,6 +429,22 @@ def run_theme_now(
         run_id=str(run.id),
     )
     return to_status_response(run)
+
+
+@router.get("/{theme_watch_id}/stats", response_model=ThemeWatchStatsResponse)
+def get_theme_watch_stats_endpoint(
+    theme_watch_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ThemeWatchStatsResponse:
+    """Per-topic health snapshot (§3.2) — same visibility rule as everything else on a
+    topic: any follower, or an admin, not just the creator."""
+    theme = _get_or_404(db, theme_watch_id)
+    if current_user.role != UserRole.ADMIN and get_follow(db, current_user.id, theme_watch_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not following this theme"
+        )
+    return get_theme_watch_stats(db, theme.id)
 
 
 @router.get("/{theme_watch_id}/followers", response_model=list[ThemeFollowerResponse])

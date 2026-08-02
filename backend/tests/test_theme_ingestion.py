@@ -84,14 +84,17 @@ class FakeThemeAIClient:
         return vectors, USAGE
 
     def triage_theme_article(self, *, offering_description, theme_name, query_terms,
-                              article_title, article_description, industry=None, headline_only=False):
+                              article_title, article_description, industry=None,
+                              feedback_note=None, headline_only=False):
         self.triage_calls.append(article_title)
+        self.last_triage_feedback_note = feedback_note
         relevant = article_title not in self.not_relevant_titles
         return TriageResult(relevant=relevant, reason="test"), USAGE
 
     def summarize_theme_article(self, *, company_name, offering_description, theme_name, query_terms,
                                  article_title, article_description, industry=None,
-                                 output_language="en", headline_only=False):
+                                 feedback_note=None, output_language="en", headline_only=False):
+        self.last_summarize_feedback_note = feedback_note
         self.summarize_calls.append(article_title)
         if article_title in self.fail_summarize_titles:
             from app.services.ai_client import AIClientError
@@ -508,3 +511,40 @@ def test_theme_ingestion_uses_theme_query_terms_and_source_allowlist(db_session)
     # Sources are baked into the query string itself (site:...), not passed as a
     # separate fetch_articles() kwarg for the theme path — see _ingest_theme_watch.
     assert "site:techcrunch.com" in query
+
+
+def test_theme_ingestion_computes_and_passes_feedback_note(db_session):
+    """See docs/topics-ux-improvements-planning.html §3.1: refresh_theme_feedback_note
+    runs once per theme per ingestion pass, and the resulting note is threaded into both
+    the triage and summarize calls."""
+    from app.models.signal import SignalStatus
+    from app.services.feedback import MIN_SAMPLE_SIZE
+
+    theme = _make_theme(db_session, name="Automotive")
+    for i in range(MIN_SAMPLE_SIZE):
+        db_session.add(
+            ThemeMatch(
+                theme_watch_id=theme.id,
+                source_name="Example",
+                title=f"Old article {i}",
+                url=f"https://example.com/old-{i}",
+                extracted_company_name="NoiseCo",
+                status=SignalStatus.DISMISSED,
+            )
+        )
+    db_session.commit()
+
+    _enable_sources(db_session, google_news_rss_enabled=True)
+    google = FakeGoogleClient(
+        articles=[_article("Acme Corp raises $10M for EV batteries", "https://example.com/acme-ev")]
+    )
+    ai = FakeThemeAIClient(
+        extracted_company_by_title={"Acme Corp raises $10M for EV batteries": "Acme Corp"}
+    )
+
+    run_ingestion(db_session, ai_client=ai, google_news_client=google)
+
+    db_session.refresh(theme)
+    assert "NoiseCo" in theme.ai_feedback_note
+    assert ai.last_triage_feedback_note == theme.ai_feedback_note
+    assert ai.last_summarize_feedback_note == theme.ai_feedback_note

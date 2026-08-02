@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ARRAY, Boolean, DateTime, ForeignKey, String
+from sqlalchemy import ARRAY, Boolean, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -59,3 +59,9 @@ class ThemeWatch(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     created_from_template_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("topic_templates.id", ondelete="SET NULL"), nullable=True
     )
+    # Per-topic rule-based steering note derived from this topic's own dismissed-match
+    # patterns (no LLM call involved in computing it) — mirrors
+    # workspace_settings.ai_feedback_note but scoped per-topic rather than workspace-wide,
+    # since a dismiss pattern on one topic shouldn't bias another topic's prompts. See
+    # docs/topics-ux-improvements-planning.html §3.1.
+    ai_feedback_note: Mapped[str] = mapped_column(Text, nullable=False, default="")

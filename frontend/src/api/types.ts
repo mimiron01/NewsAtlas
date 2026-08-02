@@ -377,6 +377,8 @@ export interface ThemeWatch {
   // themselves follow this theme.
   is_muted: boolean | null;
   follower_count: number;
+  created_from_template_id: string | null;
+  ai_feedback_note: string;
 }
 
 export interface ThemeQueryPreview {

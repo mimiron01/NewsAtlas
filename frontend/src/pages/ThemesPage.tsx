@@ -12,6 +12,7 @@ import type {
   ThemeDuplicateNameDetail,
   ThemeMatch,
   ThemeWatch,
+  ThemeWatchStats,
 } from "../api/types";
 import TagInput from "../components/TagInput";
 import ThemeQueryPreviewPanel from "../components/ThemeQueryPreviewPanel";
@@ -35,6 +36,7 @@ export default function ThemesPage() {
   const isAdmin = useIsAdmin();
 
   const [themes, setThemes] = useState<ThemeWatch[]>([]);
+  const [statsByThemeId, setStatsByThemeId] = useState<Record<string, ThemeWatchStats>>({});
   const [name, setName] = useState("");
   const [queryTerms, setQueryTerms] = useState<string[]>([]);
   const [excludeTerms, setExcludeTerms] = useState<string[]>([]);
@@ -118,8 +120,34 @@ export default function ThemesPage() {
   function loadThemes() {
     api
       .get<ThemeWatch[]>("/theme-watches")
-      .then(setThemes)
+      .then((result) => {
+        setThemes(result);
+        loadStats(result);
+      })
       .catch((err) => showToast(err instanceof ApiError ? err.message : t("themes:loadFailed"), "error"));
+  }
+
+  // One request per topic — fine at this scale, since active topics are capped
+  // workspace-wide (default 10) by design (see docs/topics-ux-improvements-planning.html
+  // §3.2). A per-topic failure is swallowed silently rather than surfacing an error
+  // toast for what's a secondary, non-blocking piece of UI.
+  function loadStats(forThemes: ThemeWatch[]) {
+    Promise.all(
+      forThemes.map((theme) =>
+        api
+          .get<ThemeWatchStats>(`/theme-watches/${theme.id}/stats`)
+          .then((stats) => [theme.id, stats] as const)
+          .catch(() => null)
+      )
+    ).then((results) => {
+      setStatsByThemeId((prev) => {
+        const next = { ...prev };
+        for (const entry of results) {
+          if (entry) next[entry[0]] = entry[1];
+        }
+        return next;
+      });
+    });
   }
 
   function loadMatches() {
@@ -357,6 +385,32 @@ export default function ThemesPage() {
 
   function removeLabel(): string {
     return isAdmin ? t("themes:delete") : t("themes:unfollow");
+  }
+
+  // A topic with no matches in this many days is flagged as possibly stale — proposed
+  // default, not tuned against real usage yet (see
+  // docs/topics-ux-improvements-planning.html §8's open questions). Only surfaced for
+  // active topics; a paused one is expected to be quiet.
+  const STALE_DAYS = 14;
+
+  function renderThemeStats(theme: ThemeWatch) {
+    const stats = statsByThemeId[theme.id];
+    if (!stats) return null;
+    if (stats.matches_last_30d === 0) {
+      return <div className="field-hint">{t("themes:stats.noMatchesYet")}</div>;
+    }
+    const isStale =
+      theme.is_active &&
+      stats.last_match_at !== null &&
+      Date.now() - new Date(stats.last_match_at).getTime() > STALE_DAYS * 24 * 60 * 60 * 1000;
+    return (
+      <div className="field-hint">
+        {t("themes:stats.matches7d", { count: stats.matches_last_7d })}
+        {stats.avg_relevance_score_30d !== null &&
+          ` · ${t("themes:stats.avgRelevance", { score: stats.avg_relevance_score_30d.toFixed(1) })}`}
+        {isStale && ` · ${t("themes:stats.stale")}`}
+      </div>
+    );
   }
 
   function confirmCopy(theme: ThemeWatch): string {
@@ -637,6 +691,7 @@ export default function ThemesPage() {
                       −{theme.exclude_terms.join(", −")}
                     </div>
                   )}
+                  {renderThemeStats(theme)}
                 </div>
                 <div className="actions">
                   <ThemeRunButton

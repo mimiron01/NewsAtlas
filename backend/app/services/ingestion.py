@@ -15,7 +15,7 @@ from app.models.theme_match import ThemeMatch
 from app.models.theme_watch import ThemeWatch
 from app.schemas.ingestion import IngestionRunResult
 from app.services.ai_client import AIClient, AIClientError, MistralUsage, cosine_similarity, vector_norm
-from app.services.feedback import refresh_feedback_note
+from app.services.feedback import refresh_feedback_note, refresh_theme_feedback_note
 from app.services.google_news_rss_client import GoogleNewsRSSClient
 from app.services.news_client import NewsClient, NewsClientError
 from app.services.news_query import article_mentions_company, build_theme_query
@@ -543,6 +543,10 @@ def _ingest_theme_watch(
 ) -> _ThemeIngestOutcome:
     """Mirrors _ingest_target_company, sized down to the single-provider (Google News
     RSS only) theme path — see docs/theme-search-planning.html §5."""
+    # Recomputed per-theme, mirroring the once-per-run workspace-wide
+    # refresh_feedback_note call above — see docs/topics-ux-improvements-planning.html
+    # §3.1. Free (SQL only), so doing it on every run is cheap.
+    refresh_theme_feedback_note(db, theme_watch)
     outcome = _ThemeIngestOutcome()
     progress.update(
         current_theme_name=theme_watch.name,
@@ -757,6 +761,7 @@ def _process_new_theme_matches(
                     article_title=match.title,
                     article_description=_theme_grounding_text(match),
                     industry=theme_watch.industry,
+                    feedback_note=theme_watch.ai_feedback_note,
                     headline_only=match.headline_only,
                 )
                 _log_usage(db, "triage", ai_client.triage_model, triage_usage, None, commit=False)
@@ -783,6 +788,7 @@ def _process_new_theme_matches(
                 article_title=match.title,
                 article_description=_theme_grounding_text(match),
                 industry=theme_watch.industry,
+                feedback_note=theme_watch.ai_feedback_note,
                 output_language=workspace_settings.main_language,
                 headline_only=match.headline_only,
             )

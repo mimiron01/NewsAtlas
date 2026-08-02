@@ -131,6 +131,9 @@ class ThemeWatchResponse(BaseModel):
     is_muted: bool | None = None
     follower_count: int
     created_from_template_id: uuid.UUID | None = None
+    # Read-only — computed by refresh_theme_feedback_note, never client-settable. Empty
+    # string until enough dismissed-match history accumulates (see §3.1).
+    ai_feedback_note: str = ""
 
     model_config = {"from_attributes": True}
 
