@@ -9,16 +9,19 @@ import type {
   PublicWorkspaceSettings,
   SignalStatus,
   TargetCompany,
+  ThemeDuplicateNameDetail,
   ThemeMatch,
   ThemeWatch,
 } from "../api/types";
 import TagInput from "../components/TagInput";
+import ThemeQueryPreviewPanel from "../components/ThemeQueryPreviewPanel";
 import ThemeRunButton from "../components/ThemeRunButton";
 import { STATUS_TRANSITION_VALUES } from "../constants/signalStatus";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { usePageTitle } from "../hooks/usePageTitle";
+import { useThemeQueryPreview } from "../hooks/useThemeQueryPreview";
 
 const MATCH_STATUSES: SignalStatus[] = ["new", "reviewed", "archived", "dismissed"];
 const POLL_INTERVAL_MS = 1500;
@@ -33,6 +36,7 @@ export default function ThemesPage() {
   const [themes, setThemes] = useState<ThemeWatch[]>([]);
   const [name, setName] = useState("");
   const [queryTerms, setQueryTerms] = useState<string[]>([]);
+  const [excludeTerms, setExcludeTerms] = useState<string[]>([]);
   const [industry, setIndustry] = useState("");
   const [sourceAllowlist, setSourceAllowlist] = useState<string[]>([]);
   const [country, setCountry] = useState("");
@@ -43,10 +47,17 @@ export default function ThemesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editQueryTerms, setEditQueryTerms] = useState<string[]>([]);
+  const [editExcludeTerms, setEditExcludeTerms] = useState<string[]>([]);
   const [editIndustry, setEditIndustry] = useState("");
   const [editSourceAllowlist, setEditSourceAllowlist] = useState<string[]>([]);
   const [editCountry, setEditCountry] = useState("");
   const [editLanguage, setEditLanguage] = useState("");
+  // Set when POST /theme-watches 409s with a duplicate-name conflict (see
+  // docs/topics-ux-improvements-planning.html §1.4) — surfaces the choice explicitly
+  // instead of the old silent merge-by-name behavior.
+  const [duplicateConflict, setDuplicateConflict] = useState<ThemeDuplicateNameDetail | null>(
+    null
+  );
 
   const [matches, setMatches] = useState<ThemeMatch[]>([]);
   const [matchThemeFilter, setMatchThemeFilter] = useState("");
@@ -66,6 +77,23 @@ export default function ThemesPage() {
   // warning it may immediately retract.
   const googleNewsDisabled = publicSettings !== null && !publicSettings.google_news_rss_enabled;
   const cooldownSeconds = publicSettings?.manual_trigger_cooldown_seconds ?? 60;
+
+  const createPreview = useThemeQueryPreview({
+    queryTerms,
+    excludeTerms,
+    sourceAllowlist,
+    country,
+    language,
+    disabled: googleNewsDisabled,
+  });
+  const editPreview = useThemeQueryPreview({
+    queryTerms: editQueryTerms,
+    excludeTerms: editExcludeTerms,
+    sourceAllowlist: editSourceAllowlist,
+    country: editCountry,
+    language: editLanguage,
+    disabled: googleNewsDisabled || editingId === null,
+  });
 
   function canEdit(theme: ThemeWatch): boolean {
     return isAdmin || (user !== null && theme.created_by === user.id);
@@ -168,28 +196,47 @@ export default function ThemesPage() {
     }
   }
 
+  function resetCreateForm() {
+    setName("");
+    setQueryTerms([]);
+    setExcludeTerms([]);
+    setIndustry("");
+    setSourceAllowlist([]);
+    setCountry("");
+    setLanguage("");
+  }
+
+  function buildCreatePayload(confirmMerge: boolean) {
+    return {
+      name,
+      query_terms: queryTerms,
+      exclude_terms: excludeTerms,
+      industry: industry || null,
+      google_news_source_allowlist: sourceAllowlist,
+      // "" is the "workspace default" option; the backend stores it as null/inherit.
+      google_news_country: country,
+      google_news_language: language,
+      confirm_merge: confirmMerge,
+    };
+  }
+
   async function handleAddTheme(event: FormEvent) {
     event.preventDefault();
+    setDuplicateConflict(null);
     setIsSubmitting(true);
     try {
-      await api.post<ThemeWatch>("/theme-watches", {
-        name,
-        query_terms: queryTerms,
-        industry: industry || null,
-        google_news_source_allowlist: sourceAllowlist,
-        // "" is the "workspace default" option; the backend stores it as null/inherit.
-        google_news_country: country,
-        google_news_language: language,
-      });
-      setName("");
-      setQueryTerms([]);
-      setIndustry("");
-      setSourceAllowlist([]);
-      setCountry("");
-      setLanguage("");
+      await api.post<ThemeWatch>("/theme-watches", buildCreatePayload(false));
+      resetCreateForm();
       showToast(t("themes:addedToast"), "success");
       loadThemes();
     } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        const detail = err.detail as ThemeDuplicateNameDetail | undefined;
+        if (detail?.code === "duplicate_name") {
+          setDuplicateConflict(detail);
+          return;
+        }
+      }
       const message =
         err instanceof ApiError && err.status === 400
           ? t("themes:activeCeilingReached")
@@ -202,11 +249,27 @@ export default function ThemesPage() {
     }
   }
 
+  async function followExistingDuplicate() {
+    setIsSubmitting(true);
+    try {
+      await api.post<ThemeWatch>("/theme-watches", buildCreatePayload(true));
+      resetCreateForm();
+      setDuplicateConflict(null);
+      showToast(t("themes:addedToast"), "success");
+      loadThemes();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("themes:addFailed"), "error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   function startEdit(theme: ThemeWatch) {
     setConfirmingId(null);
     setEditingId(theme.id);
     setEditName(theme.name);
     setEditQueryTerms(theme.query_terms);
+    setEditExcludeTerms(theme.exclude_terms);
     setEditIndustry(theme.industry ?? "");
     setEditSourceAllowlist(theme.google_news_source_allowlist);
     setEditCountry(theme.google_news_country ?? "");
@@ -224,6 +287,7 @@ export default function ThemesPage() {
       await api.patch(`/theme-watches/${theme.id}`, {
         name: editName,
         query_terms: editQueryTerms,
+        exclude_terms: editExcludeTerms,
         industry: editIndustry || null,
         google_news_source_allowlist: editSourceAllowlist,
         google_news_country: editCountry,
@@ -386,6 +450,21 @@ export default function ThemesPage() {
           <span className="field-hint">{t("themes:addTheme.queryTermsHint")}</span>
         </label>
         <label>
+          {t("themes:addTheme.excludeTerms")}
+          <TagInput
+            tags={excludeTerms}
+            onChange={setExcludeTerms}
+            placeholder={t("themes:addTheme.excludeTermsPlaceholder")}
+          />
+          <span className="field-hint">{t("themes:addTheme.excludeTermsHint")}</span>
+        </label>
+        <ThemeQueryPreviewPanel
+          loading={createPreview.loading}
+          result={createPreview.result}
+          error={createPreview.error}
+          googleNewsDisabled={googleNewsDisabled}
+        />
+        <label>
           {t("themes:addTheme.sourceAllowlist")}
           <TagInput
             tags={sourceAllowlist}
@@ -413,6 +492,25 @@ export default function ThemesPage() {
           </label>
         </div>
         <span className="field-hint">{t("themes:addTheme.editionHint")}</span>
+        {duplicateConflict && (
+          <div className="panel-card warning-banner">
+            <strong>{t("themes:duplicate.title")}</strong>
+            <p className="subtitle">
+              {t("themes:duplicate.body", {
+                name,
+                terms: duplicateConflict.existing_query_terms.join(", "),
+              })}
+            </p>
+            <div className="actions">
+              <button type="button" disabled={isSubmitting} onClick={followExistingDuplicate}>
+                {t("themes:duplicate.followExisting")}
+              </button>
+              <button type="button" onClick={() => setDuplicateConflict(null)}>
+                {t("themes:duplicate.useDifferentName")}
+              </button>
+            </div>
+          </div>
+        )}
         <button type="submit" disabled={isSubmitting || queryTerms.length === 0}>
           {t("themes:addTheme.addButton")}
         </button>
@@ -445,6 +543,21 @@ export default function ThemesPage() {
                     />
                     <span className="field-hint">{t("themes:addTheme.queryTermsHint")}</span>
                   </label>
+                  <label>
+                    {t("themes:addTheme.excludeTerms")}
+                    <TagInput
+                      tags={editExcludeTerms}
+                      onChange={setEditExcludeTerms}
+                      placeholder={t("themes:addTheme.excludeTermsPlaceholder")}
+                    />
+                    <span className="field-hint">{t("themes:addTheme.excludeTermsHint")}</span>
+                  </label>
+                  <ThemeQueryPreviewPanel
+                    loading={editPreview.loading}
+                    result={editPreview.result}
+                    error={editPreview.error}
+                    googleNewsDisabled={googleNewsDisabled}
+                  />
                   <label>
                     {t("themes:addTheme.sourceAllowlist")}
                     <TagInput
@@ -499,6 +612,11 @@ export default function ThemesPage() {
                   )}
                   {theme.query_terms.length > 0 && (
                     <div className="keywords">{theme.query_terms.join(", ")}</div>
+                  )}
+                  {theme.exclude_terms.length > 0 && (
+                    <div className="keywords subtitle">
+                      −{theme.exclude_terms.join(", −")}
+                    </div>
                   )}
                 </div>
                 <div className="actions">

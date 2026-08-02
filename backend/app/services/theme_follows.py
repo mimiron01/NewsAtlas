@@ -8,6 +8,17 @@ from app.models.theme_watch import ThemeWatch
 from app.schemas.theme_watch import ThemeWatchResponse
 
 
+def find_theme_by_name(db: Session, name: str) -> ThemeWatch | None:
+    """Case-insensitive lookup used by the create endpoint to surface a duplicate-name
+    confirmation before merging (see docs/topics-ux-improvements-planning.html §1.4),
+    rather than the silent merge get_or_create_theme performs on its own."""
+    return (
+        db.query(ThemeWatch)
+        .filter(func.lower(ThemeWatch.name) == name.strip().lower())
+        .first()
+    )
+
+
 def get_or_create_theme(
     db: Session,
     *,
@@ -15,22 +26,23 @@ def get_or_create_theme(
     query_terms: list[str],
     industry: str | None,
     created_by: uuid.UUID,
+    exclude_terms: list[str] | None = None,
     google_news_source_allowlist: list[str] | None = None,
     google_news_country: str | None = None,
     google_news_language: str | None = None,
 ) -> ThemeWatch:
     """Case-insensitive dedupe by name — mirrors get_or_create_company exactly (see
-    docs/theme-search-planning.html §1: shared catalog, same dedupe convention)."""
-    existing = (
-        db.query(ThemeWatch)
-        .filter(func.lower(ThemeWatch.name) == name.strip().lower())
-        .first()
-    )
+    docs/theme-search-planning.html §1: shared catalog, same dedupe convention). Callers
+    that need to distinguish "found existing" from "created new" (to show the duplicate
+    confirmation in §1.4) should call find_theme_by_name first instead of relying on this
+    function's return value alone."""
+    existing = find_theme_by_name(db, name)
     if existing is not None:
         return existing
     theme = ThemeWatch(
         name=name,
         query_terms=query_terms,
+        exclude_terms=exclude_terms or [],
         industry=industry,
         created_by=created_by,
         google_news_source_allowlist=google_news_source_allowlist or [],
@@ -93,6 +105,7 @@ def to_response(
         id=theme.id,
         name=theme.name,
         query_terms=theme.query_terms,
+        exclude_terms=theme.exclude_terms,
         industry=theme.industry,
         is_active=theme.is_active,
         google_news_source_allowlist=theme.google_news_source_allowlist,

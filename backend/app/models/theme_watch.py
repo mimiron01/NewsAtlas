@@ -21,6 +21,12 @@ class ThemeWatch(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     # At least one required — unlike TargetCompany.keywords, there's no company name to
     # fall back to, so an empty list would search nothing (see build_theme_query).
     query_terms: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
+    # Articles mentioning any of these are filtered out of the query entirely (Google News
+    # RSS supports bare "-term" exclusion). No minimum, unlike query_terms — zero exclusions
+    # is the common case. See docs/topics-ux-improvements-planning.html §1.2: this is the
+    # single highest-leverage quality fix for a topic that has no company-name grounding
+    # guard the way TargetCompany does.
+    exclude_terms: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
     industry: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Same additive/union semantics with workspace_settings.google_news_source_allowlist
     # as TargetCompany.google_news_source_allowlist (v1 roadmap §2.3).

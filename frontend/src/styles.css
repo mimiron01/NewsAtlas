@@ -544,6 +544,23 @@ button.danger { background: var(--danger-solid); }
   background: var(--danger-soft-bg);
 }
 .warning-banner .subtitle { margin: 6px 0 0; }
+.warning-banner .actions { display: flex; gap: 8px; margin-top: 10px; }
+
+/* Live query preview (see docs/topics-ux-improvements-planning.html §1.3) — kept
+   visually quiet (muted text, small headline list) since it's a hint, not a form field. */
+.theme-query-preview-headlines {
+  list-style: none;
+  padding: 0;
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.theme-query-preview-headlines li {
+  padding: 2px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .setup-checklist { border: 1px solid var(--accent); }
 .checklist-steps { list-style: none; padding: 0; margin: 8px 0 0; }

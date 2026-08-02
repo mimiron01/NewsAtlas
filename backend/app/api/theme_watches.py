@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
@@ -15,18 +16,24 @@ from app.models.user import User, UserRole
 from app.schemas.ingestion import IngestionRunStatusResponse
 from app.schemas.theme_watch import (
     ThemeFollowerResponse,
+    ThemeQueryPreviewRequest,
+    ThemeQueryPreviewResponse,
     ThemeWatchCreate,
     ThemeWatchResponse,
     ThemeWatchUpdate,
 )
+from app.services.google_news_rss_client import GoogleNewsRSSClient
 from app.services.ingestion_runs import (
     create_run,
     execute_ingestion_run,
     get_running_run,
     to_status_response,
 )
+from app.services.news_client import NewsClientError
+from app.services.news_query import build_theme_query
 from app.services.theme_follows import (
     ensure_follow,
+    find_theme_by_name,
     get_follow,
     get_or_create_theme,
     remove_follow,
@@ -38,6 +45,11 @@ from app.services.workspace_settings import (
 )
 
 router = APIRouter(prefix="/theme-watches", tags=["theme-watches"])
+
+# How far back the live preview looks — short enough to answer "does this query find
+# anything recent" quickly, independent of a topic's eventual lookback/schedule.
+PREVIEW_LOOKBACK_DAYS = 7
+PREVIEW_SAMPLE_HEADLINES = 5
 
 
 def _get_or_404(db: Session, theme_watch_id: uuid.UUID) -> ThemeWatch:
@@ -81,6 +93,23 @@ def create_theme_watch(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ThemeWatchResponse:
+    # Surfaces the shared-catalog dedupe as an explicit choice instead of silently
+    # merging into whatever already exists under this name (see
+    # docs/topics-ux-improvements-planning.html §1.4). confirm_merge=True (re-submitted
+    # by the frontend after the user picks "Follow existing topic") skips straight past
+    # this and falls through to get_or_create_theme's own dedupe below.
+    if not payload.confirm_merge:
+        existing = find_theme_by_name(db, payload.name)
+        if existing is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "duplicate_name",
+                    "existing_id": str(existing.id),
+                    "existing_query_terms": existing.query_terms,
+                },
+            )
+
     workspace_settings = get_or_create_workspace_settings(db)
     active_count = db.query(ThemeWatch).filter(ThemeWatch.is_active.is_(True)).count()
     if active_count >= workspace_settings.max_active_theme_watches:
@@ -96,6 +125,7 @@ def create_theme_watch(
         db,
         name=payload.name,
         query_terms=payload.query_terms,
+        exclude_terms=payload.exclude_terms,
         industry=payload.industry,
         created_by=current_user.id,
         google_news_source_allowlist=payload.google_news_source_allowlist,
@@ -109,6 +139,58 @@ def create_theme_watch(
     db.refresh(theme)
     db.refresh(follow)
     return to_response(db, theme, follow)
+
+
+@router.post("/preview", response_model=ThemeQueryPreviewResponse)
+@limiter.limit("30/hour")
+def preview_theme_query(
+    payload: ThemeQueryPreviewRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ThemeQueryPreviewResponse:
+    """Live, unsaved-query preview against Google News RSS — no ThemeMatch/ThemeWatch
+    rows are created and no AI call is made, so this is free and near-instant (see
+    docs/topics-ux-improvements-planning.html §1.3). Works with a theme_watch_id (editing)
+    or without one (initial creation), since it takes the raw fields, not an id."""
+    workspace_settings = get_or_create_workspace_settings(db)
+    if not workspace_settings.google_news_rss_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Google News RSS is disabled for this workspace, and it is the only news "
+                "source topics can use. Enable it under Settings > News sources."
+            ),
+        )
+
+    sources = list(
+        dict.fromkeys(
+            [*(workspace_settings.google_news_source_allowlist or []),
+             *(payload.google_news_source_allowlist or [])]
+        )
+    )
+    query = build_theme_query(payload.query_terms, sources, payload.exclude_terms)
+    client = GoogleNewsRSSClient(
+        country=workspace_settings.google_news_rss_country,
+        language=workspace_settings.google_news_rss_language,
+    )
+    since = datetime.now(timezone.utc) - timedelta(days=PREVIEW_LOOKBACK_DAYS)
+    try:
+        fetched = client.fetch_articles(
+            since=since,
+            query_override=query,
+            country=payload.google_news_country,
+            language=payload.google_news_language,
+        )
+    except NewsClientError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Preview fetch failed: {exc}"
+        )
+
+    return ThemeQueryPreviewResponse(
+        article_count=len(fetched),
+        sample_headlines=[item.title for item in fetched[:PREVIEW_SAMPLE_HEADLINES]],
+    )
 
 
 @router.patch("/{theme_watch_id}", response_model=ThemeWatchResponse)

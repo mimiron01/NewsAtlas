@@ -593,7 +593,7 @@ def _ingest_theme_watch(
              *(theme_watch.google_news_source_allowlist or [])]
         )
     )
-    query = build_theme_query(theme_watch.query_terms, sources)
+    query = build_theme_query(theme_watch.query_terms, sources, theme_watch.exclude_terms)
     try:
         fetched = google_news_client.fetch_articles(
             since=since,
