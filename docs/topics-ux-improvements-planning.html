@@ -370,30 +370,36 @@ POST /topic-templates/{id}/apply                # body: { name?: str, query_term
 </div>
 
 <div class="item" id="p2-3">
-<h4>2.3 AI-suggested topics from the workspace's own offering description <span class="tag">backend + frontend</span></h4>
+<h4>2.3 AI-suggested topics, grounded in the curated template library <span class="tag">backend + frontend</span></h4>
 <p><strong>Why this is a small lift:</strong> <code>workspace_settings.offering_description</code> is already collected at onboarding and fed into every <code>summarize_article</code>/<code>summarize_theme_article</code> call (<code>ai_client.py:504</code> etc.) — it is never used to <em>propose</em> anything today. This closes that gap with one new AI call, reusing the existing Mistral client wiring.</p>
+<div class="decision"><strong>Decision — the AI helper is grounded in §2.1's template library, not a blank generator.</strong> A first draft of this item called Mistral with nothing but the offering description, generating every suggestion from scratch on every call. That's the wrong shape: it throws away the curation work §2.1 already did, can drift stylistically from the vetted templates (inconsistent naming, no exclude-terms discipline, no evidence the terms actually return good results), and gives an admin no way to improve suggestion quality except prompt-tuning. Instead, <code>suggest_topics()</code> is retrieval-augmented against <code>topic_templates</code>: fetch the full active template set (name, description, category, query_terms, exclude_terms — small enough to pass in full; no separate embedding/ranking step needed at this catalog size, revisit only if the library grows past what fits comfortably in the prompt), pass it to the model as labeled examples, and instruct it to do one of two things per suggestion: <strong>(a) recommend an existing template as-is or lightly personalized</strong> (e.g. add the workspace's own product terms to "Fintech &amp; Payments"), which is the common case and inherits that template's already-curated <code>exclude_terms</code> and §2.4 track record, or <strong>(b) synthesize a new topic modeled on the same structure/quality bar</strong> only when nothing in the library fits the offering description well. This makes "the AI helper has example templates to draw from" literally true rather than aspirational, and gives every AI-personalized suggestion a plausible starting point that's already been through curation instead of being invented fresh each time.</div>
 <pre><code># ai_client.py — new method, same shape/fail-open convention as triage_theme_article
 class SuggestedTopic(BaseModel):
     name: str
     query_terms: list[str]
     exclude_terms: list[str] = []
     rationale: str  # one sentence: why this fits the workspace's offering
+    based_on_template_id: uuid.UUID | None = None  # set when (a) applies; None when synthesized fresh
 
 def suggest_topics(
     self, *, offering_description: str, industry: str | None = None,
     existing_topic_names: list[str] | None = None,
+    available_templates: list[TemplateExample],  # id, name, description, category, query_terms, exclude_terms
 ) -> tuple[list[SuggestedTopic], MistralUsage]:
-    """Given the workspace's own offering description, propose 3-5 topics worth
-    tracking, deliberately excluding names already tracked (existing_topic_names)."""</code></pre>
+    """Given the workspace's own offering description and the full active template
+    library as grounding examples, propose 3-5 topics worth tracking — preferring to
+    adapt an existing template (based_on_template_id set) over inventing one from
+    scratch, and deliberately excluding names already tracked (existing_topic_names)."""</code></pre>
 <pre><code># app/api/theme_watches.py
 @router.get("/suggestions", response_model=list[SuggestedTopicResponse])
 @limiter.limit("10/hour")  # paid Mistral call — needs the same anti-abuse posture as other manual-trigger endpoints
 def get_suggested_topics(db: Session = Depends(get_db),
                           current_user: User = Depends(get_current_user)) -> list[SuggestedTopicResponse]:
+    # loads active topic_templates (§2.1) and passes them as available_templates
     ...</code></pre>
 <div class="decision"><strong>Decision — computed on demand, not cached/scheduled.</strong> Unlike <code>ai_feedback_note</code> (recomputed every ingestion run for free via SQL), this is a paid LLM call, so it only runs when a user actually opens the "Suggested for you" panel — not on a schedule, not eagerly on every page load. Rate-limited (10/hour/user, matching the existing <code>manual_trigger_cooldown</code> family of controls in <code>workspace_settings.py</code>) since it's a new "forces a paid AI call" surface, same category of endpoint theme-search-planning.html §10 already flagged as needing this treatment.</div>
-<p><strong>Frontend:</strong> a "Suggested for your business" section in the template gallery (§2.2), visually distinct from the curated templates (it's dynamic and per-workspace, not vetted the same way) — each suggestion renders the same card UI as a template with the AI's one-line rationale shown instead of a fixed description, and "Use this" pre-fills the create form exactly like applying a template does. A refresh button re-calls the endpoint (subject to the rate limit) if the offering description has since changed.</p>
-<p><strong>Acceptance criteria:</strong> suggestions never auto-create anything (same "propose, don't act" posture as template application); an empty/placeholder <code>offering_description</code> returns an empty list with a message pointing at Settings, not a hallucinated generic suggestion; existing topic names are excluded so the panel doesn't suggest what's already tracked.</p>
+<p><strong>Frontend:</strong> a "Suggested for your business" section in the template gallery (§2.2), visually distinct from the curated templates (it's dynamic and per-workspace, not vetted the same way) — each suggestion renders the same card UI as a template with the AI's one-line rationale shown instead of a fixed description. When <code>based_on_template_id</code> is set, the card shows a small "based on: {template name}" hint, so a user can see it's grounded in a proven starting point rather than freely invented. "Use this" pre-fills the create form exactly like applying a template does; when adapted from a template, applying it also sets <code>created_from_template_id</code> (§2.2) so §2.4's performance tracking attributes it to the right lineage even though the terms may have been personalized. A refresh button re-calls the endpoint (subject to the rate limit) if the offering description has since changed.</p>
+<p><strong>Acceptance criteria:</strong> suggestions never auto-create anything (same "propose, don't act" posture as template application); an empty/placeholder <code>offering_description</code> returns an empty list with a message pointing at Settings, not a hallucinated generic suggestion; existing topic names are excluded so the panel doesn't suggest what's already tracked; with an empty template library (e.g. before §2.1's seed migration has run), <code>suggest_topics()</code> still degrades gracefully to case (b)-only (fully synthesized) rather than erroring.</p>
 </div>
 
 <div class="item" id="p2-4">
