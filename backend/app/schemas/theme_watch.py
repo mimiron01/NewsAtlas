@@ -130,6 +130,7 @@ class ThemeWatchResponse(BaseModel):
     # themselves follow this theme.
     is_muted: bool | None = None
     follower_count: int
+    created_from_template_id: uuid.UUID | None = None
 
     model_config = {"from_attributes": True}
 

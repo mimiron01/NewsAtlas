@@ -157,6 +157,29 @@ _THEME_TRIAGE_SYSTEM_PROMPT = (
 )
 
 
+_THEME_SUGGESTION_SYSTEM_PROMPT = (
+    "You are a research assistant helping a B2B sales team decide which industry topics "
+    "to monitor for relevant news. You will be given a description of the workspace's own "
+    "product/offering and a library of already-curated topic templates (each with a name, "
+    "description, and search terms that are known to work well). Respond with ONLY a JSON "
+    'object: {"suggestions": [...]} where each item has exactly these keys:\n'
+    '- "name": a short topic name.\n'
+    '- "query_terms": array of 2-5 search term strings.\n'
+    '- "exclude_terms": array of search term strings to exclude (can be empty).\n'
+    '- "rationale": one sentence explaining why this fits the workspace\'s offering.\n'
+    '- "based_on_template_id": the id string of a template from the library this '
+    "suggestion is adapted from, or null if none of the templates fit and you wrote this "
+    "one from scratch.\n"
+    "Strongly prefer adapting an existing template from the library (personalizing its "
+    "name/terms to the workspace's offering, e.g. adding a product-specific term) over "
+    "inventing a new topic — templates are already vetted and known to produce good "
+    "results, so only write a from-scratch suggestion (based_on_template_id: null) when "
+    "nothing in the library is a reasonable fit for the offering. Never suggest a topic "
+    "whose name matches one already being tracked (see the excluded-names list below). "
+    "Suggest between 3 and 5 topics. Respond with ONLY the JSON object and no other text."
+)
+
+
 class AIClientError(Exception):
     """Raised when the AI provider can't be reached or returns an unusable response."""
 
@@ -257,6 +280,40 @@ class ThemeArticleResult(BaseModel):
             return normalized
         logger.warning("Mistral returned unrecognized confidence %r; coercing to 'medium'", value)
         return "medium"
+
+
+class TemplateExample(BaseModel):
+    """A curated topic_templates row, passed into suggest_topics() as grounding —
+    see docs/topics-ux-improvements-planning.html §2.3. Kept as a plain pydantic model
+    (not the ORM row) so ai_client stays free of a DB dependency, same convention as
+    every other method on this class."""
+
+    id: str
+    name: str
+    description: str
+    category: str | None = None
+    query_terms: list[str]
+    exclude_terms: list[str] = []
+
+
+class SuggestedTopic(BaseModel):
+    name: str
+    query_terms: list[str]
+    exclude_terms: list[str] = []
+    rationale: str = ""
+    # Set when the model adapted an existing template (the common case); None when it
+    # judged nothing in the library fit and wrote a fresh suggestion instead.
+    based_on_template_id: str | None = None
+
+    @field_validator("based_on_template_id")
+    @classmethod
+    def _blank_to_none(cls, value: str | None) -> str | None:
+        stripped = (value or "").strip()
+        return stripped or None
+
+
+class SuggestedTopicsResult(BaseModel):
+    suggestions: list[SuggestedTopic] = []
 
 
 def _sum_usage(a: MistralUsage, b: MistralUsage) -> MistralUsage:
@@ -556,6 +613,72 @@ class AIClient:
                 messages.append({"role": "user", "content": _RETRY_PROMPT})
 
         raise AIClientError(f"Mistral theme summarization failed after retry: {last_error}")
+
+    def suggest_topics(
+        self,
+        *,
+        offering_description: str,
+        available_templates: list[TemplateExample],
+        industry: str | None = None,
+        existing_topic_names: list[str] | None = None,
+    ) -> tuple[list[SuggestedTopic], MistralUsage]:
+        """Proposes 3-5 topics worth tracking, grounded in the curated template library
+        rather than generating from scratch — see
+        docs/topics-ux-improvements-planning.html §2.3 for why: it keeps suggestions
+        consistent with already-vetted templates (naming, exclude-terms discipline) and
+        gives every suggestion a traceable lineage back to §2.4's performance tracking.
+        Computed on demand (not cached/scheduled) since it's a paid call — callers should
+        rate-limit it the same way other manual-trigger endpoints are."""
+        if not self.api_key:
+            raise AIClientError("MISTRAL_API_KEY is not configured")
+
+        context_lines = [f"Our offering: {offering_description or '(not provided)'}"]
+        if industry:
+            context_lines.append(f"Our industry: {industry}")
+        if existing_topic_names:
+            context_lines.append(
+                f"Already-tracked topic names (do not suggest these again): "
+                f"{', '.join(existing_topic_names)}"
+            )
+        context_lines.append("")
+        if available_templates:
+            context_lines.append("Template library (prefer adapting one of these):")
+            for template in available_templates:
+                terms = ", ".join(template.query_terms)
+                context_lines.append(
+                    f'- id={template.id} name="{template.name}" '
+                    f"category={template.category or 'n/a'}: {template.description} "
+                    f"(terms: {terms})"
+                )
+        else:
+            context_lines.append(
+                "Template library is currently empty — write suggestions from scratch "
+                "(based_on_template_id: null for all of them)."
+            )
+
+        messages = [
+            {"role": "system", "content": _THEME_SUGGESTION_SYSTEM_PROMPT},
+            {"role": "user", "content": "\n".join(context_lines)},
+        ]
+
+        last_error: Exception | None = None
+        cumulative_usage = MistralUsage()
+        for _ in range(self.MAX_ATTEMPTS):
+            content: str | None = None
+            try:
+                content, usage = self._chat(self.model, messages, temperature=0.4)
+                cumulative_usage = _sum_usage(cumulative_usage, usage)
+                data = json.loads(content)
+                return SuggestedTopicsResult.model_validate(data).suggestions, cumulative_usage
+            except httpx.HTTPError as exc:
+                raise AIClientError(f"Mistral topic suggestion failed: {exc}")
+            except (json.JSONDecodeError, ValidationError) as exc:
+                last_error = exc
+                if content is not None:
+                    messages.append({"role": "assistant", "content": content})
+                messages.append({"role": "user", "content": _RETRY_PROMPT})
+
+        raise AIClientError(f"Mistral topic suggestion failed after retry: {last_error}")
 
     def embed_texts(self, texts: list[str]) -> tuple[list[list[float]], MistralUsage]:
         """Batches all given texts into a single embeddings request."""

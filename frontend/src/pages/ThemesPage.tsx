@@ -16,6 +16,7 @@ import type {
 import TagInput from "../components/TagInput";
 import ThemeQueryPreviewPanel from "../components/ThemeQueryPreviewPanel";
 import ThemeRunButton from "../components/ThemeRunButton";
+import TopicTemplateGallery from "../components/TopicTemplateGallery";
 import { STATUS_TRANSITION_VALUES } from "../constants/signalStatus";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
@@ -58,6 +59,7 @@ export default function ThemesPage() {
   const [duplicateConflict, setDuplicateConflict] = useState<ThemeDuplicateNameDetail | null>(
     null
   );
+  const [showGallery, setShowGallery] = useState(false);
 
   const [matches, setMatches] = useState<ThemeMatch[]>([]);
   const [matchThemeFilter, setMatchThemeFilter] = useState("");
@@ -376,6 +378,12 @@ export default function ThemesPage() {
     }
   }
 
+  function handleTemplateApplied(_theme: ThemeWatch) {
+    setShowGallery(false);
+    showToast(t("themes:addedToast"), "success");
+    loadThemes();
+  }
+
   async function trackCompany(match: ThemeMatch) {
     setTrackingId(match.id);
     try {
@@ -427,9 +435,20 @@ export default function ThemesPage() {
         </div>
       )}
 
+      {showGallery ? (
+        <TopicTemplateGallery onApplied={handleTemplateApplied} onBack={() => setShowGallery(false)} />
+      ) : (
+        <>
       <form className="panel-card" onSubmit={handleAddTheme}>
-        <h2>{t("themes:title")}</h2>
-        <p className="subtitle">{t("themes:subtitle")}</p>
+        <div className="feed-toolbar">
+          <div>
+            <h2>{t("themes:title")}</h2>
+            <p className="subtitle">{t("themes:subtitle")}</p>
+          </div>
+          <button type="button" className="secondary" onClick={() => setShowGallery(true)}>
+            {t("themes:browseTemplates")}
+          </button>
+        </div>
         <div className="field-row">
           <label>
             {t("themes:addTheme.name")}
@@ -780,6 +799,8 @@ export default function ThemesPage() {
           </ul>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

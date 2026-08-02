@@ -52,3 +52,10 @@ class ThemeWatch(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # Provenance only, no behavior change — lets §2.4's template-performance aggregation
+    # attribute this topic's ThemeMatch history back to the template it started from, even
+    # after the user has since edited its terms. NULL = created from scratch, no template
+    # involved. See docs/topics-ux-improvements-planning.html §2.2.
+    created_from_template_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("topic_templates.id", ondelete="SET NULL"), nullable=True
+    )

@@ -22,6 +22,8 @@ from app.schemas.theme_watch import (
     ThemeWatchResponse,
     ThemeWatchUpdate,
 )
+from app.schemas.topic_template import SuggestedTopicResponse
+from app.services.ai_client import AIClient, AIClientError, TemplateExample
 from app.services.google_news_rss_client import GoogleNewsRSSClient
 from app.services.ingestion_runs import (
     create_run,
@@ -39,9 +41,11 @@ from app.services.theme_follows import (
     remove_follow,
     to_response,
 )
+from app.services.topic_templates import list_active_templates
 from app.services.workspace_settings import (
     enforce_trigger_cooldown,
     get_or_create_workspace_settings,
+    resolve_mistral_api_key,
 )
 
 router = APIRouter(prefix="/theme-watches", tags=["theme-watches"])
@@ -191,6 +195,83 @@ def preview_theme_query(
         article_count=len(fetched),
         sample_headlines=[item.title for item in fetched[:PREVIEW_SAMPLE_HEADLINES]],
     )
+
+
+@router.get("/suggestions", response_model=list[SuggestedTopicResponse])
+@limiter.limit("10/hour")
+def get_suggested_topics(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[SuggestedTopicResponse]:
+    """AI-personalized topic suggestions grounded in the curated template library — see
+    docs/topics-ux-improvements-planning.html §2.3. Computed on demand (a paid Mistral
+    call), rate-limited like other manual-trigger endpoints rather than cached/scheduled.
+    Never auto-creates anything — "Use this" on the frontend goes through the normal
+    apply/create flow, same as picking a template by hand."""
+    workspace_settings = get_or_create_workspace_settings(db)
+    app_settings = get_settings()
+    api_key = resolve_mistral_api_key(workspace_settings, app_settings)
+    if not api_key or not workspace_settings.offering_description.strip():
+        # No hallucinated generic suggestion without real grounding — point the user at
+        # what's missing instead (see §2.3 acceptance criteria).
+        return []
+
+    templates = list_active_templates(db)
+    existing_names = [theme.name for theme in db.query(ThemeWatch).all()]
+
+    ai_client = AIClient(
+        api_key=api_key,
+        model=workspace_settings.mistral_model,
+        triage_model=workspace_settings.mistral_triage_model,
+        embed_model=workspace_settings.mistral_embed_model,
+        max_requests_per_second=app_settings.mistral_max_requests_per_second,
+        max_retries=app_settings.mistral_max_retries,
+    )
+    try:
+        suggestions, usage = ai_client.suggest_topics(
+            offering_description=workspace_settings.offering_description,
+            available_templates=[
+                TemplateExample(
+                    id=str(t.id),
+                    name=t.name,
+                    description=t.description,
+                    category=t.category,
+                    query_terms=t.query_terms,
+                    exclude_terms=t.exclude_terms,
+                )
+                for t in templates
+            ],
+            existing_topic_names=existing_names,
+        )
+    except AIClientError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+
+    log_event(
+        "topic_suggestions_generated",
+        request=request,
+        actor_id=str(current_user.id),
+        suggestion_count=len(suggestions),
+        prompt_tokens=usage.prompt_tokens,
+        completion_tokens=usage.completion_tokens,
+    )
+
+    templates_by_id = {str(t.id): t for t in templates}
+    return [
+        SuggestedTopicResponse(
+            name=s.name,
+            query_terms=s.query_terms,
+            exclude_terms=s.exclude_terms,
+            rationale=s.rationale,
+            based_on_template_id=s.based_on_template_id,
+            based_on_template_name=(
+                templates_by_id[s.based_on_template_id].name
+                if s.based_on_template_id and s.based_on_template_id in templates_by_id
+                else None
+            ),
+        )
+        for s in suggestions
+    ]
 
 
 @router.patch("/{theme_watch_id}", response_model=ThemeWatchResponse)

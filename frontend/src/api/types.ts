@@ -401,6 +401,27 @@ export interface ThemeWatchStats {
   last_match_at: string | null;
 }
 
+export interface TopicTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string | null;
+  query_terms: string[];
+  exclude_terms: string[];
+  suggested_source_allowlist: string[];
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface SuggestedTopic {
+  name: string;
+  query_terms: string[];
+  exclude_terms: string[];
+  rationale: string;
+  based_on_template_id: string | null;
+  based_on_template_name: string | null;
+}
+
 export interface ThemeFollower {
   user_id: string;
   email: string;
