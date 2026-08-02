@@ -114,5 +114,27 @@
     "applyFailed": "Failed to apply template",
     "emptyGalleryHint": "or create a custom topic below",
     "loadFailed": "Failed to load topic templates"
+  },
+  "digest": {
+    "include": "Include in my digest",
+    "exclude": "In my digest",
+    "updateFailed": "Failed to update digest setting"
+  },
+  "toolbar": {
+    "searchPlaceholder": "Search topics…",
+    "sortLabel": "Sort",
+    "sortName": "Name",
+    "sortLastMatch": "Last match",
+    "sortCreated": "Newest"
+  },
+  "bulk": {
+    "selectAll": "Select all",
+    "selectedCount": "{{count}} selected",
+    "delete": "Delete ({{count}})",
+    "unfollow": "Unfollow ({{count}})",
+    "confirmDeleteAdmin": "This permanently deletes {{count}} topic(s) and all their matches for every user. Continue?",
+    "confirmUnfollow": "Unfollow {{count}} topic(s)? Topics with other followers stay for them; topics only you follow are removed entirely.",
+    "deletedToast": "Removed {{count}} topic(s).",
+    "removeFailed": "Failed to remove selected topics"
   }
 }

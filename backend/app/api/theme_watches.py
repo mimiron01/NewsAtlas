@@ -18,6 +18,8 @@ from app.schemas.theme_watch import (
     ThemeFollowerResponse,
     ThemeQueryPreviewRequest,
     ThemeQueryPreviewResponse,
+    ThemeWatchBulkDeleteRequest,
+    ThemeWatchBulkDeleteResult,
     ThemeWatchCreate,
     ThemeWatchResponse,
     ThemeWatchStatsResponse,
@@ -341,6 +343,40 @@ def delete_theme_watch(
     db.commit()
 
 
+@router.post("/bulk-delete", response_model=ThemeWatchBulkDeleteResult)
+def bulk_delete_theme_watches(
+    payload: ThemeWatchBulkDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ThemeWatchBulkDeleteResult:
+    """Bulk variant of DELETE /{theme_watch_id} for the topic list's multi-select —
+    mirrors POST /target-companies/bulk-delete's admin-hard-delete vs. follower-unfollow
+    branching and not_found-doesn't-fail-the-batch convention exactly (see
+    docs/topics-ux-improvements-planning.html §4.4)."""
+    deleted = 0
+    not_found = 0
+    for theme_watch_id in payload.theme_watch_ids:
+        theme = db.get(ThemeWatch, theme_watch_id)
+        if theme is None:
+            not_found += 1
+            continue
+        if current_user.role == UserRole.ADMIN:
+            db.delete(theme)
+            deleted += 1
+            log_event(
+                "admin_theme_deleted", user_id=str(current_user.id), theme_watch_id=str(theme_watch_id)
+            )
+            continue
+        follow = get_follow(db, current_user.id, theme_watch_id)
+        if follow is None:
+            not_found += 1
+            continue
+        remove_follow(db, current_user.id, theme_watch_id)
+        deleted += 1
+    db.commit()
+    return ThemeWatchBulkDeleteResult(deleted=deleted, not_found=not_found)
+
+
 @router.post("/{theme_watch_id}/mute", response_model=ThemeWatchResponse)
 def toggle_mute(
     theme_watch_id: uuid.UUID,
@@ -354,6 +390,26 @@ def toggle_mute(
             status_code=status.HTTP_404_NOT_FOUND, detail="Not following this theme"
         )
     follow.is_muted = not follow.is_muted
+    db.commit()
+    db.refresh(follow)
+    return to_response(db, theme, follow)
+
+
+@router.post("/{theme_watch_id}/digest", response_model=ThemeWatchResponse)
+def toggle_digest_inclusion(
+    theme_watch_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ThemeWatchResponse:
+    """Opt this follow's matches in/out of the daily digest email — see
+    docs/topics-ux-improvements-planning.html §4.3. Same per-follow shape as /mute."""
+    theme = _get_or_404(db, theme_watch_id)
+    follow = get_follow(db, current_user.id, theme_watch_id)
+    if follow is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Not following this theme"
+        )
+    follow.include_in_digest = not follow.include_in_digest
     db.commit()
     db.refresh(follow)
     return to_response(db, theme, follow)

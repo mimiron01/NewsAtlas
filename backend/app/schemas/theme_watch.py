@@ -129,6 +129,10 @@ class ThemeWatchResponse(BaseModel):
     # Per-follow fields: None when the requester (an admin using ?scope=all) doesn't
     # themselves follow this theme.
     is_muted: bool | None = None
+    # Per-follow opt-in to include this topic's matches in the daily digest email —
+    # None when the requester doesn't follow (mirrors is_muted). Default false. See
+    # docs/topics-ux-improvements-planning.html §4.3.
+    include_in_digest: bool | None = None
     follower_count: int
     created_from_template_id: uuid.UUID | None = None
     # Read-only — computed by refresh_theme_feedback_note, never client-settable. Empty
@@ -190,6 +194,15 @@ class ThemeQueryPreviewRequest(BaseModel):
 class ThemeQueryPreviewResponse(BaseModel):
     article_count: int
     sample_headlines: list[str]
+
+
+class ThemeWatchBulkDeleteRequest(BaseModel):
+    theme_watch_ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+
+
+class ThemeWatchBulkDeleteResult(BaseModel):
+    deleted: int
+    not_found: int
 
 
 class ThemeWatchStatsResponse(BaseModel):

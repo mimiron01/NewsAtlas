@@ -379,6 +379,12 @@ export interface ThemeWatch {
   follower_count: number;
   created_from_template_id: string | null;
   ai_feedback_note: string;
+  include_in_digest: boolean | null;
+}
+
+export interface ThemeWatchBulkDeleteResult {
+  deleted: number;
+  not_found: number;
 }
 
 export interface ThemeQueryPreview {

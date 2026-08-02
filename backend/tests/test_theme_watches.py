@@ -323,3 +323,105 @@ def test_preview_theme_query_never_persists_anything(client, db_session, monkeyp
 
     assert client.get("/theme-watches", headers=headers).json() == []
 
+
+# --- Digest opt-in toggle (§4.3) ----------------------------------------------------
+
+
+def test_toggle_digest_inclusion_defaults_off_and_flips(client):
+    headers = auth_headers(client)
+    theme = client.post(
+        "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=headers
+    ).json()
+    assert theme["include_in_digest"] is False
+
+    toggled = client.post(f"/theme-watches/{theme['id']}/digest", headers=headers)
+    assert toggled.status_code == 200
+    assert toggled.json()["include_in_digest"] is True
+
+    toggled_again = client.post(f"/theme-watches/{theme['id']}/digest", headers=headers)
+    assert toggled_again.json()["include_in_digest"] is False
+
+
+def test_toggle_digest_inclusion_requires_following(client):
+    headers_a, _ = signup(client, email="a@proair.com")
+    headers_b, _ = signup(client, email="b@proair.com")
+    theme = client.post(
+        "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=headers_a
+    ).json()
+
+    resp = client.post(f"/theme-watches/{theme['id']}/digest", headers=headers_b)
+    assert resp.status_code == 404
+
+
+# --- Bulk delete (§4.4) --------------------------------------------------------------
+
+
+def test_bulk_delete_removes_multiple_topics(client):
+    headers = auth_headers(client)
+    automotive = client.post(
+        "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=headers
+    ).json()
+    fintech = client.post(
+        "/theme-watches", json={"name": "Fintech", "query_terms": ["payments"]}, headers=headers
+    ).json()
+
+    resp = client.post(
+        "/theme-watches/bulk-delete",
+        json={"theme_watch_ids": [automotive["id"], fintech["id"]]},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 2, "not_found": 0}
+    assert client.get("/theme-watches", headers=headers).json() == []
+
+
+def test_bulk_delete_counts_missing_ids_as_not_found(client):
+    headers = auth_headers(client)
+    automotive = client.post(
+        "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=headers
+    ).json()
+
+    resp = client.post(
+        "/theme-watches/bulk-delete",
+        json={"theme_watch_ids": [automotive["id"], "00000000-0000-0000-0000-000000000000"]},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 1, "not_found": 1}
+
+
+def test_bulk_delete_non_admin_only_removes_own_follow(client):
+    headers_a, _ = signup(client, email="a@proair.com")
+    headers_b, _ = signup(client, email="b@proair.com")
+    theme = client.post(
+        "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=headers_a
+    ).json()
+
+    resp = client.post(
+        "/theme-watches/bulk-delete", json={"theme_watch_ids": [theme["id"]]}, headers=headers_b
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 0, "not_found": 1}
+    assert len(client.get("/theme-watches", headers=headers_a).json()) == 1
+
+
+def test_bulk_delete_admin_hard_deletes_for_everyone(client):
+    admin_headers, _ = signup(client, email="admin@proair.com")
+    user_headers, _ = signup(client, email="rep@proair.com")
+    theme = client.post(
+        "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=user_headers
+    ).json()
+
+    resp = client.post(
+        "/theme-watches/bulk-delete", json={"theme_watch_ids": [theme["id"]]}, headers=admin_headers
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 1, "not_found": 0}
+    assert client.get("/theme-watches", headers=user_headers).json() == []
+
+
+def test_bulk_delete_requires_non_empty_list(client):
+    headers = auth_headers(client)
+    resp = client.post("/theme-watches/bulk-delete", json={"theme_watch_ids": []}, headers=headers)
+    assert resp.status_code == 422
+

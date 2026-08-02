@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
@@ -61,7 +61,26 @@ export default function ThemesPage() {
   const [duplicateConflict, setDuplicateConflict] = useState<ThemeDuplicateNameDetail | null>(
     null
   );
-  const [showGallery, setShowGallery] = useState(false);
+  // List-level search/sort/bulk-select (§4.4 parity with the companies table) — the list
+  // is small (capped by the workspace's active-topic ceiling), so this is all client-side
+  // rather than server-side pagination/filtering.
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"name" | "lastMatch" | "created">("name");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkConfirming, setBulkConfirming] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [searchParams] = useSearchParams();
+  // Deep link from the onboarding checklist (see
+  // docs/topics-ux-improvements-planning.html §4.1) — opens straight into the gallery
+  // instead of the blank create form, since a new user coming from "browse topic
+  // templates" shouldn't have to find that action again themselves.
+  const [showGallery, setShowGallery] = useState(searchParams.get("gallery") === "1");
+  const [galleryDismissed, setGalleryDismissed] = useState(false);
+  const [themesLoaded, setThemesLoaded] = useState(false);
+  // Default view for a workspace with zero topics (see §4.2) — the gallery is more
+  // useful than a blank form as the very first thing a new user sees here.
+  const displayGallery =
+    !galleryDismissed && (showGallery || (themesLoaded && themes.length === 0));
 
   const [matches, setMatches] = useState<ThemeMatch[]>([]);
   const [matchThemeFilter, setMatchThemeFilter] = useState("");
@@ -124,7 +143,8 @@ export default function ThemesPage() {
         setThemes(result);
         loadStats(result);
       })
-      .catch((err) => showToast(err instanceof ApiError ? err.message : t("themes:loadFailed"), "error"));
+      .catch((err) => showToast(err instanceof ApiError ? err.message : t("themes:loadFailed"), "error"))
+      .finally(() => setThemesLoaded(true));
   }
 
   // One request per topic — fine at this scale, since active topics are capped
@@ -363,6 +383,65 @@ export default function ThemesPage() {
     }
   }
 
+  async function toggleDigest(theme: ThemeWatch) {
+    setPendingId(theme.id);
+    try {
+      await api.post(`/theme-watches/${theme.id}/digest`);
+      loadThemes();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("themes:digest.updateFailed"), "error");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  function toggleSelected(themeId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(themeId)) next.delete(themeId);
+      else next.add(themeId);
+      return next;
+    });
+  }
+
+  async function handleBulkDelete() {
+    setIsBulkDeleting(true);
+    try {
+      await api.post("/theme-watches/bulk-delete", { theme_watch_ids: Array.from(selectedIds) });
+      showToast(t("themes:bulk.deletedToast", { count: selectedIds.size }), "success");
+      setSelectedIds(new Set());
+      setBulkConfirming(false);
+      loadThemes();
+      loadMatches();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("themes:bulk.removeFailed"), "error");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  }
+
+  const visibleThemes = themes
+    .filter((theme) => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        theme.name.toLowerCase().includes(q) ||
+        (theme.industry ?? "").toLowerCase().includes(q) ||
+        theme.query_terms.some((term) => term.toLowerCase().includes(q))
+      );
+    })
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "lastMatch") {
+        const aTime = statsByThemeId[a.id]?.last_match_at ?? "";
+        const bTime = statsByThemeId[b.id]?.last_match_at ?? "";
+        return bTime.localeCompare(aTime);
+      }
+      // "created": no created_at on ThemeWatchResponse — approximate with list order
+      // (the API already returns newest-first), so this is a no-op stable sort.
+      return 0;
+    });
+
   async function remove(theme: ThemeWatch) {
     setPendingId(theme.id);
     try {
@@ -489,8 +568,14 @@ export default function ThemesPage() {
         </div>
       )}
 
-      {showGallery ? (
-        <TopicTemplateGallery onApplied={handleTemplateApplied} onBack={() => setShowGallery(false)} />
+      {displayGallery ? (
+        <TopicTemplateGallery
+          onApplied={handleTemplateApplied}
+          onBack={() => {
+            setShowGallery(false);
+            setGalleryDismissed(true);
+          }}
+        />
       ) : (
         <>
       <form className="panel-card" onSubmit={handleAddTheme}>
@@ -499,7 +584,14 @@ export default function ThemesPage() {
             <h2>{t("themes:title")}</h2>
             <p className="subtitle">{t("themes:subtitle")}</p>
           </div>
-          <button type="button" className="secondary" onClick={() => setShowGallery(true)}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              setShowGallery(true);
+              setGalleryDismissed(false);
+            }}
+          >
             {t("themes:browseTemplates")}
           </button>
         </div>
@@ -592,8 +684,60 @@ export default function ThemesPage() {
       <div className="panel-card">
         <h3>{t("themes:trackedThemes", { count: themes.length })}</h3>
         {themes.length === 0 && <p className="subtitle">{t("themes:noThemesYet")}</p>}
+        {themes.length > 0 && (
+          <div className="field-row">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t("themes:toolbar.searchPlaceholder")}
+            />
+            <label>
+              {t("themes:toolbar.sortLabel")}
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
+                <option value="name">{t("themes:toolbar.sortName")}</option>
+                <option value="lastMatch">{t("themes:toolbar.sortLastMatch")}</option>
+                <option value="created">{t("themes:toolbar.sortCreated")}</option>
+              </select>
+            </label>
+          </div>
+        )}
+        {visibleThemes.length > 0 && (
+          <label className="field-hint">
+            <input
+              type="checkbox"
+              checked={selectedIds.size === visibleThemes.length}
+              onChange={(e) =>
+                setSelectedIds(e.target.checked ? new Set(visibleThemes.map((t) => t.id)) : new Set())
+              }
+            />{" "}
+            {t("themes:bulk.selectAll")}
+          </label>
+        )}
+        {selectedIds.size > 0 && (
+          <div className="bulk-actions">
+            <span className="subtitle">{t("themes:bulk.selectedCount", { count: selectedIds.size })}</span>
+            {bulkConfirming ? (
+              <>
+                <button type="button" className="danger" disabled={isBulkDeleting} onClick={handleBulkDelete}>
+                  {isAdmin
+                    ? t("themes:bulk.delete", { count: selectedIds.size })
+                    : t("themes:bulk.unfollow", { count: selectedIds.size })}
+                </button>
+                <button type="button" onClick={() => setBulkConfirming(false)}>
+                  {t("themes:cancel")}
+                </button>
+              </>
+            ) : (
+              <button type="button" className="danger" onClick={() => setBulkConfirming(true)}>
+                {isAdmin
+                  ? t("themes:bulk.delete", { count: selectedIds.size })
+                  : t("themes:bulk.unfollow", { count: selectedIds.size })}
+              </button>
+            )}
+          </div>
+        )}
         <ul className="target-list">
-          {themes.map((theme) =>
+          {visibleThemes.map((theme) =>
             editingId === theme.id ? (
               <li key={theme.id} className="editing">
                 <form className="target-edit-form" onSubmit={(e) => saveEdit(e, theme)}>
@@ -672,6 +816,12 @@ export default function ThemesPage() {
             ) : (
               <li key={theme.id} className={theme.is_active ? "" : "inactive"}>
                 <div>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(theme.id)}
+                    onChange={() => toggleSelected(theme.id)}
+                    aria-label={theme.name}
+                  />{" "}
                   <strong>{theme.name}</strong>
                   {theme.industry && <span className="tag">{theme.industry}</span>}
                   {theme.is_muted && <span className="tag">{t("themes:muted")}</span>}
@@ -709,6 +859,14 @@ export default function ThemesPage() {
                   )}
                   <button type="button" disabled={pendingId === theme.id} onClick={() => toggleMute(theme)}>
                     {theme.is_muted ? t("themes:unmute") : t("themes:mute")}
+                  </button>
+                  <button
+                    type="button"
+                    className={theme.include_in_digest ? "secondary" : ""}
+                    disabled={pendingId === theme.id}
+                    onClick={() => toggleDigest(theme)}
+                  >
+                    {theme.include_in_digest ? t("themes:digest.exclude") : t("themes:digest.include")}
                   </button>
                   {canEdit(theme) && (
                     <button type="button" disabled={pendingId === theme.id} onClick={() => toggleActive(theme)}>

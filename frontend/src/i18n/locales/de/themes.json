@@ -114,5 +114,27 @@
     "applyFailed": "Vorlage konnte nicht angewendet werden",
     "emptyGalleryHint": "oder unten ein eigenes Thema erstellen",
     "loadFailed": "Themenvorlagen konnten nicht geladen werden"
+  },
+  "digest": {
+    "include": "In meinen Digest aufnehmen",
+    "exclude": "Im Digest enthalten",
+    "updateFailed": "Digest-Einstellung konnte nicht aktualisiert werden"
+  },
+  "toolbar": {
+    "searchPlaceholder": "Themen durchsuchen…",
+    "sortLabel": "Sortieren",
+    "sortName": "Name",
+    "sortLastMatch": "Letzter Treffer",
+    "sortCreated": "Neueste"
+  },
+  "bulk": {
+    "selectAll": "Alle auswählen",
+    "selectedCount": "{{count}} ausgewählt",
+    "delete": "Löschen ({{count}})",
+    "unfollow": "Nicht mehr folgen ({{count}})",
+    "confirmDeleteAdmin": "Dies löscht {{count}} Thema/Themen und alle zugehörigen Treffer dauerhaft für alle Benutzer. Fortfahren?",
+    "confirmUnfollow": "{{count}} Thema/Themen nicht mehr folgen? Themen mit anderen Followern bleiben für diese erhalten; Themen, denen nur Sie folgen, werden vollständig entfernt.",
+    "deletedToast": "{{count}} Thema/Themen entfernt.",
+    "removeFailed": "Ausgewählte Themen konnten nicht entfernt werden"
   }
 }
