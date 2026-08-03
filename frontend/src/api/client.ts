@@ -15,10 +15,17 @@ export function clearToken(): void {
 
 export class ApiError extends Error {
   status: number;
+  // The raw `detail` field from the response body, before any string coercion — most
+  // endpoints send a plain string here (which `message` above already carries), but a
+  // few (e.g. POST /theme-watches' 409 duplicate-name response) send a structured object
+  // so the caller can act on it instead of just displaying text. Undefined when the
+  // response had no JSON body at all.
+  detail: unknown;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, detail?: unknown) {
     super(message);
     this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -41,14 +48,15 @@ async function request<T>(
   const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
 
   if (!response.ok) {
-    let detail = response.statusText;
+    let detail: unknown = response.statusText;
     try {
       const body = await response.json();
       detail = body.detail ?? detail;
     } catch {
       // response had no JSON body
     }
-    throw new ApiError(response.status, detail);
+    const message = typeof detail === "string" ? detail : response.statusText;
+    throw new ApiError(response.status, message, detail);
   }
 
   if (response.status === 204) {

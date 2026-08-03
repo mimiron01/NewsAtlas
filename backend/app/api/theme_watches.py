@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
@@ -8,6 +9,7 @@ from app.core.audit import log_event
 from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.db.session import get_db
+from app.models.article import ArticleSource
 from app.models.ingestion_run import TRIGGER_MANUAL
 from app.models.theme_follow import ThemeFollow
 from app.models.theme_watch import ThemeWatch
@@ -15,29 +17,55 @@ from app.models.user import User, UserRole
 from app.schemas.ingestion import IngestionRunStatusResponse
 from app.schemas.theme_watch import (
     ThemeFollowerResponse,
+    ThemeQueryPreviewRequest,
+    ThemeQueryPreviewResponse,
+    ThemeWatchBulkDeleteRequest,
+    ThemeWatchBulkDeleteResult,
     ThemeWatchCreate,
     ThemeWatchResponse,
+    ThemeWatchStatsResponse,
     ThemeWatchUpdate,
 )
+from app.schemas.topic_template import SuggestedTopicResponse
+from app.services.ai_client import AIClient, AIClientError, TemplateExample
+from app.services.google_news_rss_client import GoogleNewsRSSClient
 from app.services.ingestion_runs import (
     create_run,
     execute_ingestion_run,
     get_running_run,
     to_status_response,
 )
+from app.services.news_client import NewsClientError
+from app.services.news_query import (
+    build_theme_query,
+    google_when_operator,
+    resolve_allowlist,
+    resolve_denylist,
+)
+from app.services.news_rate_limiter import HeadroomStatus, check_headroom
+from app.services.news_usage import log_usage
 from app.services.theme_follows import (
     ensure_follow,
+    find_theme_by_name,
     get_follow,
     get_or_create_theme,
     remove_follow,
     to_response,
 )
+from app.services.theme_watch_stats import get_theme_watch_stats
+from app.services.topic_templates import list_active_templates
 from app.services.workspace_settings import (
     enforce_trigger_cooldown,
     get_or_create_workspace_settings,
+    resolve_mistral_api_key,
 )
 
 router = APIRouter(prefix="/theme-watches", tags=["theme-watches"])
+
+# How far back the live preview looks — short enough to answer "does this query find
+# anything recent" quickly, independent of a topic's eventual lookback/schedule.
+PREVIEW_LOOKBACK_DAYS = 7
+PREVIEW_SAMPLE_HEADLINES = 5
 
 
 def _get_or_404(db: Session, theme_watch_id: uuid.UUID) -> ThemeWatch:
@@ -81,6 +109,23 @@ def create_theme_watch(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ThemeWatchResponse:
+    # Surfaces the shared-catalog dedupe as an explicit choice instead of silently
+    # merging into whatever already exists under this name (see
+    # docs/topics-ux-improvements-planning.html §1.4). confirm_merge=True (re-submitted
+    # by the frontend after the user picks "Follow existing topic") skips straight past
+    # this and falls through to get_or_create_theme's own dedupe below.
+    if not payload.confirm_merge:
+        existing = find_theme_by_name(db, payload.name)
+        if existing is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "code": "duplicate_name",
+                    "existing_id": str(existing.id),
+                    "existing_query_terms": existing.query_terms,
+                },
+            )
+
     workspace_settings = get_or_create_workspace_settings(db)
     active_count = db.query(ThemeWatch).filter(ThemeWatch.is_active.is_(True)).count()
     if active_count >= workspace_settings.max_active_theme_watches:
@@ -96,11 +141,11 @@ def create_theme_watch(
         db,
         name=payload.name,
         query_terms=payload.query_terms,
+        exclude_terms=payload.exclude_terms,
         industry=payload.industry,
         created_by=current_user.id,
         google_news_source_allowlist=payload.google_news_source_allowlist,
         google_news_source_denylist=payload.google_news_source_denylist,
-        exclusion_terms=payload.exclusion_terms,
         news_sources=payload.news_sources,
         google_news_country=payload.google_news_country,
         google_news_language=payload.google_news_language,
@@ -112,6 +157,185 @@ def create_theme_watch(
     db.refresh(theme)
     db.refresh(follow)
     return to_response(db, theme, follow)
+
+
+@router.post("/preview", response_model=ThemeQueryPreviewResponse)
+@limiter.limit("30/hour")
+def preview_theme_query(
+    payload: ThemeQueryPreviewRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ThemeQueryPreviewResponse:
+    """Live, unsaved-query preview against Google News RSS — no ThemeMatch/ThemeWatch
+    rows are created and no AI call is made, so this is free and near-instant (see
+    docs/topics-ux-improvements-planning.html §1.3). Works with a theme_watch_id (editing)
+    or without one (initial creation), since it takes the raw fields, not an id.
+
+    Shares the query builder with ingestion, so the preview reflects what the saved topic
+    will actually fetch — exclusions, denylists and the freshness operator included. A
+    preview built any other way would quietly disagree with the real thing, which is worse
+    than no preview at all.
+
+    It also makes a real outbound Google News request, so it goes through the same
+    headroom check and usage log as every other call: the workspace's self-imposed ceiling
+    exists because this feed has no official quota and can block a noisy client, and
+    per-user previews are exactly the traffic that would otherwise be invisible to it.
+    """
+    workspace_settings = get_or_create_workspace_settings(db)
+    if not workspace_settings.google_news_rss_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Google News RSS is disabled for this workspace, and it is the only news "
+                "source topics can use. Enable it under Settings > News sources."
+            ),
+        )
+
+    headroom = check_headroom(
+        db,
+        ArticleSource.GOOGLE_NEWS_RSS,
+        per_minute_limit=workspace_settings.google_news_rss_max_requests_per_minute,
+        per_day_limit=None,
+    )
+    if headroom is not HeadroomStatus.OK:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                "Google News is at this workspace's configured request limit — "
+                "try the preview again shortly."
+            ),
+        )
+
+    since = datetime.now(timezone.utc) - timedelta(days=PREVIEW_LOOKBACK_DAYS)
+    query, _truncated = build_theme_query(
+        payload.query_terms,
+        exclude_terms=payload.exclude_terms,
+        # Override semantics, matching a saved topic: an empty list means "search
+        # everything", not "fall back to the workspace list".
+        allow_sites=resolve_allowlist(
+            payload.google_news_source_allowlist,
+            workspace_settings.google_news_source_allowlist,
+        ),
+        deny_sites=resolve_denylist(
+            payload.google_news_source_denylist,
+            workspace_settings.google_news_source_denylist,
+        ),
+        when=(
+            google_when_operator(since)
+            if workspace_settings.google_news_time_operator_enabled
+            else None
+        ),
+    )
+    client = GoogleNewsRSSClient(
+        country=workspace_settings.google_news_rss_country,
+        language=workspace_settings.google_news_rss_language,
+    )
+    try:
+        outcome = client.fetch_articles(
+            since=since,
+            query_override=query,
+            country=payload.google_news_country,
+            language=payload.google_news_language,
+        )
+    except NewsClientError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Preview fetch failed: {exc}"
+        )
+
+    log_usage(
+        db,
+        source=ArticleSource.GOOGLE_NEWS_RSS,
+        call_type="preview",
+        target_company_id=None,
+        requests_used=outcome.requests_used,
+        articles_returned=len(outcome.articles),
+        query_text=outcome.query_text,
+        articles_raw=outcome.articles_raw,
+        drop_counts=outcome.drop_counts,
+    )
+
+    return ThemeQueryPreviewResponse(
+        article_count=len(outcome.articles),
+        sample_headlines=[item.title for item in outcome.articles[:PREVIEW_SAMPLE_HEADLINES]],
+    )
+
+
+@router.get("/suggestions", response_model=list[SuggestedTopicResponse])
+@limiter.limit("10/hour")
+def get_suggested_topics(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[SuggestedTopicResponse]:
+    """AI-personalized topic suggestions grounded in the curated template library — see
+    docs/topics-ux-improvements-planning.html §2.3. Computed on demand (a paid Mistral
+    call), rate-limited like other manual-trigger endpoints rather than cached/scheduled.
+    Never auto-creates anything — "Use this" on the frontend goes through the normal
+    apply/create flow, same as picking a template by hand."""
+    workspace_settings = get_or_create_workspace_settings(db)
+    app_settings = get_settings()
+    api_key = resolve_mistral_api_key(workspace_settings, app_settings)
+    if not api_key or not workspace_settings.offering_description.strip():
+        # No hallucinated generic suggestion without real grounding — point the user at
+        # what's missing instead (see §2.3 acceptance criteria).
+        return []
+
+    templates = list_active_templates(db)
+    existing_names = [theme.name for theme in db.query(ThemeWatch).all()]
+
+    ai_client = AIClient(
+        api_key=api_key,
+        model=workspace_settings.mistral_model,
+        triage_model=workspace_settings.mistral_triage_model,
+        embed_model=workspace_settings.mistral_embed_model,
+        max_requests_per_second=app_settings.mistral_max_requests_per_second,
+        max_retries=app_settings.mistral_max_retries,
+    )
+    try:
+        suggestions, usage = ai_client.suggest_topics(
+            offering_description=workspace_settings.offering_description,
+            available_templates=[
+                TemplateExample(
+                    id=str(t.id),
+                    name=t.name,
+                    description=t.description,
+                    category=t.category,
+                    query_terms=t.query_terms,
+                    exclude_terms=t.exclude_terms,
+                )
+                for t in templates
+            ],
+            existing_topic_names=existing_names,
+        )
+    except AIClientError as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
+
+    log_event(
+        "topic_suggestions_generated",
+        request=request,
+        actor_id=str(current_user.id),
+        suggestion_count=len(suggestions),
+        prompt_tokens=usage.prompt_tokens,
+        completion_tokens=usage.completion_tokens,
+    )
+
+    templates_by_id = {str(t.id): t for t in templates}
+    return [
+        SuggestedTopicResponse(
+            name=s.name,
+            query_terms=s.query_terms,
+            exclude_terms=s.exclude_terms,
+            rationale=s.rationale,
+            based_on_template_id=s.based_on_template_id,
+            based_on_template_name=(
+                templates_by_id[s.based_on_template_id].name
+                if s.based_on_template_id and s.based_on_template_id in templates_by_id
+                else None
+            ),
+        )
+        for s in suggestions
+    ]
 
 
 @router.patch("/{theme_watch_id}", response_model=ThemeWatchResponse)
@@ -179,6 +403,40 @@ def delete_theme_watch(
     db.commit()
 
 
+@router.post("/bulk-delete", response_model=ThemeWatchBulkDeleteResult)
+def bulk_delete_theme_watches(
+    payload: ThemeWatchBulkDeleteRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ThemeWatchBulkDeleteResult:
+    """Bulk variant of DELETE /{theme_watch_id} for the topic list's multi-select —
+    mirrors POST /target-companies/bulk-delete's admin-hard-delete vs. follower-unfollow
+    branching and not_found-doesn't-fail-the-batch convention exactly (see
+    docs/topics-ux-improvements-planning.html §4.4)."""
+    deleted = 0
+    not_found = 0
+    for theme_watch_id in payload.theme_watch_ids:
+        theme = db.get(ThemeWatch, theme_watch_id)
+        if theme is None:
+            not_found += 1
+            continue
+        if current_user.role == UserRole.ADMIN:
+            db.delete(theme)
+            deleted += 1
+            log_event(
+                "admin_theme_deleted", user_id=str(current_user.id), theme_watch_id=str(theme_watch_id)
+            )
+            continue
+        follow = get_follow(db, current_user.id, theme_watch_id)
+        if follow is None:
+            not_found += 1
+            continue
+        remove_follow(db, current_user.id, theme_watch_id)
+        deleted += 1
+    db.commit()
+    return ThemeWatchBulkDeleteResult(deleted=deleted, not_found=not_found)
+
+
 @router.post("/{theme_watch_id}/mute", response_model=ThemeWatchResponse)
 def toggle_mute(
     theme_watch_id: uuid.UUID,
@@ -192,6 +450,26 @@ def toggle_mute(
             status_code=status.HTTP_404_NOT_FOUND, detail="Not following this theme"
         )
     follow.is_muted = not follow.is_muted
+    db.commit()
+    db.refresh(follow)
+    return to_response(db, theme, follow)
+
+
+@router.post("/{theme_watch_id}/digest", response_model=ThemeWatchResponse)
+def toggle_digest_inclusion(
+    theme_watch_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ThemeWatchResponse:
+    """Opt this follow's matches in/out of the daily digest email — see
+    docs/topics-ux-improvements-planning.html §4.3. Same per-follow shape as /mute."""
+    theme = _get_or_404(db, theme_watch_id)
+    follow = get_follow(db, current_user.id, theme_watch_id)
+    if follow is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Not following this theme"
+        )
+    follow.include_in_digest = not follow.include_in_digest
     db.commit()
     db.refresh(follow)
     return to_response(db, theme, follow)
@@ -267,6 +545,22 @@ def run_theme_now(
         run_id=str(run.id),
     )
     return to_status_response(run)
+
+
+@router.get("/{theme_watch_id}/stats", response_model=ThemeWatchStatsResponse)
+def get_theme_watch_stats_endpoint(
+    theme_watch_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ThemeWatchStatsResponse:
+    """Per-topic health snapshot (§3.2) — same visibility rule as everything else on a
+    topic: any follower, or an admin, not just the creator."""
+    theme = _get_or_404(db, theme_watch_id)
+    if current_user.role != UserRole.ADMIN and get_follow(db, current_user.id, theme_watch_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not following this theme"
+        )
+    return get_theme_watch_stats(db, theme.id)
 
 
 @router.get("/{theme_watch_id}/followers", response_model=list[ThemeFollowerResponse])

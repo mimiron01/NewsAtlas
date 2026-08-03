@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NewsAtlas — Topics UX Improvements Planning</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6270;
+    --accent: #2757c7;
+    --accent-bg: #eef2fc;
+    --border: #e2e5ea;
+    --code-bg: #f5f6f8;
+    --ok: #1a7f4e;
+    --warn: #a15c00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.1rem; margin-top: 28px; color: var(--fg); }
+  h4 { font-size: 1rem; margin-top: 20px; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  .meta {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 12px 0 32px;
+    padding: 12px 16px;
+    background: var(--accent-bg);
+    border-radius: 8px;
+  }
+  .meta strong { color: var(--fg); }
+  nav.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin: 24px 0 40px;
+  }
+  nav.toc h2 { margin-top: 0; border: none; font-size: 1.05rem; padding-bottom: 4px; }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.92rem; }
+  nav.toc a:hover { text-decoration: underline; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--code-bg); font-weight: 600; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+  .decision {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-bg);
+    padding: 10px 16px;
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .decision strong { color: var(--accent); }
+  .gap {
+    border-left: 4px solid #b23b3b;
+    background: #fdecec;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .gap strong { color: #b23b3b; }
+  .ok-box {
+    border-left: 4px solid var(--ok);
+    background: #eaf7f0;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .ok-box strong { color: var(--ok); }
+  .phase {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px 20px 16px;
+    margin: 24px 0;
+  }
+  .phase > h3:first-child { margin-top: 16px; display: flex; align-items: center; gap: 10px; }
+  .phase-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 20px;
+  }
+  .item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 18px 14px;
+    margin: 18px 0;
+    background: #fbfbfc;
+  }
+  .item h4 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .assumption {
+    border-left: 4px solid var(--warn);
+    background: #fdf4e3;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+  ul.checklist { list-style: none; padding-left: 4px; }
+  ul.checklist li::before { content: "☐ "; color: var(--muted); }
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    margin-left: 6px;
+  }
+  .status-table td:first-child { white-space: nowrap; font-weight: 600; }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --fg: #e7e9ee; --muted: #9aa2b1; --accent: #7fa5ff;
+      --accent-bg: #1c2436; --border: #2b3040; --code-bg: #1b1e26; --ok: #4fd190; --warn: #e0a94a;
+    }
+    .gap { background: #3a1f1f; }
+    .ok-box { background: #17301f; }
+    .item { background: #171a21; }
+    .assumption { background: #33290f; }
+  }
+</style>
+</head>
+<body>
+
+<h1>NewsAtlas — Topics UX Improvements Planning</h1>
+<p class="subtitle">Implementation plan for every gap raised in the topic-discovery UX audit: templates/AI-suggested topics, result-quality fixes, a per-topic feedback loop and analytics, onboarding, and management-UI parity with companies.</p>
+
+<div class="meta">
+  <div><strong>Status:</strong> Planning (2026-08-02). No code has been written for this doc yet.</div>
+  <div><strong>Builds on:</strong>
+    <a href="theme-search-planning.html">theme-search-planning.html</a> (the original ThemeWatch/topic design this plan extends — read that first for the data model and ingestion pipeline this doc assumes),
+    the topic/theme workflow-gaps session that shipped mute/pause/run-now/edit/dashboard-tile parity (commit <code>54c53ad</code>) — this plan picks up from there, not from theme-search-planning.html's original v1 scope.
+  </div>
+  <div><strong>Primary users this plan optimizes for:</strong> non-technical business/marketing users creating topics to monitor industry trends relevant to their product (e.g. "Automotive", "EV Regulation"), not analysts who want boolean query languages.</div>
+  <div><strong>Problem this plan is scoped against:</strong> two named pain points — (1) <strong>poor result quality</strong> (noisy/irrelevant matches, no way to tune a topic before or after creation) and (2) <strong>low discoverability</strong> (topics are a secondary, easy-to-miss feature with a blank-page creation flow). Every item below is justified against one or both.</div>
+  <div><strong>Doc purpose:</strong> Turn the UX audit into a concrete, code-grounded spec an implementation session can work from directly. Every architectural fork is recorded as a <span class="tag">decision</span>; open items are <span class="tag">proposed default</span> (flag if wrong) or <span class="tag">deferred to implementation</span>.</div>
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#sequencing">1. Sequencing overview</a></li>
+    <li><a href="#phase1">2. Phase 1 — Query &amp; UX foundations</a></li>
+    <li><a href="#phase2">3. Phase 2 — Templates &amp; AI-assisted creation</a></li>
+    <li><a href="#phase3">4. Phase 3 — Feedback loop &amp; analytics</a></li>
+    <li><a href="#phase4">5. Phase 4 — Discoverability &amp; management parity</a></li>
+    <li><a href="#deferred">6. Explicitly deferred (considered, not in this plan)</a></li>
+    <li><a href="#migration">7. Consolidated migration plan</a></li>
+    <li><a href="#open">8. Open questions deferred to implementation</a></li>
+    <li><a href="#checklist">9. Implementation checklist</a></li>
+  </ol>
+</nav>
+
+<h2 id="sequencing">1. Sequencing overview</h2>
+<table>
+<tr><th>Phase</th><th>Theme</th><th>Depends on</th><th>New tables</th><th>Addresses</th></tr>
+<tr><td>1</td><td>Query &amp; UX foundations — naming, exclude keywords, query preview, duplicate-topic confirm</td><td>nothing</td><td>none</td><td>result quality</td></tr>
+<tr><td>2</td><td>Templates + AI-suggested topics</td><td>Phase 1's query preview endpoint (reused for template previews)</td><td><code>topic_templates</code></td><td>discoverability, result quality (starts users from a proven query)</td></tr>
+<tr><td>3</td><td>Per-topic feedback loop + analytics</td><td>needs a few weeks of Phase 1/2 usage data to be meaningful</td><td>none (columns only)</td><td>result quality (compounds over time)</td></tr>
+<tr><td>4</td><td>Onboarding + management-UI parity + digest</td><td>Phase 2's template gallery (reused in onboarding)</td><td>none</td><td>discoverability</td></tr>
+</table>
+<p>Phases are ordered by dependency and by how directly they close the two named gaps, not by implementation effort — Phase 1 is the cheapest and should ship first regardless, but Phase 2 (templates) is the one the user explicitly asked for and can start in parallel with Phase 1 once its query-preview dependency lands.</p>
+
+<h2 id="phase1">2. Phase 1 — Query &amp; UX foundations</h2>
+<p class="subtitle">No new tables. These make the existing create/edit flow honest and reversible before anything gets built on top of it.</p>
+
+<div class="phase">
+<h3><span class="phase-badge">Phase 1</span> Query &amp; UX foundations</h3>
+
+<div class="item" id="p1-1">
+<h4>1.1 Fix "Themes" vs "topic" naming inconsistency <span class="tag">frontend + i18n only</span></h4>
+<p><strong>Current state:</strong> the nav (<code>frontend/src/i18n/locales/en/nav.json:8</code>) and the settings page heading call the feature "Themes", but nearly every piece of in-context copy on that same page calls it "topic" — e.g. <code>themes.json:63</code> ("Topics can only fetch news via Google News RSS…"), <code>themes.json:74-77</code> ("This topic is paused…"), <code>SetupChecklist.tsx:34</code> (<code>themeLinkLabel</code>). A new user sees two different words for one feature within a single screen.</p>
+
+<div class="decision"><strong>Decision — fix the user-facing word, not the codebase.</strong> Rename every <em>user-visible string</em> to "Topic"/"Topics" consistently. Do <strong>not</strong> rename the backend model (<code>ThemeWatch</code>), table (<code>theme_watches</code>/<code>theme_matches</code>/<code>theme_follows</code>), or API routes (<code>/theme-watches</code>, <code>/theme-matches</code>). Renaming those is a large, purely-cosmetic migration (table renames, every FK, every frontend API type, every test) with zero user-visible benefit — the user never sees a table name or a route path. Internal code keeping "theme" while the product word is "topic" is a normal and common split (see <code>TargetCompany</code> → "My companies" for the existing precedent of exactly this pattern in this codebase).</div>
+
+<p><strong>Change:</strong> i18n-only, no logic changes.</p>
+<ul>
+<li><code>nav.json:8</code>: <code>"themes": "Themes"</code> → <code>"themes": "Topics"</code> (key name stays <code>themes</code> to avoid touching every call site — only the value changes).</li>
+<li><code>themes.json</code>: every occurrence of "theme"/"Theme" in a user-facing string → "topic"/"Topic" ("Theme name" → "Topic name", "Tracked themes" → "Tracked topics", "Add theme watch" → "Add topic", toast strings, confirm-dialog copy, etc.). The strings that already say "topic" (the ones quoted above) are untouched.</li>
+<li><code>SetupChecklist.tsx</code> / <code>common.json</code>: <code>themeLinkLabel</code> copy → "Track a topic instead".</li>
+<li>Page title (<code>usePageTitle(t("themes:title"))</code>) and the <code>&lt;h2&gt;</code> in <code>ThemesPage.tsx:367</code> pick up the new <code>themes:title</code> value automatically once the i18n key changes — no component change needed.</li>
+<li><code>Dashboard.tsx</code> stat tile label (<code>stats.newThemeMatches</code> in the <code>dashboard</code>/<code>common</code> namespace) and panel heading (<code>topThemeMatches</code>) → "New topic matches" / "Top topic matches".</li>
+</ul>
+<p><strong>Acceptance criteria:</strong> grep the frontend for the literal word "Theme"/"theme" inside <code>t("...")</code> string literals and JSON i18n files (not variable/type/route names) and confirm zero remaining occurrences of the word applied to a user; German locale (<code>de/themes.json</code> etc.) updated to match ("Thema"/"Themen" → keep as-is only if "Thema" is already the correct German product word — flag for a native-speaker check, this doc doesn't assume it isn't).</p>
+</div>
+
+<div class="item" id="p1-2">
+<h4>1.2 Negative / exclude keywords <span class="tag">backend + frontend + migration</span></h4>
+<p><strong>Why this is the highest-leverage quality fix:</strong> <code>query_terms</code> is a flat OR list (<code>build_theme_query</code>, <code>news_query.py:76-88</code>) with no way to exclude anything, and unlike the company path, topics have no <code>article_mentions_company</code> grounding guard (<code>news_query.py:98-116</code>) — AI triage is the only filter. A non-technical user typing "Automotive" has no way to say "not insurance, not used-car retail" short of abandoning the term entirely.</p>
+
+<table>
+<tr><th>Table</th><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td><code>theme_watches</code></td><td><code>exclude_terms</code></td><td><code>ARRAY(String)</code>, default <code>[]</code></td><td>Same validation caps as <code>query_terms</code> (<code>MAX_TERMS=20</code>, <code>MAX_TERM_LENGTH=100</code>, reusing <code>validate_term_list</code> from <code>common_validators.py</code>). No minimum — unlike <code>query_terms</code>, zero exclusions is the common/default case.</td></tr>
+</table>
+
+<pre><code># news_query.py — build_theme_query gains an optional exclude clause
+def build_theme_query(
+    query_terms: list[str], sources: list[str] | None = None,
+    exclude_terms: list[str] | None = None,
+) -> str:
+    terms = _quote_terms(query_terms)
+    base = " OR ".join(terms)
+    if sources:
+        site_clause = " OR ".join(f"site:{d.strip()}" for d in sources if d.strip())
+        if site_clause:
+            base = f"({base}) ({site_clause})"
+    if exclude_terms:
+        for term in _quote_terms(exclude_terms):
+            base = f"{base} -{term}"
+    return base</code></pre>
+<p>Google News RSS search supports bare <code>-term</code> exclusion the same way Google web search does, so this needs no new provider capability — just string composition. <code>ThemeWatchCreate</code>/<code>ThemeWatchUpdate</code> gain <code>exclude_terms: list[str] = Field(default_factory=list, max_length=20)</code> with the same <code>validate_term_list</code> validator as <code>query_terms</code>. <code>ingestion.py</code>'s call to <code>build_theme_query</code> (around line 596) passes <code>exclude_terms=theme_watch.exclude_terms</code>.</p>
+<p><strong>Frontend:</strong> a second <code>TagInput</code> on the create/edit form, styled/labeled distinctly ("Exclude terms (optional)" with a red/muted tag style vs. the include list's default style, so the two lists are never visually confused). Reuses the exact component already used for <code>query_terms</code>/<code>sourceAllowlist</code> in <code>ThemesPage.tsx:379-396</code>.</p>
+<div class="assumption">Proposed default: also expose exclude-term <em>suggestions</em> reactively once §3.1's feedback loop exists (e.g. "you've dismissed 4 articles mentioning 'insurance' — add as an exclude term?") — not required for this item to ship, called out again in §4.1 of Phase 3.</div>
+<p><strong>Acceptance criteria:</strong> Alembic migration adds the column with server default <code>'{}'</code>; unit tests for <code>build_theme_query</code> covering exclude-terms-present/absent, combined with sources; existing topics with no <code>exclude_terms</code> produce byte-identical queries to today.</p>
+</div>
+
+<div class="item" id="p1-3">
+<h4>1.3 Query preview / dry-run before saving <span class="tag">backend + frontend</span></h4>
+<p><strong>Why:</strong> today a user sets query terms, saves, and only learns whether the query was too broad/narrow/dead at the next ingestion run (up to <code>ingestion_interval_hours</code> later, default 6h) or by clicking "Fetch now" and waiting. That's a blind, slow trial-and-error loop — exactly backwards for a non-technical user who doesn't think in search-query terms.</p>
+
+<div class="decision"><strong>Decision — live Google News RSS query, not a stored/cached preview.</strong> The preview calls Google News RSS directly with the in-progress (unsaved) query terms/exclude-terms/sources, the same way <code>GoogleNewsRSSClient.fetch_articles</code> already does, and returns headlines without creating any <code>ThemeMatch</code> rows or running AI triage/summarization — this keeps the preview free (no Mistral cost) and instant, at the cost of not showing the AI relevance filter's effect. That tradeoff is fine: the preview's job is to catch "this query is obviously too broad/narrow", which raw headline volume already shows.</div>
+
+<pre><code># app/api/theme_watches.py — new endpoint, no ThemeWatch row required
+class ThemeQueryPreviewRequest(BaseModel):
+    query_terms: list[str] = Field(min_length=1, max_length=20)
+    exclude_terms: list[str] = Field(default_factory=list, max_length=20)
+    google_news_source_allowlist: list[str] = Field(default_factory=list, max_length=50)
+    google_news_country: str | None = None
+    google_news_language: str | None = None
+
+class ThemeQueryPreviewResponse(BaseModel):
+    article_count: int          # count from the last 7 days, capped display at e.g. 50
+    sample_headlines: list[str]  # up to 5, newest first
+
+@router.post("/preview", response_model=ThemeQueryPreviewResponse)
+@limiter.limit("30/hour")  # previews are free but still an outbound HTTP call per click
+def preview_theme_query(payload: ThemeQueryPreviewRequest, request: Request,
+                         current_user: User = Depends(get_current_user)) -> ThemeQueryPreviewResponse:
+    ...</code></pre>
+<p>Reuses <code>build_theme_query</code> (§1.2, now with exclude support) and the existing <code>GoogleNewsRSSClient</code>, sourcing effective allowlist/country/language the same union/inherit logic <code>_ingest_theme_watch</code> already applies (<code>ingestion.py:589-596,602-604</code>). Rate-limited per-user (not per-workspace, since it's read-only and free) to prevent a debounced-typing input from hammering Google News RSS.</p>
+
+<p><strong>Frontend:</strong> in both the create form and edit-in-place form (<code>ThemesPage.tsx:366-419</code>, <code>:426-485</code>), below the query-terms/exclude-terms/sources fields, a debounced (~600ms after the last edit) live preview panel: <code>"~14 articles in the last 7 days"</code> plus up to 5 real headlines, refreshing as the user edits terms. Empty/near-zero result count renders an inline warning ("This query found very few articles recently — try broader terms") rather than blocking submission (a legitimately narrow, low-volume topic is still valid).</p>
+<p><strong>Acceptance criteria:</strong> preview never persists anything (verified by asserting no <code>ThemeMatch</code>/<code>ThemeWatch</code> rows change across a preview call in tests); preview respects <code>google_news_rss_enabled</code> (returns a clear "Google News RSS is disabled" response, not a generic error, matching the banner already shown elsewhere on this page); preview works with zero saved state (no <code>theme_watch_id</code> required), so it works during initial creation, not just editing.</p>
+</div>
+
+<div class="item" id="p1-4">
+<h4>1.4 Duplicate-topic detection confirmation <span class="tag">backend + frontend, small</span></h4>
+<p><strong>Current state:</strong> <code>get_or_create_theme</code> (<code>services/theme_follows.py:11-30</code>) silently case-insensitively dedupes by name — creating "Automotive" when it already exists just follows the existing row and returns it, with no signal to the user that this happened. A user can end up following a topic with someone else's query terms/history and have no idea why it already has matches, or why editing "their" topic changes what other users see.</p>
+
+<pre><code># app/api/theme_watches.py — create_theme_watch gains a pre-check
+existing = (
+    db.query(ThemeWatch)
+    .filter(func.lower(ThemeWatch.name) == payload.name.strip().lower())
+    .first()
+)
+if existing is not None and not payload.confirm_merge:
+    raise HTTPException(
+        status_code=409,
+        detail={"code": "duplicate_name", "existing_id": str(existing.id),
+                "existing_query_terms": existing.query_terms},
+    )
+# ThemeWatchCreate gains: confirm_merge: bool = False</code></pre>
+<p>On a 409 with <code>code: "duplicate_name"</code>, the frontend shows a dialog: <em>"A topic named '{name}' already exists with these search terms: […]. Follow the existing one instead, or create a separate topic with a different name?"</em> — "Follow existing" resubmits with <code>confirm_merge: true</code> (identical to today's silent behavior); "Rename and create separate" lets the user pick a different name and resubmits as a fresh create. This turns today's silent merge into an explicit, informed choice without changing the underlying shared-catalog model (still a <span class="tag">decision</span> from theme-search-planning.html §1 that stays correct — collaboration on a shared topic is a real feature, it just needs to be visible when it happens).</p>
+<p><strong>Acceptance criteria:</strong> creating a topic with a genuinely new name is unaffected (no extra round-trip); creating one with an existing name (case-insensitive) always surfaces the choice, never silently merges.</p>
+</div>
+
+</div>
+
+<h2 id="phase2">3. Phase 2 — Templates &amp; AI-assisted creation</h2>
+<p class="subtitle">The feature the user explicitly proposed, plus the AI-personalized variant that reuses infrastructure already in the codebase (<code>offering_description</code> is fed into every AI call today but never used to suggest anything).</p>
+
+<div class="phase">
+<h3><span class="phase-badge">Phase 2</span> Templates &amp; AI-assisted creation</h3>
+
+<div class="item" id="p2-1">
+<h4>2.1 Data model — <code>TopicTemplate</code> <span class="tag">backend + migration</span></h4>
+<table>
+<tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+<tr><td><code>id</code></td><td>UUID PK</td><td></td></tr>
+<tr><td><code>name</code></td><td>String(255)</td><td>e.g. "Automotive", "Series B+ Funding", "Regulatory &amp; Compliance". Shown as the template card title.</td></tr>
+<tr><td><code>description</code></td><td>String(500)</td><td>One-line "what this surfaces" copy, e.g. "New funding rounds and financing news for growth-stage startups."</td></tr>
+<tr><td><code>category</code></td><td>String(100), nullable</td><td>Groups the gallery (Industry, Funding &amp; M&amp;A, Regulatory, Supply Chain, …) — display-only, not used in matching.</td></tr>
+<tr><td><code>query_terms</code></td><td>ARRAY(String)</td><td>Pre-filled starting terms, same cap/shape as <code>ThemeWatch.query_terms</code>.</td></tr>
+<tr><td><code>exclude_terms</code></td><td>ARRAY(String), default []</td><td>Pre-filled exclusions (§1.2) — this is where templates earn their "premade, known to work" claim: curators bake in the exclusions that keep e.g. "Automotive" from pulling in car-insurance noise.</td></tr>
+<tr><td><code>suggested_source_allowlist</code></td><td>ARRAY(String), default []</td><td>Optional pre-filled trusted domains.</td></tr>
+<tr><td><code>is_active</code></td><td>Boolean, default true</td><td>Soft-hide a template from the gallery without deleting its historical performance data (§2.4).</td></tr>
+<tr><td><code>sort_order</code></td><td>Integer, default 0</td><td>Manual curation ordering within a category.</td></tr>
+<tr><td><code>created_at</code>/<code>updated_at</code></td><td>timestamptz</td><td><code>TimestampMixin</code>.</td></tr>
+</table>
+<div class="decision"><strong>Decision — admin-managed rows, not a hardcoded Python list.</strong> Templates live in a real table (admin CRUD via a new <code>/admin/topic-templates</code> section, same permission pattern as other admin-only resources) rather than a static in-code list, specifically so §2.4's performance data can drive edits without a deploy, and so the same mechanism seeds different starter sets per deployment if this is ever multi-tenant. Seed the initial ~10-15 templates via an Alembic data migration (not a fixture only used in tests) so every existing/new workspace gets them without manual setup.</div>
+<p><strong>Seed set (starting point, refine with the user before implementation):</strong> Automotive, SaaS &amp; Cloud Software, Fintech &amp; Payments, Healthcare &amp; Biotech, Retail &amp; E-commerce, Supply Chain &amp; Logistics, Series A/B/C Funding, M&amp;A Activity, Regulatory &amp; Compliance, Cybersecurity Incidents, AI &amp; Machine Learning, Sustainability &amp; ESG. Each needs curated <code>query_terms</code>/<code>exclude_terms</code> written by a human before launch — auto-generating the seed set defeats the "we know these work" promise.</p>
+</div>
+
+<div class="item" id="p2-2">
+<h4>2.2 Template gallery + apply flow <span class="tag">backend + frontend</span></h4>
+<pre><code># app/api/topic_templates.py
+GET  /topic-templates                          # public (any authenticated user), grouped by category
+POST /topic-templates/{id}/preview              # reuses §1.3's preview endpoint against the template's own terms
+POST /topic-templates/{id}/apply                # body: { name?: str, query_terms?, exclude_terms?, ... } overrides
+                                                  # creates a ThemeWatch pre-filled from the template, then follows it
+                                                  # (same shared-catalog/dedupe path as a manual create, §1.4 applies)</code></pre>
+<p><code>apply</code> lets the user tweak fields before committing (e.g. add their own industry-specific term) rather than forcing a take-it-as-is template — pre-fills the existing create form instead of bypassing it, so §1.2/§1.3's exclude-terms and live-preview UI are already there for the user to refine before saving. Track template provenance for §2.4:</p>
+<table>
+<tr><th>Table</th><th>Column</th><th>Notes</th></tr>
+<tr><td><code>theme_watches</code></td><td><code>created_from_template_id</code></td><td>UUID FK <code>topic_templates</code>, SET NULL, nullable. NULL = created from scratch. Metadata only, no behavior change to ingestion/matching.</td></tr>
+</table>
+
+<p><strong>Frontend:</strong> a new gallery view, reachable from the Topics page itself (a "Browse templates" button/tab next to the existing create form — not replacing manual creation, since some users do know exactly what they want) and, per §4.2, as the default first thing shown when a workspace has zero topics. Each card: name, one-line description, category tag, a small "preview" affordance showing 2-3 real recent headlines it would catch (calls <code>POST /topic-templates/{id}/preview</code> lazily, on card focus/hover, not for all cards at once) and an "Use this template" button that opens the create form pre-filled.</p>
+<p><strong>Acceptance criteria:</strong> applying a template still goes through §1.4's duplicate-name check (a workspace applying "Automotive" twice behaves identically to typing the name twice manually); template application counts toward <code>max_active_theme_watches</code> exactly like any other create.</p>
+</div>
+
+<div class="item" id="p2-3">
+<h4>2.3 AI-suggested topics, grounded in the curated template library <span class="tag">backend + frontend</span></h4>
+<p><strong>Why this is a small lift:</strong> <code>workspace_settings.offering_description</code> is already collected at onboarding and fed into every <code>summarize_article</code>/<code>summarize_theme_article</code> call (<code>ai_client.py:504</code> etc.) — it is never used to <em>propose</em> anything today. This closes that gap with one new AI call, reusing the existing Mistral client wiring.</p>
+<div class="decision"><strong>Decision — the AI helper is grounded in §2.1's template library, not a blank generator.</strong> A first draft of this item called Mistral with nothing but the offering description, generating every suggestion from scratch on every call. That's the wrong shape: it throws away the curation work §2.1 already did, can drift stylistically from the vetted templates (inconsistent naming, no exclude-terms discipline, no evidence the terms actually return good results), and gives an admin no way to improve suggestion quality except prompt-tuning. Instead, <code>suggest_topics()</code> is retrieval-augmented against <code>topic_templates</code>: fetch the full active template set (name, description, category, query_terms, exclude_terms — small enough to pass in full; no separate embedding/ranking step needed at this catalog size, revisit only if the library grows past what fits comfortably in the prompt), pass it to the model as labeled examples, and instruct it to do one of two things per suggestion: <strong>(a) recommend an existing template as-is or lightly personalized</strong> (e.g. add the workspace's own product terms to "Fintech &amp; Payments"), which is the common case and inherits that template's already-curated <code>exclude_terms</code> and §2.4 track record, or <strong>(b) synthesize a new topic modeled on the same structure/quality bar</strong> only when nothing in the library fits the offering description well. This makes "the AI helper has example templates to draw from" literally true rather than aspirational, and gives every AI-personalized suggestion a plausible starting point that's already been through curation instead of being invented fresh each time.</div>
+<pre><code># ai_client.py — new method, same shape/fail-open convention as triage_theme_article
+class SuggestedTopic(BaseModel):
+    name: str
+    query_terms: list[str]
+    exclude_terms: list[str] = []
+    rationale: str  # one sentence: why this fits the workspace's offering
+    based_on_template_id: uuid.UUID | None = None  # set when (a) applies; None when synthesized fresh
+
+def suggest_topics(
+    self, *, offering_description: str, industry: str | None = None,
+    existing_topic_names: list[str] | None = None,
+    available_templates: list[TemplateExample],  # id, name, description, category, query_terms, exclude_terms
+) -> tuple[list[SuggestedTopic], MistralUsage]:
+    """Given the workspace's own offering description and the full active template
+    library as grounding examples, propose 3-5 topics worth tracking — preferring to
+    adapt an existing template (based_on_template_id set) over inventing one from
+    scratch, and deliberately excluding names already tracked (existing_topic_names)."""</code></pre>
+<pre><code># app/api/theme_watches.py
+@router.get("/suggestions", response_model=list[SuggestedTopicResponse])
+@limiter.limit("10/hour")  # paid Mistral call — needs the same anti-abuse posture as other manual-trigger endpoints
+def get_suggested_topics(db: Session = Depends(get_db),
+                          current_user: User = Depends(get_current_user)) -> list[SuggestedTopicResponse]:
+    # loads active topic_templates (§2.1) and passes them as available_templates
+    ...</code></pre>
+<div class="decision"><strong>Decision — computed on demand, not cached/scheduled.</strong> Unlike <code>ai_feedback_note</code> (recomputed every ingestion run for free via SQL), this is a paid LLM call, so it only runs when a user actually opens the "Suggested for you" panel — not on a schedule, not eagerly on every page load. Rate-limited (10/hour/user, matching the existing <code>manual_trigger_cooldown</code> family of controls in <code>workspace_settings.py</code>) since it's a new "forces a paid AI call" surface, same category of endpoint theme-search-planning.html §10 already flagged as needing this treatment.</div>
+<p><strong>Frontend:</strong> a "Suggested for your business" section in the template gallery (§2.2), visually distinct from the curated templates (it's dynamic and per-workspace, not vetted the same way) — each suggestion renders the same card UI as a template with the AI's one-line rationale shown instead of a fixed description. When <code>based_on_template_id</code> is set, the card shows a small "based on: {template name}" hint, so a user can see it's grounded in a proven starting point rather than freely invented. "Use this" pre-fills the create form exactly like applying a template does; when adapted from a template, applying it also sets <code>created_from_template_id</code> (§2.2) so §2.4's performance tracking attributes it to the right lineage even though the terms may have been personalized. A refresh button re-calls the endpoint (subject to the rate limit) if the offering description has since changed.</p>
+<p><strong>Acceptance criteria:</strong> suggestions never auto-create anything (same "propose, don't act" posture as template application); an empty/placeholder <code>offering_description</code> returns an empty list with a message pointing at Settings, not a hallucinated generic suggestion; existing topic names are excluded so the panel doesn't suggest what's already tracked; with an empty template library (e.g. before §2.1's seed migration has run), <code>suggest_topics()</code> still degrades gracefully to case (b)-only (fully synthesized) rather than erroring.</p>
+</div>
+
+<div class="item" id="p2-4">
+<h4>2.4 Template performance tracking <span class="tag">backend, small; admin UI</span></h4>
+<p><strong>Why:</strong> "premade topics that we know work" is a claim that needs to stay true after launch, not just at curation time. Without this, a template that turns out to be too broad/noisy silently keeps being recommended forever.</p>
+<p>No new table — this is a query over existing data using §2.2's <code>created_from_template_id</code> FK:</p>
+<pre><code># services/topic_template_analytics.py
+def template_performance(db: Session, template_id: UUID, since_days: int = 30) -> TemplatePerformance:
+    """Aggregates ThemeMatch.status / relevance_score across every ThemeWatch created
+    from this template, across all workspaces that used it."""
+    # dismiss_rate = dismissed / (dismissed + reviewed + archived), matching the exact
+    # ratio services/feedback.py already computes per signal_type — same threshold logic,
+    # applied per-template instead of per-signal_type.</code></pre>
+<p>Surfaced only in an admin-only "Template performance" view (dismiss rate, average relevance score, adoption count per template) — not shown to end users, since it's a curation tool, not a product feature. An admin uses it to retire or rewrite underperforming templates (edits go through the same admin CRUD as §2.1).</p>
+<p><strong>Acceptance criteria:</strong> the aggregation query is workspace-agnostic (deliberately reads across all workspaces using a template, which is safe since it only touches aggregate counts/scores, never article content) — if this product is ever genuinely multi-tenant with data-isolation requirements, revisit before shipping this cross-workspace read.</p>
+</div>
+
+</div>
+
+<h2 id="phase3">4. Phase 3 — Feedback loop &amp; analytics</h2>
+<p class="subtitle">Compounding quality improvements — most valuable after Phase 1/2 have been live long enough to generate real dismiss/status data. Extends a mechanism (<code>ai_feedback_note</code>) that already exists for companies but was never extended to topics.</p>
+
+<div class="phase">
+<h3><span class="phase-badge">Phase 3</span> Feedback loop &amp; analytics</h3>
+
+<div class="item" id="p3-1">
+<h4>3.1 Per-topic feedback note <span class="tag">backend only, small</span></h4>
+<div class="ok-box"><strong>The pattern already exists for companies — extend it, don't reinvent it.</strong> <code>services/feedback.py</code>'s <code>refresh_feedback_note</code> computes a rule-based (no LLM call — pure SQL aggregation), workspace-wide note from dismissed-vs-reviewed <code>Signal.signal_type</code> patterns over a 30-day window, stored in <code>workspace_settings.ai_feedback_note</code> and injected into future summarization prompts (<code>ingestion.py:947,1034</code>). Topics currently get none of this — <code>triage_theme_article</code>/<code>summarize_theme_article</code> never reference <code>ai_feedback_note</code> at all.</div>
+<table>
+<tr><th>Table</th><th>Column</th><th>Notes</th></tr>
+<tr><td><code>theme_watches</code></td><td><code>ai_feedback_note</code></td><td>Text, default <code>""</code>. Per-topic, not workspace-wide — a dismiss pattern on "Automotive" shouldn't bias "Series B Funding"'s prompts.</td></tr>
+</table>
+<pre><code># services/feedback.py — new function alongside refresh_feedback_note, same shape
+def refresh_theme_feedback_note(db: Session, theme_watch: ThemeWatch) -> None:
+    """Same rule-based approach as refresh_feedback_note, scoped to one theme's own
+    ThemeMatch history instead of workspace-wide Signal.signal_type."""
+    since = datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS)
+    rows = (
+        db.query(ThemeMatch.extracted_company_name, func.count(ThemeMatch.id),
+                  func.sum(case((ThemeMatch.status == SignalStatus.DISMISSED, 1), else_=0)))
+        .filter(ThemeMatch.theme_watch_id == theme_watch.id, ThemeMatch.created_at >= since,
+                ThemeMatch.status.in_([DISMISSED, REVIEWED, ARCHIVED]))
+        .group_by(ThemeMatch.extracted_company_name)
+        .all()
+    )
+    # same MIN_SAMPLE_SIZE / DISMISS_RATE_THRESHOLD gate as the company version</code></pre>
+<p>Called from the same place <code>refresh_feedback_note</code> already runs (end of an ingestion pass), once per active theme. <code>triage_theme_article</code>/<code>summarize_theme_article</code> (<code>ai_client.py:455,500</code>) gain an optional <code>feedback_note: str = ""</code> param, appended to their context lines exactly like the company path already does, and the two call sites in <code>_process_new_theme_matches</code> (<code>ingestion.py:753,778</code>) pass <code>feedback_note=theme_watch.ai_feedback_note</code>.</p>
+<div class="assumption">Proposed default: the note text focuses on <em>what kind of content</em> gets dismissed (using <code>extracted_company_name</code> patterns as a rough proxy, since topics have no <code>signal_type</code>-equivalent categorical field) rather than trying to infer semantic subtopics — flag if a richer signal (e.g. clustering dismissed articles' titles) is wanted; that's meaningfully more complex than the SQL-only approach this item is scoped to.</div>
+<p><strong>Frontend tie-in:</strong> surface the current note (read-only) on the topic's edit view — "Recent tuning: users have dismissed articles mentioning X; the AI is now stricter about these" — so the mechanism isn't invisible, and pairs naturally with §1.2's exclude-term suggestion idea (surface an "add as exclude term?" prompt when a pattern crosses the threshold).</p>
+<p><strong>Acceptance criteria:</strong> a topic with fewer than <code>MIN_SAMPLE_SIZE</code> dismissed/reviewed/archived matches produces an empty note (no premature bias from a handful of data points); existing topics' prompts are unaffected until they accumulate enough status history to produce a note.</p>
+</div>
+
+<div class="item" id="p3-2">
+<h4>3.2 Per-topic analytics <span class="tag">backend + frontend</span></h4>
+<p><strong>Why:</strong> with a hard cap of <code>max_active_theme_watches</code> (default 10) per workspace, users need to tell which topics are worth the slot — today there's no way to see that a topic has been dead for weeks, or that half its matches get dismissed, without manually scrolling the matches feed and filtering by topic every time.</p>
+<pre><code># app/api/theme_watches.py
+@router.get("/{theme_watch_id}/stats", response_model=ThemeWatchStatsResponse)
+def get_theme_watch_stats(theme_watch_id: UUID, db=..., current_user=...) -> ThemeWatchStatsResponse:
+    """matches_last_7d / matches_last_30d, dismiss_rate_30d, avg_relevance_score_30d,
+    last_match_at (None if the topic has never produced a match) — pure aggregation
+    over ThemeMatch, no new columns needed."""</code></pre>
+<p><strong>Frontend:</strong> on the topic list row (<code>ThemesPage.tsx:487-556</code>), add a compact stat: a small sparkline or "N matches (last 7d) · avg relevance X/5" line, plus a "health" indicator — e.g. a muted/warning badge when <code>last_match_at</code> is more than ~14 days old on an active topic, since that's the concrete "is this worth its slot" question the cap forces. No separate detail page required for v1 (matches the existing single-page pattern) — the row-level summary plus the existing matches feed (already filterable by topic) covers it; a dedicated per-topic analytics page is a reasonable future add-on if row-level summaries prove insufficient, not required to close this gap.</p>
+<p><strong>Acceptance criteria:</strong> stats endpoint handles a brand-new topic (zero matches) without error, rendering "No matches yet" rather than a divide-by-zero on dismiss rate.</p>
+</div>
+
+</div>
+
+<h2 id="phase4">5. Phase 4 — Discoverability &amp; management parity</h2>
+<p class="subtitle">Makes the feature (and the templates built in Phase 2) actually findable, and closes the UI feature-parity gap vs. the company-tracking page.</p>
+
+<div class="phase">
+<h3><span class="phase-badge">Phase 4</span> Discoverability &amp; parity</h3>
+
+<div class="item" id="p4-1">
+<h4>4.1 First-class onboarding step for topics <span class="tag">frontend only</span></h4>
+<p><strong>Current state:</strong> <code>SetupChecklist.tsx:25-35</code> treats a topic as a secondary link inside the "track a company" step (<code>secondaryTo: "/themes"</code>) — a new user has to already know topics exist to notice the link at all, despite the feature being pitched internally as the app's key differentiator ("industry-trend awareness, not just lead-finding" — <code>theme-search-planning.html</code> §1).</p>
+<div class="decision"><strong>Decision — keep it inside the same checklist step (both still satisfy "something to fetch"), but make the topic path equally prominent, not secondary.</strong> Splitting into two separate checklist steps would force a user who only wants company tracking to see a step they'll never complete; instead, present both options with equal visual weight and let either satisfy the step, same underlying <code>hasSomethingToFetch</code> logic (<code>Dashboard.tsx:171</code>) as today.</div>
+<p><strong>Change:</strong> the "track a company or topic" step's body text presents two side-by-side actions instead of a primary link + secondary link: "Track a company" and "Browse topic templates" (linking into §2.2's gallery, not the blank Topics page) — same visual treatment, no primary/secondary hierarchy implied. <code>secondaryTo`/`secondaryLinkLabel</code> props on <code>SetupChecklist</code> get renamed to reflect this is a genuine either/or choice, not a fallback (e.g. <code>altTo</code>/<code>altLinkLabel</code> pointing at <code>/themes?gallery=1</code> or similar deep link straight into the gallery).</p>
+<p><strong>Acceptance criteria:</strong> a user who only ever tracks companies sees no behavior change beyond the copy/link target; a user who lands on the gallery link from onboarding sees the template gallery first (not the blank create form) even before Phase 2's "default view for zero-topic workspaces" (§4.2) exists, since this is a direct deep link.</p>
+</div>
+
+<div class="item" id="p4-2">
+<h4>4.2 Empty-state template gallery on the Topics page itself <span class="tag">frontend only</span></h4>
+<p>When <code>themes.length === 0</code> (<code>ThemesPage.tsx:423</code> currently renders a one-line "No theme watches yet." and otherwise shows the same blank create form as a workspace with 40 topics), replace that empty state with §2.2's template gallery front-and-center, collapsing the manual create form into a secondary "or create a custom topic" affordance below/beside it. Once at least one topic exists, the page reverts to today's layout (create form primary, list below) — the gallery stays reachable via the "Browse templates" entry point from §2.2, just no longer the forced first view.</p>
+<p><strong>Acceptance criteria:</strong> no backend change; purely conditional rendering keyed off the existing <code>themes</code> state already loaded by <code>loadThemes()</code>.</p>
+</div>
+
+<div class="item" id="p4-3">
+<h4>4.3 Topic matches in the daily digest (opt-in) <span class="tag">backend + frontend</span></h4>
+<p><strong>Current state:</strong> <code>services/digest.py</code> is <code>Signal</code>-only by explicit v1 decision (theme-search-planning.html §1: "in-app only until there's a reason to believe people want a themes digest too"). A year-old decision made before any usage data existed; Phase 1-3 of this plan are exactly the kind of "reason to believe" that decision was waiting on, but this item still ships as strictly opt-in given no evidence yet either way.</p>
+<table>
+<tr><th>Table</th><th>Column</th><th>Notes</th></tr>
+<tr><td><code>theme_follows</code></td><td><code>include_in_digest</code></td><td>Boolean, default <code>false</code>. Per-follow (not per-topic), matching how <code>is_muted</code> is already scoped — one user opting in doesn't add topic matches to a co-follower's digest.</td></tr>
+</table>
+<p><code>digest.py</code>'s per-user compose step gains a section: for each of that user's <code>ThemeFollow</code> rows with <code>include_in_digest=true</code>, pull new (since-last-digest) <code>ThemeMatch</code> rows for that topic, rendered as a distinct "Topic matches" block below the existing company-signal sections — reuses the digest's existing per-user query-and-render loop structure, additive only.</p>
+<p><strong>Frontend:</strong> a toggle on each topic row / in the topic's edit form ("Include in my daily digest") — defaults off, so no existing user's digest changes shape without an explicit action.</p>
+<p><strong>Acceptance criteria:</strong> a user with zero <code>include_in_digest=true</code> follows sees a byte-identical digest to today (regression guard, since this touches a shared, already-working email path); digest send time/frequency logic is untouched — this only adds a conditional content block.</p>
+</div>
+
+<div class="item" id="p4-4">
+<h4>4.4 Management-UI parity with companies <span class="tag">frontend + backend (bulk endpoint)</span></h4>
+<p><strong>Gap:</strong> <code>SettingsTargets.tsx</code> (companies) has a proper table layout, multi-select + bulk delete/unfollow (<code>selectedIds</code> state, <code>handleBulkDelete</code>, <code>POST /target-companies/bulk-delete</code>), and admin-only CSV import; <code>ThemesPage.tsx</code>'s topic list (<code>:487-556</code>) is a flat <code>&lt;ul&gt;</code> with no selection, no bulk action, no search/filter/sort on the list itself (only the separate matches feed below it is filterable).</p>
+<ul>
+<li><strong>Bulk delete/unfollow:</strong> mirror <code>target_companies.py</code>'s bulk-delete endpoint shape exactly — <code>POST /theme-watches/bulk-delete { ids: UUID[] }</code>, same admin-hard-deletes-vs-follower-unfollows branching already implemented per-topic in <code>delete_theme_watch</code> (<code>theme_watches.py:155-176</code>), just batched. Frontend reuses the exact <code>selectedIds</code>/checkbox/bulk-actions-bar pattern from <code>SettingsTargets.tsx:34,193-209,286-312,324,388</code> — this is a near-mechanical port, not new design work.</li>
+<li><strong>Search/filter/sort on the topic list:</strong> a text filter (matches name/industry/query terms client-side, list sizes here are small — capped by <code>max_active_theme_watches</code>) and a sort control (by name, by §3.2's <code>last_match_at</code>, by created date) above the list.</li>
+<li><strong>CSV import:</strong> <span class="tag">deferred</span> — a company CSV row is one name + keywords; a topic CSV row would need query terms, exclude terms, and optional source/country/language columns, which is a heavier schema to get right and there's no evidence yet that bulk topic creation via spreadsheet is a real workflow the way bulk company lists are (sales teams commonly have a CSV of target accounts; "give me a spreadsheet of topics" is a less obvious existing artifact). Revisit if Phase 2's template gallery doesn't cover the bulk-setup need in practice.</li>
+</ul>
+<p><strong>Acceptance criteria:</strong> bulk-delete respects the same creator-or-admin edit gate as single delete (a non-admin's bulk request silently skips rows they don't own/follow rather than partially failing the whole batch — match whatever error-partitioning convention <code>target_companies.py</code>'s bulk endpoint already uses, don't invent a new one).</p>
+</div>
+
+</div>
+
+<h2 id="deferred">6. Explicitly deferred (considered, not in this plan)</h2>
+<ul>
+<li><strong>Unifying <code>ThemeWatch</code>/<code>TargetCompany</code> into one "tracked entity" concept with a type discriminator.</strong> This would remove the duplicated CRUD/permission/follow code between the two models and simplify the mental model long-term, but it's a breaking data-model migration touching every table, endpoint, and frontend type in both features — high risk, no user-facing benefit on its own (users don't experience the duplication as a problem the way they experience missing exclude-keywords or a blank template gallery). Revisit only if the two features' logic keeps drifting apart in ways that make maintenance genuinely painful, not for UX reasons.</li>
+<li><strong>Semantic/vector search for initial retrieval</strong> (today's embeddings are dedup-only, not used for matching/ranking). A real quality lever, but it's an ingestion-pipeline architecture change independent of everything in this plan, and Phase 1's exclude-terms + Phase 3's feedback loop should meaningfully close the quality gap first using the existing keyword-OR + AI-triage pipeline before adding a second retrieval mechanism on top of it.</li>
+<li><strong>Boolean query builder UI (AND/OR/NOT combinators, field scoping)</strong> — explicitly rejected for this audience. The user confirmed the primary persona is non-technical business/marketing users; a query builder serves analysts, and Phase 1's exclude-terms already covers the one boolean operator (NOT) that has a clear plain-language framing ("exclude"). AND/OR combinators stay implicit (terms are OR'd, exclusions are AND-NOT'd) rather than exposed as a builder.</li>
+<li><strong>Per-topic notification channels beyond the digest</strong> (Slack, SMS, push) — no evidence of demand yet and it's a different kind of integration work than anything else in this plan; the digest opt-in (§4.3) is the one additive-notification surface that reuses existing infrastructure.</li>
+</ul>
+
+<h2 id="migration">7. Consolidated migration plan</h2>
+<table>
+<tr><th>Table</th><th>Change</th><th>Phase</th></tr>
+<tr><td><code>theme_watches</code></td><td><code>ADD COLUMN exclude_terms ARRAY(String) NOT NULL DEFAULT '{}'</code></td><td>1</td></tr>
+<tr><td><code>theme_watches</code></td><td><code>ADD COLUMN created_from_template_id UUID REFERENCES topic_templates(id) ON DELETE SET NULL</code></td><td>2</td></tr>
+<tr><td><em>(new)</em> <code>topic_templates</code></td><td>Full table per §2.1, plus a data migration seeding the initial ~10-15 curated rows</td><td>2</td></tr>
+<tr><td><code>theme_watches</code></td><td><code>ADD COLUMN ai_feedback_note TEXT NOT NULL DEFAULT ''</code></td><td>3</td></tr>
+<tr><td><code>theme_follows</code></td><td><code>ADD COLUMN include_in_digest BOOLEAN NOT NULL DEFAULT false</code></td><td>4</td></tr>
+</table>
+<p>No changes to <code>target_companies</code>, <code>articles</code>, <code>signals</code>, or the digest's existing company-signal path — everything here is additive, consistent with how the original theme-search-planning.html migrations landed.</p>
+
+<h2 id="open">8. Open questions deferred to implementation</h2>
+<ul>
+<li><strong>§1.1 German locale word choice:</strong> whether "Thema"/"Themen" is already the intended German product word or needs its own rename — needs a native-speaker check, not assumed either way here.</li>
+<li><strong>§2.1 seed template list:</strong> the twelve proposed names/categories are a starting proposal, not a finalized content plan — the actual <code>query_terms</code>/<code>exclude_terms</code> for each needs real curation (possibly informed by running §1.3's preview endpoint against draft terms) before launch, not written by an implementation session on the fly.</li>
+<li><strong>§2.3 suggestion count/refresh cadence:</strong> 3-5 suggestions and a 10/hour rate limit are reasoned defaults, not tuned against real usage (none exists yet) — revisit after a few weeks live, same posture theme-search-planning.html took with its original cost-control defaults.</li>
+<li><strong>§3.2 "health" threshold:</strong> 14 days without a match as the staleness warning threshold is a placeholder — depends on how often topics are expected to naturally produce matches, which varies a lot by topic breadth.</li>
+<li><strong>§4.4 CSV import:</strong> explicitly deferred (see §6-adjacent note in that item) but flag to the user before implementation starts, in case bulk topic setup turns out to matter more than assumed here.</li>
+</ul>
+
+<h2 id="checklist">9. Implementation checklist</h2>
+<ul class="checklist">
+<li><strong>Phase 1:</strong> i18n "Topics" rename (§1.1) · <code>exclude_terms</code> column + <code>build_theme_query</code> update (§1.2) · query preview endpoint + debounced UI (§1.3) · duplicate-name confirm flow (§1.4)</li>
+<li><strong>Phase 2:</strong> <code>topic_templates</code> table + seed data + admin CRUD (§2.1) · gallery UI + apply flow + <code>created_from_template_id</code> (§2.2) · <code>suggest_topics()</code> AI method + rate-limited endpoint + "Suggested for you" panel (§2.3) · template performance admin view (§2.4)</li>
+<li><strong>Phase 3:</strong> per-topic <code>ai_feedback_note</code> column + <code>refresh_theme_feedback_note</code> + prompt wiring (§3.1) · per-topic stats endpoint + row-level UI (§3.2)</li>
+<li><strong>Phase 4:</strong> onboarding checklist copy/links (§4.1) · empty-state gallery (§4.2) · digest opt-in toggle + <code>include_in_digest</code> + digest render block (§4.3) · bulk-delete endpoint + table/search/sort UI parity (§4.4)</li>
+<li>Full regression pass per phase confirming no existing company/signal/dashboard/digest behavior changed (everything above is additive)</li>
+</ul>
+
+<footer>
+  NewsAtlas — topics UX improvements planning, written 2026-08-02, continuing from <a href="theme-search-planning.html">theme-search-planning.html</a> and the topic-discovery UX audit conducted in this session. Every architectural fork is recorded as a decision with rationale; remaining items are explicitly marked open in §8 rather than silently decided.
+</footer>
+
+</body>
+</html>

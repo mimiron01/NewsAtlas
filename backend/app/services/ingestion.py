@@ -17,7 +17,7 @@ from app.schemas.ingestion import IngestionRunResult
 from app.services.ai_client import AIClient, AIClientError, MistralUsage, cosine_similarity, vector_norm
 from app.services.article_enrichment import EnrichmentBudget, enrich_articles
 from app.services.article_scoring import collapse_near_duplicate_titles, rank_candidates, score_candidate
-from app.services.feedback import refresh_feedback_note
+from app.services.feedback import refresh_feedback_note, refresh_theme_feedback_note
 from app.services.google_news_rss_client import GoogleNewsRSSClient
 from app.services.news_client import FetchOutcome, NewsClient, NewsClientError
 from app.services.news_query import (
@@ -641,7 +641,7 @@ def _fetch_from_source(
             name=target_company.name,
             aliases=target_company.aliases,
             context_terms=target_company.context_terms,
-            exclusion_terms=target_company.exclusion_terms,
+            exclude_terms=target_company.exclude_terms,
             allow_sites=resolve_allowlist(
                 target_company.google_news_source_allowlist,
                 workspace_settings.google_news_source_allowlist,
@@ -669,7 +669,7 @@ def _fetch_from_source(
             identity_query, _ = build_google_news_query(
                 name=target_company.name,
                 aliases=target_company.aliases,
-                exclusion_terms=target_company.exclusion_terms,
+                exclude_terms=target_company.exclude_terms,
                 allow_sites=resolve_allowlist(
                     target_company.google_news_source_allowlist,
                     workspace_settings.google_news_source_allowlist,
@@ -768,7 +768,7 @@ def _fetch_theme_from_source(
     if source == ArticleSource.GOOGLE_NEWS_RSS:
         query, truncated = build_theme_query(
             theme_watch.query_terms,
-            exclusion_terms=theme_watch.exclusion_terms,
+            exclude_terms=theme_watch.exclude_terms,
             allow_sites=effective_allowlist,
             deny_sites=deny_sites,
             when=_when_operator(workspace_settings, since),
@@ -789,7 +789,7 @@ def _fetch_theme_from_source(
     # (they take domain filters as separate request parameters, which this codebase
     # doesn't yet pass), so their query carries only the terms and exclusions.
     query, _ = build_theme_query(
-        theme_watch.query_terms, exclusion_terms=theme_watch.exclusion_terms
+        theme_watch.query_terms, exclude_terms=theme_watch.exclude_terms
     )
 
     if source == ArticleSource.NEWSDATA:
@@ -836,6 +836,10 @@ def _ingest_theme_watch(
     """Mirrors _ingest_target_company for the theme path (docs/theme-search-planning.html
     §5), across whichever providers this theme is allowed to use
     (docs/google-news-quality-planning.html §11)."""
+    # Recomputed per-theme, mirroring the once-per-run workspace-wide
+    # refresh_feedback_note call above — see docs/topics-ux-improvements-planning.html
+    # §3.1. Free (SQL only), so doing it on every run is cheap.
+    refresh_theme_feedback_note(db, theme_watch)
     outcome = _ThemeIngestOutcome()
     progress.update(
         current_theme_name=theme_watch.name,
@@ -1102,6 +1106,7 @@ def _process_new_theme_matches(
                     article_title=match.title,
                     article_description=_theme_grounding_text(match),
                     industry=theme_watch.industry,
+                    feedback_note=theme_watch.ai_feedback_note,
                     headline_only=match.headline_only,
                 )
                 _log_usage(db, "triage", ai_client.triage_model, triage_usage, None, commit=False)
@@ -1128,6 +1133,7 @@ def _process_new_theme_matches(
                 article_title=match.title,
                 article_description=_theme_grounding_text(match),
                 industry=theme_watch.industry,
+                feedback_note=theme_watch.ai_feedback_note,
                 output_language=workspace_settings.main_language,
                 headline_only=match.headline_only,
             )

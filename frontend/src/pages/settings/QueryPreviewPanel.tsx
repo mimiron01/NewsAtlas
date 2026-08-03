@@ -20,7 +20,7 @@ export default function QueryPreviewPanel() {
   const [name, setName] = useState("");
   const [aliases, setAliases] = useState<string[]>([]);
   const [contextTerms, setContextTerms] = useState<string[]>([]);
-  const [exclusionTerms, setExclusionTerms] = useState<string[]>([]);
+  const [excludeTerms, setExcludeTerms] = useState<string[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [result, setResult] = useState<QueryPreviewResponse | null>(null);
 
@@ -33,7 +33,7 @@ export default function QueryPreviewPanel() {
           name: name.trim() || null,
           aliases,
           context_terms: contextTerms,
-          exclusion_terms: exclusionTerms,
+          exclude_terms: excludeTerms,
         }
       );
       setResult(response);
@@ -73,11 +73,11 @@ export default function QueryPreviewPanel() {
           />
         </label>
         <label>
-          {t("targets.exclusionTerms")}
+          {t("targets.excludeTerms")}
           <TagInput
-            tags={exclusionTerms}
-            onChange={setExclusionTerms}
-            placeholder={t("targets.exclusionTermsPlaceholder")}
+            tags={excludeTerms}
+            onChange={setExcludeTerms}
+            placeholder={t("targets.excludeTermsPlaceholder")}
           />
         </label>
       </div>

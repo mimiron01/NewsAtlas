@@ -30,8 +30,8 @@ class TargetCompany(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     # context_terms are topicality: AND'd as an OR-group to narrow the query. They never
     # satisfy grounding — an article matching only these isn't about this company.
     context_terms: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
-    # exclusion_terms are negations, emitted as Google's -term.
-    exclusion_terms: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
+    # exclude_terms are negations, emitted as Google's -term.
+    exclude_terms: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
     industry: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Trusted domains this company's Google News query is restricted to.
     # NULL = inherit workspace_settings.google_news_source_allowlist; [] = explicitly

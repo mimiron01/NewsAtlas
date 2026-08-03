@@ -203,7 +203,7 @@ export interface TargetCompany {
   aliases: string[];
   // Topic narrowers. They tighten the search but say nothing about identity.
   context_terms: string[];
-  exclusion_terms: string[];
+  exclude_terms: string[];
   industry: string | null;
   is_active: boolean;
   // null = inheriting the workspace allowlist; [] = explicitly unrestricted; non-empty
@@ -398,12 +398,12 @@ export interface ThemeWatch {
   id: string;
   name: string;
   query_terms: string[];
+  exclude_terms: string[];
   industry: string | null;
   is_active: boolean;
   // null = inheriting the workspace allowlist (see TargetCompany).
   google_news_source_allowlist: string[] | null;
   google_news_source_denylist: string[];
-  exclusion_terms: string[];
   // null = inheriting workspace_settings.theme_news_sources.
   news_sources: string[] | null;
   // null = inherit the workspace-wide Google News edition. A topic about a national
@@ -418,6 +418,57 @@ export interface ThemeWatch {
   // themselves follow this theme.
   is_muted: boolean | null;
   follower_count: number;
+  created_from_template_id: string | null;
+  ai_feedback_note: string;
+  include_in_digest: boolean | null;
+}
+
+export interface ThemeWatchBulkDeleteResult {
+  deleted: number;
+  not_found: number;
+}
+
+export interface ThemeQueryPreview {
+  article_count: number;
+  sample_headlines: string[];
+}
+
+/** Shape of the 409 response body's `detail` when POST /theme-watches hits an
+ * existing (case-insensitive) name without confirm_merge — see
+ * docs/topics-ux-improvements-planning.html §1.4. */
+export interface ThemeDuplicateNameDetail {
+  code: "duplicate_name";
+  existing_id: string;
+  existing_query_terms: string[];
+}
+
+export interface ThemeWatchStats {
+  matches_last_7d: number;
+  matches_last_30d: number;
+  dismiss_rate_30d: number | null;
+  avg_relevance_score_30d: number | null;
+  last_match_at: string | null;
+}
+
+export interface TopicTemplate {
+  id: string;
+  name: string;
+  description: string;
+  category: string | null;
+  query_terms: string[];
+  exclude_terms: string[];
+  suggested_source_allowlist: string[];
+  is_active: boolean;
+  sort_order: number;
+}
+
+export interface SuggestedTopic {
+  name: string;
+  query_terms: string[];
+  exclude_terms: string[];
+  rationale: string;
+  based_on_template_id: string | null;
+  based_on_template_name: string | null;
 }
 
 export interface ThemeFollower {

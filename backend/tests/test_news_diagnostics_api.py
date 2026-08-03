@@ -127,7 +127,7 @@ def test_preview_reports_a_theme_shaped_query(client, monkeypatch):
 
     resp = client.post(
         "/news-diagnostics/google-news/preview",
-        json={"query_terms": ["EV battery", "Series B"], "exclusion_terms": ["Formel 1"]},
+        json={"query_terms": ["EV battery", "Series B"], "exclude_terms": ["Formel 1"]},
         headers=admin_headers(client),
     )
 

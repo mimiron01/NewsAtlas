@@ -384,14 +384,14 @@ def test_company_terms_split_round_trips_and_derives_keywords(client):
             "name": "Acme Corp",
             "aliases": ["Acme"],
             "context_terms": ["Motorsport"],
-            "exclusion_terms": ["Aktie"],
+            "exclude_terms": ["Aktie"],
         },
         headers=headers,
     ).json()
 
     assert created["aliases"] == ["Acme"]
     assert created["context_terms"] == ["Motorsport"]
-    assert created["exclusion_terms"] == ["Aktie"]
+    assert created["exclude_terms"] == ["Aktie"]
     # Derived: aliases first, then context terms. Exclusions are deliberately absent —
     # they'd otherwise broaden the provider query and steer the AI toward the very
     # subject the user asked to avoid.

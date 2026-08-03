@@ -26,7 +26,7 @@ export default function SettingsTargets() {
   const [name, setName] = useState("");
   const [aliases, setAliases] = useState<string[]>([]);
   const [contextTerms, setContextTerms] = useState<string[]>([]);
-  const [exclusionTerms, setExclusionTerms] = useState<string[]>([]);
+  const [excludeTerms, setExclusionTerms] = useState<string[]>([]);
   const [industry, setIndustry] = useState("");
   // null = inherit the workspace allowlist. Kept as null rather than [] so a new company
   // defaults to inheriting, which is what almost every company should do.
@@ -87,7 +87,7 @@ export default function SettingsTargets() {
         name,
         aliases,
         context_terms: contextTerms,
-        exclusion_terms: exclusionTerms,
+        exclude_terms: excludeTerms,
         industry: industry || null,
         google_news_source_allowlist: sourceAllowlist,
       });
@@ -115,7 +115,7 @@ export default function SettingsTargets() {
     setEditName(company.name);
     setEditAliases(company.aliases);
     setEditContextTerms(company.context_terms);
-    setEditExclusionTerms(company.exclusion_terms);
+    setEditExclusionTerms(company.exclude_terms);
     setEditIndustry(company.industry ?? "");
     setEditSourceAllowlist(company.google_news_source_allowlist);
   }
@@ -132,7 +132,7 @@ export default function SettingsTargets() {
         name: editName,
         aliases: editAliases,
         context_terms: editContextTerms,
-        exclusion_terms: editExclusionTerms,
+        exclude_terms: editExclusionTerms,
         industry: editIndustry || null,
         // Sent explicitly, including as null: null means "go back to inheriting the
         // workspace list", which is a real edit, not an omission.
@@ -287,13 +287,13 @@ export default function SettingsTargets() {
           <span className="field-hint">{t("targets.contextTermsHint")}</span>
         </label>
         <label>
-          {t("targets.exclusionTerms")}
+          {t("targets.excludeTerms")}
           <TagInput
-            tags={exclusionTerms}
+            tags={excludeTerms}
             onChange={setExclusionTerms}
-            placeholder={t("targets.exclusionTermsPlaceholder")}
+            placeholder={t("targets.excludeTermsPlaceholder")}
           />
-          <span className="field-hint">{t("targets.exclusionTermsHint")}</span>
+          <span className="field-hint">{t("targets.excludeTermsHint")}</span>
         </label>
         <SourceAllowlistField value={sourceAllowlist} onChange={setSourceAllowlist} />
         <button type="submit" disabled={isSubmitting}>
@@ -393,13 +393,13 @@ export default function SettingsTargets() {
                             <span className="field-hint">{t("targets.contextTermsHint")}</span>
                           </label>
                           <label>
-                            {t("targets.exclusionTerms")}
+                            {t("targets.excludeTerms")}
                             <TagInput
                               tags={editExclusionTerms}
                               onChange={setEditExclusionTerms}
-                              placeholder={t("targets.exclusionTermsPlaceholder")}
+                              placeholder={t("targets.excludeTermsPlaceholder")}
                             />
-                            <span className="field-hint">{t("targets.exclusionTermsHint")}</span>
+                            <span className="field-hint">{t("targets.excludeTermsHint")}</span>
                           </label>
                           <SourceAllowlistField
                             value={editSourceAllowlist}

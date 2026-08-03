@@ -92,7 +92,7 @@ def preview_google_news_query(
     if payload.query_terms:
         query, truncated = build_theme_query(
             payload.query_terms,
-            exclusion_terms=payload.exclusion_terms,
+            exclude_terms=payload.exclude_terms,
             allow_sites=allow_sites,
             deny_sites=deny_sites,
             when=when,
@@ -102,7 +102,7 @@ def preview_google_news_query(
             name=payload.name or "",
             aliases=payload.aliases,
             context_terms=payload.context_terms,
-            exclusion_terms=payload.exclusion_terms,
+            exclude_terms=payload.exclude_terms,
             allow_sites=allow_sites,
             deny_sites=deny_sites,
             when=when,

@@ -19,7 +19,7 @@ class QueryPreviewRequest(BaseModel):
     name: str | None = Field(default=None, max_length=255)
     aliases: list[str] = Field(default_factory=list)
     context_terms: list[str] = Field(default_factory=list)
-    exclusion_terms: list[str] = Field(default_factory=list)
+    exclude_terms: list[str] = Field(default_factory=list)
     query_terms: list[str] = Field(default_factory=list)
     # None inherits the workspace allowlist, matching how a stored entity resolves it.
     source_allowlist: list[str] | None = Field(default=None, max_length=50)
@@ -31,7 +31,7 @@ class QueryPreviewRequest(BaseModel):
     time_operator_enabled: bool | None = None
     lookback_hours: int = Field(default=24, ge=1, le=168)
 
-    @field_validator("aliases", "context_terms", "exclusion_terms", "query_terms")
+    @field_validator("aliases", "context_terms", "exclude_terms", "query_terms")
     @classmethod
     def _terms_valid(cls, value: list[str]) -> list[str]:
         return validate_term_list(value)

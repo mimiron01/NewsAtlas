@@ -114,7 +114,7 @@ def create_target_company(
             payload.context_terms if "context_terms" in payload.model_fields_set else None
         ),
         keywords=payload.keywords,
-        exclusion_terms=payload.exclusion_terms,
+        exclude_terms=payload.exclude_terms,
         industry=payload.industry,
         created_by=current_user.id,
         google_news_source_allowlist=payload.google_news_source_allowlist,

@@ -27,7 +27,7 @@ class TargetCompanyCreate(BaseModel):
     keywords: list[str] | None = None
     aliases: list[str] = Field(default_factory=list)
     context_terms: list[str] = Field(default_factory=list)
-    exclusion_terms: list[str] = Field(default_factory=list)
+    exclude_terms: list[str] = Field(default_factory=list)
     industry: str | None = Field(default=None, max_length=255)
     # None = inherit the workspace allowlist; [] = explicitly unrestricted; a non-empty
     # list replaces the workspace list (see docs/google-news-quality-planning.html §7.6).
@@ -37,7 +37,7 @@ class TargetCompanyCreate(BaseModel):
     google_news_language: str | None = Field(default=None, max_length=8)
     google_news_require_name_in_title: bool = False
 
-    @field_validator("keywords", "aliases", "context_terms", "exclusion_terms")
+    @field_validator("keywords", "aliases", "context_terms", "exclude_terms")
     @classmethod
     def _terms_valid(cls, value: list[str] | None) -> list[str] | None:
         return value if value is None else _validate_keywords(value)
@@ -64,7 +64,7 @@ class TargetCompanyUpdate(BaseModel):
     keywords: list[str] | None = None
     aliases: list[str] | None = None
     context_terms: list[str] | None = None
-    exclusion_terms: list[str] | None = None
+    exclude_terms: list[str] | None = None
     industry: str | None = Field(default=None, max_length=255)
     is_active: bool | None = None
     # None is ambiguous here in a way it isn't elsewhere on this model: it's both this
@@ -77,7 +77,7 @@ class TargetCompanyUpdate(BaseModel):
     google_news_language: str | None = Field(default=None, max_length=8)
     google_news_require_name_in_title: bool | None = None
 
-    @field_validator("keywords", "aliases", "context_terms", "exclusion_terms")
+    @field_validator("keywords", "aliases", "context_terms", "exclude_terms")
     @classmethod
     def _terms_valid(cls, value: list[str] | None) -> list[str] | None:
         return value if value is None else _validate_keywords(value)
@@ -106,7 +106,7 @@ class TargetCompanyResponse(BaseModel):
     keywords: list[str]
     aliases: list[str]
     context_terms: list[str]
-    exclusion_terms: list[str]
+    exclude_terms: list[str]
     industry: str | None
     is_active: bool
     # None means "inheriting the workspace allowlist" — the frontend renders that as a

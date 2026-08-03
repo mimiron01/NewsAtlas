@@ -40,17 +40,23 @@ def _normalize_language(value: str | None) -> str | None:
 class ThemeWatchCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     query_terms: list[str] = Field(min_length=1, max_length=20)
+    exclude_terms: list[str] = Field(default_factory=list, max_length=20)
     industry: str | None = Field(default=None, max_length=255)
     # None = inherit the workspace allowlist; [] = explicitly unrestricted; non-empty
     # replaces it (docs/google-news-quality-planning.html §7.6).
     google_news_source_allowlist: list[str] | None = Field(default=None, max_length=50)
     google_news_source_denylist: list[str] = Field(default_factory=list, max_length=50)
-    exclusion_terms: list[str] = Field(default_factory=list)
+    exclude_terms: list[str] = Field(default_factory=list)
     # None = inherit workspace_settings.theme_news_sources (§11.3).
     news_sources: list[str] | None = None
     # None/"" = inherit the workspace-wide Google News edition (see ThemeWatch model).
     google_news_country: str | None = Field(default=None, max_length=8)
     google_news_language: str | None = Field(default=None, max_length=8)
+    # When a topic with this name already exists (case-insensitive), the create endpoint
+    # normally 409s with the existing topic's terms rather than silently merging (see
+    # docs/topics-ux-improvements-planning.html §1.4) — set true to proceed anyway and
+    # follow the existing topic, same as re-clicking "Follow existing topic" in the UI.
+    confirm_merge: bool = False
 
     @field_validator("query_terms")
     @classmethod
@@ -62,7 +68,7 @@ class ThemeWatchCreate(BaseModel):
     def _allowlist_valid(cls, value: list[str] | None) -> list[str] | None:
         return value if value is None else validate_source_allowlist(value)
 
-    @field_validator("exclusion_terms")
+    @field_validator("exclude_terms")
     @classmethod
     def _exclusions_valid(cls, value: list[str] | None) -> list[str] | None:
         return value if value is None else validate_term_list(value)
@@ -86,11 +92,12 @@ class ThemeWatchCreate(BaseModel):
 class ThemeWatchUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     query_terms: list[str] | None = Field(default=None, min_length=1, max_length=20)
+    exclude_terms: list[str] | None = Field(default=None, max_length=20)
     industry: str | None = Field(default=None, max_length=255)
     is_active: bool | None = None
     google_news_source_allowlist: list[str] | None = Field(default=None, max_length=50)
     google_news_source_denylist: list[str] | None = Field(default=None, max_length=50)
-    exclusion_terms: list[str] | None = None
+    exclude_terms: list[str] | None = None
     news_sources: list[str] | None = None
     google_news_country: str | None = Field(default=None, max_length=8)
     google_news_language: str | None = Field(default=None, max_length=8)
@@ -105,7 +112,7 @@ class ThemeWatchUpdate(BaseModel):
     def _allowlist_valid(cls, value: list[str] | None) -> list[str] | None:
         return value if value is None else validate_source_allowlist(value)
 
-    @field_validator("exclusion_terms")
+    @field_validator("exclude_terms")
     @classmethod
     def _exclusions_valid(cls, value: list[str] | None) -> list[str] | None:
         return value if value is None else validate_term_list(value)
@@ -130,11 +137,12 @@ class ThemeWatchResponse(BaseModel):
     id: uuid.UUID
     name: str
     query_terms: list[str]
+    exclude_terms: list[str] = []
     industry: str | None
     is_active: bool
     google_news_source_allowlist: list[str] | None
     google_news_source_denylist: list[str] = []
-    exclusion_terms: list[str] = []
+    exclude_terms: list[str] = []
     news_sources: list[str] | None = None
     # None = inheriting the workspace-wide Google News edition; the frontend renders that
     # as an explicit "workspace default" choice rather than a blank field.
@@ -147,7 +155,15 @@ class ThemeWatchResponse(BaseModel):
     # Per-follow fields: None when the requester (an admin using ?scope=all) doesn't
     # themselves follow this theme.
     is_muted: bool | None = None
+    # Per-follow opt-in to include this topic's matches in the daily digest email —
+    # None when the requester doesn't follow (mirrors is_muted). Default false. See
+    # docs/topics-ux-improvements-planning.html §4.3.
+    include_in_digest: bool | None = None
     follower_count: int
+    created_from_template_id: uuid.UUID | None = None
+    # Read-only — computed by refresh_theme_feedback_note, never client-settable. Empty
+    # string until enough dismissed-match history accumulates (see §3.1).
+    ai_feedback_note: str = ""
 
     model_config = {"from_attributes": True}
 
@@ -159,5 +175,72 @@ class ThemeFollowerResponse(BaseModel):
     is_muted: bool
     assigned_by: uuid.UUID | None
     created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ThemeQueryPreviewRequest(BaseModel):
+    """Body for POST /theme-watches/preview — see
+    docs/topics-ux-improvements-planning.html §1.3. Deliberately takes the raw fields
+    rather than a theme_watch_id so it works before a topic has ever been saved (live,
+    debounced preview while the create form is being filled in)."""
+
+    query_terms: list[str] = Field(min_length=1, max_length=20)
+    exclude_terms: list[str] = Field(default_factory=list, max_length=20)
+    # None inherits the workspace allowlist, [] means explicitly unrestricted — the same
+    # three states a saved topic has, so the preview can't disagree with the real fetch.
+    google_news_source_allowlist: list[str] | None = Field(default=None, max_length=50)
+    google_news_source_denylist: list[str] = Field(default_factory=list, max_length=50)
+    google_news_country: str | None = Field(default=None, max_length=8)
+    google_news_language: str | None = Field(default=None, max_length=8)
+
+    @field_validator("query_terms")
+    @classmethod
+    def _query_terms_valid(cls, value: list[str]) -> list[str]:
+        return validate_term_list(value)
+
+    @field_validator("exclude_terms")
+    @classmethod
+    def _exclude_terms_valid(cls, value: list[str]) -> list[str]:
+        return validate_term_list(value)
+
+    @field_validator("google_news_source_allowlist", "google_news_source_denylist")
+    @classmethod
+    def _allowlist_valid(cls, value: list[str] | None) -> list[str] | None:
+        return value if value is None else validate_source_allowlist(value)
+
+    @field_validator("google_news_country")
+    @classmethod
+    def _country_valid(cls, value: str | None) -> str | None:
+        return _normalize_country(value)
+
+    @field_validator("google_news_language")
+    @classmethod
+    def _language_valid(cls, value: str | None) -> str | None:
+        return _normalize_language(value)
+
+
+class ThemeQueryPreviewResponse(BaseModel):
+    article_count: int
+    sample_headlines: list[str]
+
+
+class ThemeWatchBulkDeleteRequest(BaseModel):
+    theme_watch_ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+
+
+class ThemeWatchBulkDeleteResult(BaseModel):
+    deleted: int
+    not_found: int
+
+
+class ThemeWatchStatsResponse(BaseModel):
+    """Per-topic health snapshot — see docs/topics-ux-improvements-planning.html §3.2."""
+
+    matches_last_7d: int
+    matches_last_30d: int
+    dismiss_rate_30d: float | None = None
+    avg_relevance_score_30d: float | None = None
+    last_match_at: datetime | None = None
 
     model_config = {"from_attributes": True}

@@ -197,7 +197,7 @@ def test_context_terms_narrow_the_query_and_aliases_widen_the_identity_group(db_
 
 
 def test_exclusions_and_denylist_reach_the_query(db_session):
-    _company(db_session, exclusion_terms=["Aktie"], google_news_source_denylist=["spam.example"])
+    _company(db_session, exclude_terms=["Aktie"], google_news_source_denylist=["spam.example"])
     _settings(
         db_session, google_news_rss_enabled=True, google_news_source_denylist=["msn.com"]
     )

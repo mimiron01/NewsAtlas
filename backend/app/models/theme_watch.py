@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import ARRAY, Boolean, DateTime, ForeignKey, String
+from sqlalchemy import ARRAY, Boolean, DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -21,6 +21,12 @@ class ThemeWatch(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     # At least one required — unlike TargetCompany.keywords, there's no company name to
     # fall back to, so an empty list would search nothing (see build_theme_query).
     query_terms: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
+    # Articles mentioning any of these are filtered out of the query entirely (Google News
+    # RSS supports bare "-term" exclusion). No minimum, unlike query_terms — zero exclusions
+    # is the common case. See docs/topics-ux-improvements-planning.html §1.2: this is the
+    # single highest-leverage quality fix for a topic that has no company-name grounding
+    # guard the way TargetCompany does.
+    exclude_terms: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
     industry: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # Same override semantics as TargetCompany.google_news_source_allowlist: NULL inherits
     # the workspace list, [] is explicitly unrestricted, non-empty replaces it entirely
@@ -32,9 +38,6 @@ class ThemeWatch(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     google_news_source_denylist: Mapped[list[str]] = mapped_column(
         ARRAY(String), nullable=False, default=list
     )
-    # Emitted as Google's -term. A theme's query terms are broad by construction, so
-    # negation is the main precision tool available to it.
-    exclusion_terms: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
     # Which providers may serve this theme. NULL inherits
     # workspace_settings.theme_news_sources. Themes were Google-News-only until
     # docs/google-news-quality-planning.html §11 — a provider still has to be enabled
@@ -59,3 +62,16 @@ class ThemeWatch(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     created_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # Provenance only, no behavior change — lets §2.4's template-performance aggregation
+    # attribute this topic's ThemeMatch history back to the template it started from, even
+    # after the user has since edited its terms. NULL = created from scratch, no template
+    # involved. See docs/topics-ux-improvements-planning.html §2.2.
+    created_from_template_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("topic_templates.id", ondelete="SET NULL"), nullable=True
+    )
+    # Per-topic rule-based steering note derived from this topic's own dismissed-match
+    # patterns (no LLM call involved in computing it) — mirrors
+    # workspace_settings.ai_feedback_note but scoped per-topic rather than workspace-wide,
+    # since a dismiss pattern on one topic shouldn't bias another topic's prompts. See
+    # docs/topics-ux-improvements-planning.html §3.1.
+    ai_feedback_note: Mapped[str] = mapped_column(Text, nullable=False, default="")

@@ -96,7 +96,7 @@ def build_google_news_query(
     name: str,
     aliases: list[str] | None = None,
     context_terms: list[str] | None = None,
-    exclusion_terms: list[str] | None = None,
+    exclude_terms: list[str] | None = None,
     allow_sites: list[str] | None = None,
     deny_sites: list[str] | None = None,
     when: str | None = None,
@@ -124,7 +124,7 @@ def build_google_news_query(
         identity = [f"intitle:{term}" for term in identity]
 
     context = _quote_terms(context_terms or [])
-    exclusions = [f"-{term}" for term in _quote_terms(exclusion_terms or [])]
+    exclusions = [f"-{term}" for term in _quote_terms(exclude_terms or [])]
     allow = [f"site:{domain.strip()}" for domain in (allow_sites or []) if domain.strip()]
     deny = [f"-site:{domain.strip()}" for domain in (deny_sites or []) if domain.strip()]
 
@@ -163,7 +163,7 @@ def build_google_news_query(
 def build_theme_query(
     query_terms: list[str],
     *,
-    exclusion_terms: list[str] | None = None,
+    exclude_terms: list[str] | None = None,
     allow_sites: list[str] | None = None,
     deny_sites: list[str] | None = None,
     when: str | None = None,
@@ -177,7 +177,7 @@ def build_theme_query(
     dropped by the budget; allowlist domains are.
     """
     terms = _quote_terms(query_terms)
-    exclusions = [f"-{term}" for term in _quote_terms(exclusion_terms or [])]
+    exclusions = [f"-{term}" for term in _quote_terms(exclude_terms or [])]
     allow = [f"site:{domain.strip()}" for domain in (allow_sites or []) if domain.strip()]
     deny = [f"-site:{domain.strip()}" for domain in (deny_sites or []) if domain.strip()]
 

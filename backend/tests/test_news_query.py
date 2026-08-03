@@ -134,7 +134,7 @@ def test_build_google_news_query_ands_context_terms_as_a_group():
 
 def test_build_google_news_query_emits_exclusions_and_denylist():
     query, _ = build_google_news_query(
-        name="Acme", exclusion_terms=["Aktie"], deny_sites=["msn.com"]
+        name="Acme", exclude_terms=["Aktie"], deny_sites=["msn.com"]
     )
     assert query == "Acme -Aktie -site:msn.com"
 
@@ -169,7 +169,7 @@ def test_build_google_news_query_drops_context_terms_first_when_over_budget():
         name="Acme",
         context_terms=[f"term{i}" for i in range(40)],
         allow_sites=["reuters.com"],
-        exclusion_terms=["Aktie"],
+        exclude_terms=["Aktie"],
         when="when:1d",
     )
     assert truncated is True
@@ -215,7 +215,7 @@ def test_build_theme_query_dedupes_terms_case_insensitively():
 def test_build_theme_query_adds_site_clause_and_exclusions():
     query, _ = build_theme_query(
         ["Automotive"],
-        exclusion_terms=["Formel 1"],
+        exclude_terms=["Formel 1"],
         allow_sites=["reuters.com"],
         deny_sites=["msn.com"],
         when="when:1d",
@@ -323,3 +323,15 @@ def test_is_valid_source_hostname_rejects_scheme_and_path():
     assert not is_valid_source_hostname("reuters.com ")
     assert not is_valid_source_hostname("not a domain")
     assert not is_valid_source_hostname("justaword")
+
+
+def test_build_theme_query_without_exclusions_is_unchanged():
+    """Ported from the topics-UX suite: the exclusion clause must be entirely absent, not
+    an empty fragment, when there is nothing to exclude."""
+    assert build_theme_query(["Automotive"], exclude_terms=[]) == ("Automotive", False)
+    assert build_theme_query(["Automotive"], exclude_terms=None) == ("Automotive", False)
+
+
+def test_build_theme_query_quotes_multiword_exclusions():
+    query, _ = build_theme_query(["Automotive"], exclude_terms=["insurance", "used car"])
+    assert query == 'Automotive -insurance -"used car"'

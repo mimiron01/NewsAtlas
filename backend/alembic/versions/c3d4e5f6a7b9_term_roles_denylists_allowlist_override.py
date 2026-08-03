@@ -43,7 +43,7 @@ def upgrade() -> None:
     )
     op.add_column(
         'target_companies',
-        sa.Column('exclusion_terms', sa.ARRAY(sa.String()), nullable=False, server_default='{}'),
+        sa.Column('exclude_terms', sa.ARRAY(sa.String()), nullable=False, server_default='{}'),
     )
     op.add_column(
         'target_companies',
@@ -56,10 +56,6 @@ def upgrade() -> None:
         sa.Column(
             'google_news_require_name_in_title', sa.Boolean(), nullable=False, server_default='false'
         ),
-    )
-    op.add_column(
-        'theme_watches',
-        sa.Column('exclusion_terms', sa.ARRAY(sa.String()), nullable=False, server_default='{}'),
     )
     op.add_column(
         'theme_watches',
@@ -140,10 +136,9 @@ def upgrade() -> None:
     for table, column in (
         ('target_companies', 'aliases'),
         ('target_companies', 'context_terms'),
-        ('target_companies', 'exclusion_terms'),
+        ('target_companies', 'exclude_terms'),
         ('target_companies', 'google_news_source_denylist'),
         ('target_companies', 'google_news_require_name_in_title'),
-        ('theme_watches', 'exclusion_terms'),
         ('theme_watches', 'google_news_source_denylist'),
         ('workspace_settings', 'google_news_source_denylist'),
         ('workspace_settings', 'google_news_query_strategy'),
@@ -173,9 +168,8 @@ def downgrade() -> None:
     op.drop_column('workspace_settings', 'google_news_query_strategy')
     op.drop_column('workspace_settings', 'google_news_source_denylist')
     op.drop_column('theme_watches', 'google_news_source_denylist')
-    op.drop_column('theme_watches', 'exclusion_terms')
     op.drop_column('target_companies', 'google_news_require_name_in_title')
     op.drop_column('target_companies', 'google_news_source_denylist')
-    op.drop_column('target_companies', 'exclusion_terms')
+    op.drop_column('target_companies', 'exclude_terms')
     op.drop_column('target_companies', 'context_terms')
     op.drop_column('target_companies', 'aliases')

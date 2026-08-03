@@ -754,6 +754,14 @@ deny_sites  = workspace.denylist + (entity.denylist or [])   # union, unchanged<
 
 <div class="ok-box"><strong>Shipped 2026-07-30.</strong> Every item below is implemented and covered by tests (508 passing). The Alembic chain runs clean on an empty database, and both data backfills in the Phase 2 migration were verified against real rows: <code>context_terms</code> is populated from <code>keywords</code> with <code>aliases</code> left empty, and an entity that already had an allowlist keeps its <em>effective</em> list via the union backfill.</div>
 
+<div class="ok-box"><strong>Reconciled with the topics-UX work (2026-07-30).</strong> That branch landed on <code>main</code> while this was in flight and overlapped in three places; all three are merged rather than duplicated:
+<ul>
+  <li><strong>Exclusions were built twice.</strong> It shipped <code>ThemeWatch.exclude_terms</code>; this plan called the same concept <code>exclusion_terms</code>. Its name won — it was already merged, with a migration, UI, i18n and tests — and <code>TargetCompany</code> was renamed to match, so one concept has one name across both models.</li>
+  <li><strong>Two query previews now coexist deliberately.</strong> <code>POST /theme-watches/preview</code> stays the in-flow "will this topic find anything?" check for any user; <code>POST /news-diagnostics/google-news/preview</code> stays the admin "why were these dropped?" tool. The theme one was rewired onto this document's builder, so exclusions, denylists, the freshness operator and override-allowlist semantics apply identically — a preview built differently from the real fetch reports on a search nobody will run.</li>
+  <li><strong>Per-topic health stats and per-publisher precision stats are different axes</strong> (which topics earn their slot vs. which publishers waste the budget) and were left as two independent views.</li>
+</ul>
+The theme preview also now goes through the Google News headroom check and usage log. It had been making a real outbound request per call, per user, entirely outside the workspace's self-imposed ceiling — the exact traffic that ceiling exists to bound, given the feed has no official quota.</div>
+
 <div class="assumption"><strong>Deliberate departures from this plan, both narrowing what it said:</strong>
 <ul>
   <li><strong>§11.4's theme term guard uses prefix-stemmed token matching, not verbatim substring matching.</strong> The plan recorded verbatim matching as an assumption to validate; it failed immediately on ordinary inflection — "EV batteries" does not contain "EV battery" — and in German, where compounds and cases are the norm, it would have rejected far more than it kept. Comparing token stems keeps the check free and deterministic. Identity matching (<code>article_mentions_company</code>) keeps the stricter verbatim rule, because a loose match there means attributing a story to the wrong company.</li>
