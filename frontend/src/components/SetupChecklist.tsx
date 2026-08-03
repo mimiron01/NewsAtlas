@@ -30,7 +30,11 @@ export default function SetupChecklist({
       body: t("setupChecklist.targetCompany.body"),
       to: "/settings/targets",
       linkLabel: t("setupChecklist.targetCompany.linkLabel"),
-      secondaryTo: "/themes",
+      // Deep-links straight into the template gallery (see
+      // docs/topics-ux-improvements-planning.html §4.1) rather than the blank create
+      // form — a user coming from "browse topic templates" here shouldn't have to find
+      // that action again themselves.
+      secondaryTo: "/themes?gallery=1",
       secondaryLinkLabel: t("setupChecklist.targetCompany.themeLinkLabel"),
     },
     {

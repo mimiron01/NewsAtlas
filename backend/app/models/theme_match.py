@@ -87,6 +87,11 @@ class ThemeMatch(Base, UUIDPrimaryKeyMixin):
     completion_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     total_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
+    # Mirrors Signal.emailed_at: NULL until included in a digest send, then stamped so it
+    # never gets re-sent. Only ever set for matches on a follow with include_in_digest —
+    # see docs/topics-ux-improvements-planning.html §4.3.
+    emailed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     @property
     def headline_only(self) -> bool:
         """Always true in v1 (source is always GOOGLE_NEWS_RSS) — kept as a property, not

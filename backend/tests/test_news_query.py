@@ -141,3 +141,22 @@ def test_build_theme_query_adds_site_clause_when_sources_given():
 
 def test_build_theme_query_no_sources_omits_site_clause():
     assert build_theme_query(["Automotive"], []) == "Automotive"
+
+
+def test_build_theme_query_appends_exclude_terms():
+    assert (
+        build_theme_query(["Automotive"], None, ["insurance", "used car"])
+        == 'Automotive -insurance -"used car"'
+    )
+
+
+def test_build_theme_query_exclude_terms_combine_with_sources():
+    assert (
+        build_theme_query(["Automotive"], ["reuters.com"], ["insurance"])
+        == "(Automotive) (site:reuters.com) -insurance"
+    )
+
+
+def test_build_theme_query_no_exclude_terms_is_unchanged():
+    assert build_theme_query(["Automotive"], None, []) == "Automotive"
+    assert build_theme_query(["Automotive"], None, None) == "Automotive"

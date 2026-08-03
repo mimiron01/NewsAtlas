@@ -41,7 +41,29 @@ def test_theme_watch_requires_at_least_one_query_term(client):
     assert resp.status_code == 422
 
 
-def test_theme_watch_dedupes_by_name_case_insensitive(client):
+def test_theme_watch_duplicate_name_requires_confirmation(client):
+    """See docs/topics-ux-improvements-planning.html §1.4: creating a topic whose name
+    already exists (case-insensitive) no longer silently merges — it 409s with the
+    existing topic's id/terms so the frontend can show an explicit choice."""
+    headers_a, _ = signup(client, email="a@proair.com")
+    headers_b, _ = signup(client, email="b@proair.com")
+
+    resp_a = client.post(
+        "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=headers_a
+    )
+    theme_a = resp_a.json()
+
+    conflict_resp = client.post(
+        "/theme-watches", json={"name": "automotive", "query_terms": ["EV"]}, headers=headers_b
+    )
+    assert conflict_resp.status_code == 409
+    detail = conflict_resp.json()["detail"]
+    assert detail["code"] == "duplicate_name"
+    assert detail["existing_id"] == theme_a["id"]
+    assert detail["existing_query_terms"] == ["EV"]
+
+
+def test_theme_watch_dedupes_by_name_case_insensitive_with_confirm_merge(client):
     headers_a, _ = signup(client, email="a@proair.com")
     headers_b, _ = signup(client, email="b@proair.com")
 
@@ -49,8 +71,11 @@ def test_theme_watch_dedupes_by_name_case_insensitive(client):
         "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=headers_a
     )
     resp_b = client.post(
-        "/theme-watches", json={"name": "automotive", "query_terms": ["EV"]}, headers=headers_b
+        "/theme-watches",
+        json={"name": "automotive", "query_terms": ["EV"], "confirm_merge": True},
+        headers=headers_b,
     )
+    assert resp_b.status_code == 201
     assert resp_a.json()["id"] == resp_b.json()["id"]
     assert resp_b.json()["follower_count"] == 2
 
@@ -62,7 +87,9 @@ def test_non_creator_follower_cannot_edit_shared_theme(client):
         "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=creator_headers
     ).json()
     client.post(
-        "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=other_headers
+        "/theme-watches",
+        json={"name": "Automotive", "query_terms": ["EV"], "confirm_merge": True},
+        headers=other_headers,
     )
 
     patch_resp = client.patch(
@@ -203,5 +230,198 @@ def test_google_news_source_allowlist_rejects_non_hostname(client):
         },
         headers=headers,
     )
+    assert resp.status_code == 422
+
+
+def test_theme_watch_round_trips_exclude_terms(client):
+    headers = auth_headers(client)
+    create_resp = client.post(
+        "/theme-watches",
+        json={"name": "Automotive", "query_terms": ["EV"], "exclude_terms": ["insurance"]},
+        headers=headers,
+    )
+    assert create_resp.status_code == 201
+    theme = create_resp.json()
+    assert theme["exclude_terms"] == ["insurance"]
+
+    patch_resp = client.patch(
+        f"/theme-watches/{theme['id']}", json={"exclude_terms": ["insurance", "used car"]}, headers=headers
+    )
+    assert patch_resp.status_code == 200
+    assert patch_resp.json()["exclude_terms"] == ["insurance", "used car"]
+
+
+def test_theme_watch_exclude_terms_respects_term_cap(client):
+    headers = auth_headers(client)
+    resp = client.post(
+        "/theme-watches",
+        json={"name": "Automotive", "query_terms": ["EV"], "exclude_terms": [f"term{i}" for i in range(21)]},
+        headers=headers,
+    )
+    assert resp.status_code == 422
+
+
+# --- Query preview (POST /theme-watches/preview) -----------------------------------
+
+
+def _enable_google_news(db_session):
+    settings = get_or_create_workspace_settings(db_session)
+    settings.google_news_rss_enabled = True
+    db_session.commit()
+    return settings
+
+
+def test_preview_theme_query_requires_google_news_enabled(client):
+    headers = auth_headers(client)
+    resp = client.post(
+        "/theme-watches/preview", json={"query_terms": ["Automotive"]}, headers=headers
+    )
+    assert resp.status_code == 400
+
+
+def test_preview_theme_query_returns_sample_headlines(client, db_session, monkeypatch):
+    headers = auth_headers(client)
+    _enable_google_news(db_session)
+
+    from app.services.news_client import NewsArticle
+
+    fake_articles = [
+        NewsArticle(
+            title=f"Automotive headline {i}",
+            url=f"https://example.com/{i}",
+            source_name="Example",
+            description="",
+            published_at=None,
+        )
+        for i in range(3)
+    ]
+    monkeypatch.setattr(
+        "app.services.google_news_rss_client.GoogleNewsRSSClient.fetch_articles",
+        lambda self, **kwargs: fake_articles,
+    )
+
+    resp = client.post(
+        "/theme-watches/preview",
+        json={"query_terms": ["Automotive"], "exclude_terms": ["insurance"]},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["article_count"] == 3
+    assert body["sample_headlines"] == [a.title for a in fake_articles]
+
+
+def test_preview_theme_query_never_persists_anything(client, db_session, monkeypatch):
+    headers = auth_headers(client)
+    _enable_google_news(db_session)
+    monkeypatch.setattr(
+        "app.services.google_news_rss_client.GoogleNewsRSSClient.fetch_articles",
+        lambda self, **kwargs: [],
+    )
+
+    client.post("/theme-watches/preview", json={"query_terms": ["Automotive"]}, headers=headers)
+
+    assert client.get("/theme-watches", headers=headers).json() == []
+
+
+# --- Digest opt-in toggle (§4.3) ----------------------------------------------------
+
+
+def test_toggle_digest_inclusion_defaults_off_and_flips(client):
+    headers = auth_headers(client)
+    theme = client.post(
+        "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=headers
+    ).json()
+    assert theme["include_in_digest"] is False
+
+    toggled = client.post(f"/theme-watches/{theme['id']}/digest", headers=headers)
+    assert toggled.status_code == 200
+    assert toggled.json()["include_in_digest"] is True
+
+    toggled_again = client.post(f"/theme-watches/{theme['id']}/digest", headers=headers)
+    assert toggled_again.json()["include_in_digest"] is False
+
+
+def test_toggle_digest_inclusion_requires_following(client):
+    headers_a, _ = signup(client, email="a@proair.com")
+    headers_b, _ = signup(client, email="b@proair.com")
+    theme = client.post(
+        "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=headers_a
+    ).json()
+
+    resp = client.post(f"/theme-watches/{theme['id']}/digest", headers=headers_b)
+    assert resp.status_code == 404
+
+
+# --- Bulk delete (§4.4) --------------------------------------------------------------
+
+
+def test_bulk_delete_removes_multiple_topics(client):
+    headers = auth_headers(client)
+    automotive = client.post(
+        "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=headers
+    ).json()
+    fintech = client.post(
+        "/theme-watches", json={"name": "Fintech", "query_terms": ["payments"]}, headers=headers
+    ).json()
+
+    resp = client.post(
+        "/theme-watches/bulk-delete",
+        json={"theme_watch_ids": [automotive["id"], fintech["id"]]},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 2, "not_found": 0}
+    assert client.get("/theme-watches", headers=headers).json() == []
+
+
+def test_bulk_delete_counts_missing_ids_as_not_found(client):
+    headers = auth_headers(client)
+    automotive = client.post(
+        "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=headers
+    ).json()
+
+    resp = client.post(
+        "/theme-watches/bulk-delete",
+        json={"theme_watch_ids": [automotive["id"], "00000000-0000-0000-0000-000000000000"]},
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 1, "not_found": 1}
+
+
+def test_bulk_delete_non_admin_only_removes_own_follow(client):
+    headers_a, _ = signup(client, email="a@proair.com")
+    headers_b, _ = signup(client, email="b@proair.com")
+    theme = client.post(
+        "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=headers_a
+    ).json()
+
+    resp = client.post(
+        "/theme-watches/bulk-delete", json={"theme_watch_ids": [theme["id"]]}, headers=headers_b
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 0, "not_found": 1}
+    assert len(client.get("/theme-watches", headers=headers_a).json()) == 1
+
+
+def test_bulk_delete_admin_hard_deletes_for_everyone(client):
+    admin_headers, _ = signup(client, email="admin@proair.com")
+    user_headers, _ = signup(client, email="rep@proair.com")
+    theme = client.post(
+        "/theme-watches", json={"name": "Automotive", "query_terms": ["EV"]}, headers=user_headers
+    ).json()
+
+    resp = client.post(
+        "/theme-watches/bulk-delete", json={"theme_watch_ids": [theme["id"]]}, headers=admin_headers
+    )
+    assert resp.status_code == 200
+    assert resp.json() == {"deleted": 1, "not_found": 0}
+    assert client.get("/theme-watches", headers=user_headers).json() == []
+
+
+def test_bulk_delete_requires_non_empty_list(client):
+    headers = auth_headers(client)
+    resp = client.post("/theme-watches/bulk-delete", json={"theme_watch_ids": []}, headers=headers)
     assert resp.status_code == 422
 

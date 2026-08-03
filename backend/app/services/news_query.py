@@ -73,11 +73,20 @@ def build_google_news_query(name: str, keywords: list[str], sources: list[str] |
     return base
 
 
-def build_theme_query(query_terms: list[str], sources: list[str] | None = None) -> str:
+def build_theme_query(
+    query_terms: list[str],
+    sources: list[str] | None = None,
+    exclude_terms: list[str] | None = None,
+) -> str:
     """Pure OR of a theme's own query terms — unlike build_google_news_query, there's no
     company name to require, so this is what that function would degrade to if a company
     had no name, generalized to the case where there's never a name at all (see
     docs/theme-search-planning.html §3).
+
+    exclude_terms are appended as bare "-term" exclusions (Google News RSS search supports
+    the same "-" exclusion operator as Google web search) — see
+    docs/topics-ux-improvements-planning.html §1.2. This is the one boolean operator
+    (NOT) exposed to end users; AND/OR stay implicit rather than a query-builder UI.
     """
     terms = _quote_terms(query_terms)
     base = " OR ".join(terms)
@@ -85,6 +94,9 @@ def build_theme_query(query_terms: list[str], sources: list[str] | None = None) 
         site_clause = " OR ".join(f"site:{domain.strip()}" for domain in sources if domain.strip())
         if site_clause:
             base = f"({base}) ({site_clause})"
+    if exclude_terms:
+        for term in _quote_terms(exclude_terms):
+            base = f"{base} -{term}"
     return base
 
 

@@ -26,3 +26,8 @@ class ThemeFollow(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     assigned_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    # Per-follow (not per-topic) opt-in to include this topic's matches in the daily
+    # digest email, same scoping as is_muted — one user opting in doesn't add matches to
+    # a co-follower's digest. Defaults false so no existing user's digest changes shape
+    # without an explicit action. See docs/topics-ux-improvements-planning.html §4.3.
+    include_in_digest: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

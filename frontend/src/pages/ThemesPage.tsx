@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
@@ -9,16 +9,21 @@ import type {
   PublicWorkspaceSettings,
   SignalStatus,
   TargetCompany,
+  ThemeDuplicateNameDetail,
   ThemeMatch,
   ThemeWatch,
+  ThemeWatchStats,
 } from "../api/types";
 import TagInput from "../components/TagInput";
+import ThemeQueryPreviewPanel from "../components/ThemeQueryPreviewPanel";
 import ThemeRunButton from "../components/ThemeRunButton";
+import TopicTemplateGallery from "../components/TopicTemplateGallery";
 import { STATUS_TRANSITION_VALUES } from "../constants/signalStatus";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { usePageTitle } from "../hooks/usePageTitle";
+import { useThemeQueryPreview } from "../hooks/useThemeQueryPreview";
 
 const MATCH_STATUSES: SignalStatus[] = ["new", "reviewed", "archived", "dismissed"];
 const POLL_INTERVAL_MS = 1500;
@@ -31,8 +36,10 @@ export default function ThemesPage() {
   const isAdmin = useIsAdmin();
 
   const [themes, setThemes] = useState<ThemeWatch[]>([]);
+  const [statsByThemeId, setStatsByThemeId] = useState<Record<string, ThemeWatchStats>>({});
   const [name, setName] = useState("");
   const [queryTerms, setQueryTerms] = useState<string[]>([]);
+  const [excludeTerms, setExcludeTerms] = useState<string[]>([]);
   const [industry, setIndustry] = useState("");
   const [sourceAllowlist, setSourceAllowlist] = useState<string[]>([]);
   const [country, setCountry] = useState("");
@@ -43,10 +50,37 @@ export default function ThemesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editQueryTerms, setEditQueryTerms] = useState<string[]>([]);
+  const [editExcludeTerms, setEditExcludeTerms] = useState<string[]>([]);
   const [editIndustry, setEditIndustry] = useState("");
   const [editSourceAllowlist, setEditSourceAllowlist] = useState<string[]>([]);
   const [editCountry, setEditCountry] = useState("");
   const [editLanguage, setEditLanguage] = useState("");
+  // Set when POST /theme-watches 409s with a duplicate-name conflict (see
+  // docs/topics-ux-improvements-planning.html §1.4) — surfaces the choice explicitly
+  // instead of the old silent merge-by-name behavior.
+  const [duplicateConflict, setDuplicateConflict] = useState<ThemeDuplicateNameDetail | null>(
+    null
+  );
+  // List-level search/sort/bulk-select (§4.4 parity with the companies table) — the list
+  // is small (capped by the workspace's active-topic ceiling), so this is all client-side
+  // rather than server-side pagination/filtering.
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"name" | "lastMatch" | "created">("name");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkConfirming, setBulkConfirming] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [searchParams] = useSearchParams();
+  // Deep link from the onboarding checklist (see
+  // docs/topics-ux-improvements-planning.html §4.1) — opens straight into the gallery
+  // instead of the blank create form, since a new user coming from "browse topic
+  // templates" shouldn't have to find that action again themselves.
+  const [showGallery, setShowGallery] = useState(searchParams.get("gallery") === "1");
+  const [galleryDismissed, setGalleryDismissed] = useState(false);
+  const [themesLoaded, setThemesLoaded] = useState(false);
+  // Default view for a workspace with zero topics (see §4.2) — the gallery is more
+  // useful than a blank form as the very first thing a new user sees here.
+  const displayGallery =
+    !galleryDismissed && (showGallery || (themesLoaded && themes.length === 0));
 
   const [matches, setMatches] = useState<ThemeMatch[]>([]);
   const [matchThemeFilter, setMatchThemeFilter] = useState("");
@@ -66,6 +100,23 @@ export default function ThemesPage() {
   // warning it may immediately retract.
   const googleNewsDisabled = publicSettings !== null && !publicSettings.google_news_rss_enabled;
   const cooldownSeconds = publicSettings?.manual_trigger_cooldown_seconds ?? 60;
+
+  const createPreview = useThemeQueryPreview({
+    queryTerms,
+    excludeTerms,
+    sourceAllowlist,
+    country,
+    language,
+    disabled: googleNewsDisabled,
+  });
+  const editPreview = useThemeQueryPreview({
+    queryTerms: editQueryTerms,
+    excludeTerms: editExcludeTerms,
+    sourceAllowlist: editSourceAllowlist,
+    country: editCountry,
+    language: editLanguage,
+    disabled: googleNewsDisabled || editingId === null,
+  });
 
   function canEdit(theme: ThemeWatch): boolean {
     return isAdmin || (user !== null && theme.created_by === user.id);
@@ -88,8 +139,35 @@ export default function ThemesPage() {
   function loadThemes() {
     api
       .get<ThemeWatch[]>("/theme-watches")
-      .then(setThemes)
-      .catch((err) => showToast(err instanceof ApiError ? err.message : t("themes:loadFailed"), "error"));
+      .then((result) => {
+        setThemes(result);
+        loadStats(result);
+      })
+      .catch((err) => showToast(err instanceof ApiError ? err.message : t("themes:loadFailed"), "error"))
+      .finally(() => setThemesLoaded(true));
+  }
+
+  // One request per topic — fine at this scale, since active topics are capped
+  // workspace-wide (default 10) by design (see docs/topics-ux-improvements-planning.html
+  // §3.2). A per-topic failure is swallowed silently rather than surfacing an error
+  // toast for what's a secondary, non-blocking piece of UI.
+  function loadStats(forThemes: ThemeWatch[]) {
+    Promise.all(
+      forThemes.map((theme) =>
+        api
+          .get<ThemeWatchStats>(`/theme-watches/${theme.id}/stats`)
+          .then((stats) => [theme.id, stats] as const)
+          .catch(() => null)
+      )
+    ).then((results) => {
+      setStatsByThemeId((prev) => {
+        const next = { ...prev };
+        for (const entry of results) {
+          if (entry) next[entry[0]] = entry[1];
+        }
+        return next;
+      });
+    });
   }
 
   function loadMatches() {
@@ -168,28 +246,47 @@ export default function ThemesPage() {
     }
   }
 
+  function resetCreateForm() {
+    setName("");
+    setQueryTerms([]);
+    setExcludeTerms([]);
+    setIndustry("");
+    setSourceAllowlist([]);
+    setCountry("");
+    setLanguage("");
+  }
+
+  function buildCreatePayload(confirmMerge: boolean) {
+    return {
+      name,
+      query_terms: queryTerms,
+      exclude_terms: excludeTerms,
+      industry: industry || null,
+      google_news_source_allowlist: sourceAllowlist,
+      // "" is the "workspace default" option; the backend stores it as null/inherit.
+      google_news_country: country,
+      google_news_language: language,
+      confirm_merge: confirmMerge,
+    };
+  }
+
   async function handleAddTheme(event: FormEvent) {
     event.preventDefault();
+    setDuplicateConflict(null);
     setIsSubmitting(true);
     try {
-      await api.post<ThemeWatch>("/theme-watches", {
-        name,
-        query_terms: queryTerms,
-        industry: industry || null,
-        google_news_source_allowlist: sourceAllowlist,
-        // "" is the "workspace default" option; the backend stores it as null/inherit.
-        google_news_country: country,
-        google_news_language: language,
-      });
-      setName("");
-      setQueryTerms([]);
-      setIndustry("");
-      setSourceAllowlist([]);
-      setCountry("");
-      setLanguage("");
+      await api.post<ThemeWatch>("/theme-watches", buildCreatePayload(false));
+      resetCreateForm();
       showToast(t("themes:addedToast"), "success");
       loadThemes();
     } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        const detail = err.detail as ThemeDuplicateNameDetail | undefined;
+        if (detail?.code === "duplicate_name") {
+          setDuplicateConflict(detail);
+          return;
+        }
+      }
       const message =
         err instanceof ApiError && err.status === 400
           ? t("themes:activeCeilingReached")
@@ -202,11 +299,27 @@ export default function ThemesPage() {
     }
   }
 
+  async function followExistingDuplicate() {
+    setIsSubmitting(true);
+    try {
+      await api.post<ThemeWatch>("/theme-watches", buildCreatePayload(true));
+      resetCreateForm();
+      setDuplicateConflict(null);
+      showToast(t("themes:addedToast"), "success");
+      loadThemes();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("themes:addFailed"), "error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
   function startEdit(theme: ThemeWatch) {
     setConfirmingId(null);
     setEditingId(theme.id);
     setEditName(theme.name);
     setEditQueryTerms(theme.query_terms);
+    setEditExcludeTerms(theme.exclude_terms);
     setEditIndustry(theme.industry ?? "");
     setEditSourceAllowlist(theme.google_news_source_allowlist);
     setEditCountry(theme.google_news_country ?? "");
@@ -224,6 +337,7 @@ export default function ThemesPage() {
       await api.patch(`/theme-watches/${theme.id}`, {
         name: editName,
         query_terms: editQueryTerms,
+        exclude_terms: editExcludeTerms,
         industry: editIndustry || null,
         google_news_source_allowlist: editSourceAllowlist,
         google_news_country: editCountry,
@@ -269,6 +383,65 @@ export default function ThemesPage() {
     }
   }
 
+  async function toggleDigest(theme: ThemeWatch) {
+    setPendingId(theme.id);
+    try {
+      await api.post(`/theme-watches/${theme.id}/digest`);
+      loadThemes();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("themes:digest.updateFailed"), "error");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  function toggleSelected(themeId: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(themeId)) next.delete(themeId);
+      else next.add(themeId);
+      return next;
+    });
+  }
+
+  async function handleBulkDelete() {
+    setIsBulkDeleting(true);
+    try {
+      await api.post("/theme-watches/bulk-delete", { theme_watch_ids: Array.from(selectedIds) });
+      showToast(t("themes:bulk.deletedToast", { count: selectedIds.size }), "success");
+      setSelectedIds(new Set());
+      setBulkConfirming(false);
+      loadThemes();
+      loadMatches();
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("themes:bulk.removeFailed"), "error");
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  }
+
+  const visibleThemes = themes
+    .filter((theme) => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        theme.name.toLowerCase().includes(q) ||
+        (theme.industry ?? "").toLowerCase().includes(q) ||
+        theme.query_terms.some((term) => term.toLowerCase().includes(q))
+      );
+    })
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      if (sortBy === "lastMatch") {
+        const aTime = statsByThemeId[a.id]?.last_match_at ?? "";
+        const bTime = statsByThemeId[b.id]?.last_match_at ?? "";
+        return bTime.localeCompare(aTime);
+      }
+      // "created": no created_at on ThemeWatchResponse — approximate with list order
+      // (the API already returns newest-first), so this is a no-op stable sort.
+      return 0;
+    });
+
   async function remove(theme: ThemeWatch) {
     setPendingId(theme.id);
     try {
@@ -293,6 +466,32 @@ export default function ThemesPage() {
     return isAdmin ? t("themes:delete") : t("themes:unfollow");
   }
 
+  // A topic with no matches in this many days is flagged as possibly stale — proposed
+  // default, not tuned against real usage yet (see
+  // docs/topics-ux-improvements-planning.html §8's open questions). Only surfaced for
+  // active topics; a paused one is expected to be quiet.
+  const STALE_DAYS = 14;
+
+  function renderThemeStats(theme: ThemeWatch) {
+    const stats = statsByThemeId[theme.id];
+    if (!stats) return null;
+    if (stats.matches_last_30d === 0) {
+      return <div className="field-hint">{t("themes:stats.noMatchesYet")}</div>;
+    }
+    const isStale =
+      theme.is_active &&
+      stats.last_match_at !== null &&
+      Date.now() - new Date(stats.last_match_at).getTime() > STALE_DAYS * 24 * 60 * 60 * 1000;
+    return (
+      <div className="field-hint">
+        {t("themes:stats.matches7d", { count: stats.matches_last_7d })}
+        {stats.avg_relevance_score_30d !== null &&
+          ` · ${t("themes:stats.avgRelevance", { score: stats.avg_relevance_score_30d.toFixed(1) })}`}
+        {isStale && ` · ${t("themes:stats.stale")}`}
+      </div>
+    );
+  }
+
   function confirmCopy(theme: ThemeWatch): string {
     if (isAdmin) {
       return t("themes:confirmDeleteAdmin", { name: theme.name });
@@ -310,6 +509,12 @@ export default function ThemesPage() {
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : t("themes:matches.updateFailed"), "error");
     }
+  }
+
+  function handleTemplateApplied(_theme: ThemeWatch) {
+    setShowGallery(false);
+    showToast(t("themes:addedToast"), "success");
+    loadThemes();
   }
 
   async function trackCompany(match: ThemeMatch) {
@@ -363,9 +568,33 @@ export default function ThemesPage() {
         </div>
       )}
 
+      {displayGallery ? (
+        <TopicTemplateGallery
+          onApplied={handleTemplateApplied}
+          onBack={() => {
+            setShowGallery(false);
+            setGalleryDismissed(true);
+          }}
+        />
+      ) : (
+        <>
       <form className="panel-card" onSubmit={handleAddTheme}>
-        <h2>{t("themes:title")}</h2>
-        <p className="subtitle">{t("themes:subtitle")}</p>
+        <div className="feed-toolbar">
+          <div>
+            <h2>{t("themes:title")}</h2>
+            <p className="subtitle">{t("themes:subtitle")}</p>
+          </div>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              setShowGallery(true);
+              setGalleryDismissed(false);
+            }}
+          >
+            {t("themes:browseTemplates")}
+          </button>
+        </div>
         <div className="field-row">
           <label>
             {t("themes:addTheme.name")}
@@ -385,6 +614,21 @@ export default function ThemesPage() {
           />
           <span className="field-hint">{t("themes:addTheme.queryTermsHint")}</span>
         </label>
+        <label>
+          {t("themes:addTheme.excludeTerms")}
+          <TagInput
+            tags={excludeTerms}
+            onChange={setExcludeTerms}
+            placeholder={t("themes:addTheme.excludeTermsPlaceholder")}
+          />
+          <span className="field-hint">{t("themes:addTheme.excludeTermsHint")}</span>
+        </label>
+        <ThemeQueryPreviewPanel
+          loading={createPreview.loading}
+          result={createPreview.result}
+          error={createPreview.error}
+          googleNewsDisabled={googleNewsDisabled}
+        />
         <label>
           {t("themes:addTheme.sourceAllowlist")}
           <TagInput
@@ -413,6 +657,25 @@ export default function ThemesPage() {
           </label>
         </div>
         <span className="field-hint">{t("themes:addTheme.editionHint")}</span>
+        {duplicateConflict && (
+          <div className="panel-card warning-banner">
+            <strong>{t("themes:duplicate.title")}</strong>
+            <p className="subtitle">
+              {t("themes:duplicate.body", {
+                name,
+                terms: duplicateConflict.existing_query_terms.join(", "),
+              })}
+            </p>
+            <div className="actions">
+              <button type="button" disabled={isSubmitting} onClick={followExistingDuplicate}>
+                {t("themes:duplicate.followExisting")}
+              </button>
+              <button type="button" onClick={() => setDuplicateConflict(null)}>
+                {t("themes:duplicate.useDifferentName")}
+              </button>
+            </div>
+          </div>
+        )}
         <button type="submit" disabled={isSubmitting || queryTerms.length === 0}>
           {t("themes:addTheme.addButton")}
         </button>
@@ -421,8 +684,60 @@ export default function ThemesPage() {
       <div className="panel-card">
         <h3>{t("themes:trackedThemes", { count: themes.length })}</h3>
         {themes.length === 0 && <p className="subtitle">{t("themes:noThemesYet")}</p>}
+        {themes.length > 0 && (
+          <div className="field-row">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t("themes:toolbar.searchPlaceholder")}
+            />
+            <label>
+              {t("themes:toolbar.sortLabel")}
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
+                <option value="name">{t("themes:toolbar.sortName")}</option>
+                <option value="lastMatch">{t("themes:toolbar.sortLastMatch")}</option>
+                <option value="created">{t("themes:toolbar.sortCreated")}</option>
+              </select>
+            </label>
+          </div>
+        )}
+        {visibleThemes.length > 0 && (
+          <label className="field-hint">
+            <input
+              type="checkbox"
+              checked={selectedIds.size === visibleThemes.length}
+              onChange={(e) =>
+                setSelectedIds(e.target.checked ? new Set(visibleThemes.map((t) => t.id)) : new Set())
+              }
+            />{" "}
+            {t("themes:bulk.selectAll")}
+          </label>
+        )}
+        {selectedIds.size > 0 && (
+          <div className="bulk-actions">
+            <span className="subtitle">{t("themes:bulk.selectedCount", { count: selectedIds.size })}</span>
+            {bulkConfirming ? (
+              <>
+                <button type="button" className="danger" disabled={isBulkDeleting} onClick={handleBulkDelete}>
+                  {isAdmin
+                    ? t("themes:bulk.delete", { count: selectedIds.size })
+                    : t("themes:bulk.unfollow", { count: selectedIds.size })}
+                </button>
+                <button type="button" onClick={() => setBulkConfirming(false)}>
+                  {t("themes:cancel")}
+                </button>
+              </>
+            ) : (
+              <button type="button" className="danger" onClick={() => setBulkConfirming(true)}>
+                {isAdmin
+                  ? t("themes:bulk.delete", { count: selectedIds.size })
+                  : t("themes:bulk.unfollow", { count: selectedIds.size })}
+              </button>
+            )}
+          </div>
+        )}
         <ul className="target-list">
-          {themes.map((theme) =>
+          {visibleThemes.map((theme) =>
             editingId === theme.id ? (
               <li key={theme.id} className="editing">
                 <form className="target-edit-form" onSubmit={(e) => saveEdit(e, theme)}>
@@ -445,6 +760,21 @@ export default function ThemesPage() {
                     />
                     <span className="field-hint">{t("themes:addTheme.queryTermsHint")}</span>
                   </label>
+                  <label>
+                    {t("themes:addTheme.excludeTerms")}
+                    <TagInput
+                      tags={editExcludeTerms}
+                      onChange={setEditExcludeTerms}
+                      placeholder={t("themes:addTheme.excludeTermsPlaceholder")}
+                    />
+                    <span className="field-hint">{t("themes:addTheme.excludeTermsHint")}</span>
+                  </label>
+                  <ThemeQueryPreviewPanel
+                    loading={editPreview.loading}
+                    result={editPreview.result}
+                    error={editPreview.error}
+                    googleNewsDisabled={googleNewsDisabled}
+                  />
                   <label>
                     {t("themes:addTheme.sourceAllowlist")}
                     <TagInput
@@ -486,6 +816,12 @@ export default function ThemesPage() {
             ) : (
               <li key={theme.id} className={theme.is_active ? "" : "inactive"}>
                 <div>
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(theme.id)}
+                    onChange={() => toggleSelected(theme.id)}
+                    aria-label={theme.name}
+                  />{" "}
                   <strong>{theme.name}</strong>
                   {theme.industry && <span className="tag">{theme.industry}</span>}
                   {theme.is_muted && <span className="tag">{t("themes:muted")}</span>}
@@ -500,6 +836,12 @@ export default function ThemesPage() {
                   {theme.query_terms.length > 0 && (
                     <div className="keywords">{theme.query_terms.join(", ")}</div>
                   )}
+                  {theme.exclude_terms.length > 0 && (
+                    <div className="keywords subtitle">
+                      −{theme.exclude_terms.join(", −")}
+                    </div>
+                  )}
+                  {renderThemeStats(theme)}
                 </div>
                 <div className="actions">
                   <ThemeRunButton
@@ -517,6 +859,14 @@ export default function ThemesPage() {
                   )}
                   <button type="button" disabled={pendingId === theme.id} onClick={() => toggleMute(theme)}>
                     {theme.is_muted ? t("themes:unmute") : t("themes:mute")}
+                  </button>
+                  <button
+                    type="button"
+                    className={theme.include_in_digest ? "secondary" : ""}
+                    disabled={pendingId === theme.id}
+                    onClick={() => toggleDigest(theme)}
+                  >
+                    {theme.include_in_digest ? t("themes:digest.exclude") : t("themes:digest.include")}
                   </button>
                   {canEdit(theme) && (
                     <button type="button" disabled={pendingId === theme.id} onClick={() => toggleActive(theme)}>
@@ -662,6 +1012,8 @@ export default function ThemesPage() {
           </ul>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }
