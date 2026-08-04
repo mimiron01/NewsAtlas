@@ -35,6 +35,7 @@ class ThemeMatchResponse(BaseModel):
     extracted_company_name: str | None
     matched_target_company_id: uuid.UUID | None
     matched_target_company_name: str | None
+    is_favorited: bool = False
 
 
 class ThemeMatchStatusUpdate(BaseModel):

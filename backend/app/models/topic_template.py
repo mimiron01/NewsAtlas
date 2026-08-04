@@ -22,6 +22,11 @@ class TopicTemplate(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     # Display-only grouping for the gallery (Industry, Funding & M&A, Regulatory, ...) —
     # never used in matching.
     category: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # None = shown regardless of workspace language ("universal"). "en"/"de" restricts the
+    # template to workspaces whose main_language matches, so a German workspace sees a
+    # market-specific German set (German search terms, German regulators) instead of a
+    # translated copy of the English one — see docs/german-i18n-planning.html.
+    language: Mapped[str | None] = mapped_column(String(8), nullable=True)
     query_terms: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
     exclude_terms: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
     suggested_source_allowlist: Mapped[list[str]] = mapped_column(

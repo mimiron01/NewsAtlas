@@ -76,6 +76,19 @@ def _language_directive(output_language: str) -> str:
     )
 
 
+def _suggestion_language_directive(output_language: str) -> str:
+    language_name = _LANGUAGE_NAMES.get(output_language, "English")
+    return (
+        f'\n\nWrite the "name" and "rationale" fields in {language_name}, regardless of '
+        "what language the offering description or template library is written in. "
+        '"query_terms"/"exclude_terms" must be real-world search terms a reader in that '
+        f"language's market would actually search with — not literal translations of the "
+        f"template library's terms — so for {language_name}, prefer that language's own "
+        "terminology and, where relevant, that market's own institutions/regulators. Keep "
+        "the JSON keys and structure exactly as specified."
+    )
+
+
 _RETRY_PROMPT = (
     "Your previous response was not valid JSON matching the required schema. Reply again "
     "with ONLY a JSON object containing exactly the required keys."
@@ -629,6 +642,7 @@ class AIClient:
         available_templates: list[TemplateExample],
         industry: str | None = None,
         existing_topic_names: list[str] | None = None,
+        output_language: str = "en",
     ) -> tuple[list[SuggestedTopic], MistralUsage]:
         """Proposes 3-5 topics worth tracking, grounded in the curated template library
         rather than generating from scratch — see
@@ -664,8 +678,11 @@ class AIClient:
                 "(based_on_template_id: null for all of them)."
             )
 
+        system_content = _THEME_SUGGESTION_SYSTEM_PROMPT + _suggestion_language_directive(
+            output_language
+        )
         messages = [
-            {"role": "system", "content": _THEME_SUGGESTION_SYSTEM_PROMPT},
+            {"role": "system", "content": system_content},
             {"role": "user", "content": "\n".join(context_lines)},
         ]
 

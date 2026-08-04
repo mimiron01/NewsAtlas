@@ -21,7 +21,7 @@ from app.services.theme_match_queries import (
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
-TOP_SIGNALS_LIMIT = 8
+TOP_SIGNALS_LIMIT = 5
 RECENT_FAVORITES_LIMIT = 5
 OPEN_TODOS_LIMIT = 5
 # Smaller than TOP_SIGNALS_LIMIT: topics are a secondary panel on the dashboard, with the
@@ -112,7 +112,7 @@ def get_dashboard(
     # ai_error) never shown. A user following no themes gets 0/[] and the frontend hides
     # the topic tiles entirely.
     theme_query = scope_to_theme_follows(
-        base_theme_match_query(db), db, current_user, include_muted=False
+        base_theme_match_query(db, current_user), db, current_user, include_muted=False
     ).filter(ThemeMatch.skip_reason.is_(None))
     new_theme_match_count = theme_query.filter(ThemeMatch.status == SignalStatus.NEW).count()
     top_theme_rows = (

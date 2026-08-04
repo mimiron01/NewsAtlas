@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import case, func
+from sqlalchemy import case, func, or_
 from sqlalchemy.orm import Session
 
 from app.models.signal import SignalStatus
@@ -12,13 +12,17 @@ from app.models.topic_template import TopicTemplate
 PERFORMANCE_LOOKBACK_DAYS = 30
 
 
-def list_active_templates(db: Session) -> list[TopicTemplate]:
-    return (
-        db.query(TopicTemplate)
-        .filter(TopicTemplate.is_active.is_(True))
-        .order_by(TopicTemplate.sort_order.asc(), TopicTemplate.name.asc())
-        .all()
-    )
+def list_active_templates(db: Session, language: str | None = None) -> list[TopicTemplate]:
+    """language=None (admin "all templates" views) returns every active template. Passing
+    the workspace's main_language restricts the gallery to templates curated for that
+    market (language == main_language) plus any language-agnostic ones (language IS
+    NULL) — see TopicTemplate.language and docs/german-i18n-planning.html."""
+    query = db.query(TopicTemplate).filter(TopicTemplate.is_active.is_(True))
+    if language is not None:
+        query = query.filter(
+            or_(TopicTemplate.language.is_(None), TopicTemplate.language == language)
+        )
+    return query.order_by(TopicTemplate.sort_order.asc(), TopicTemplate.name.asc()).all()
 
 
 def template_performance(db: Session, template_id: uuid.UUID, since_days: int = PERFORMANCE_LOOKBACK_DAYS):

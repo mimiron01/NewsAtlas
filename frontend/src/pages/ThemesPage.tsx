@@ -14,6 +14,8 @@ import type {
   ThemeWatch,
   ThemeWatchStats,
 } from "../api/types";
+import FavoriteButton from "../components/FavoriteButton";
+import HelpTooltip from "../components/HelpTooltip";
 import SourceAllowlistField from "../components/SourceAllowlistField";
 import TagInput from "../components/TagInput";
 import ThemeSourceSelector from "../components/ThemeSourceSelector";
@@ -528,6 +530,20 @@ export default function ThemesPage() {
     }
   }
 
+  async function toggleMatchFavorite(match: ThemeMatch) {
+    const nextFavorited = !match.is_favorited;
+    setMatches((prev) => prev.map((m) => (m.id === match.id ? { ...m, is_favorited: nextFavorited } : m)));
+    try {
+      const updated = nextFavorited
+        ? await api.post<ThemeMatch>(`/theme-matches/${match.id}/favorite`)
+        : await api.delete<ThemeMatch>(`/theme-matches/${match.id}/favorite`);
+      setMatches((prev) => prev.map((m) => (m.id === match.id ? updated : m)));
+    } catch (err) {
+      setMatches((prev) => prev.map((m) => (m.id === match.id ? match : m)));
+      showToast(err instanceof ApiError ? err.message : t("themes:matches.updateFailed"), "error");
+    }
+  }
+
   function handleTemplateApplied(_theme: ThemeWatch) {
     setShowGallery(false);
     showToast(t("themes:addedToast"), "success");
@@ -623,22 +639,20 @@ export default function ThemesPage() {
           </label>
         </div>
         <label>
-          {t("themes:addTheme.queryTerms")}
+          {t("themes:addTheme.queryTerms")} <HelpTooltip content={t("themes:addTheme.queryTermsHint")} />
           <TagInput
             tags={queryTerms}
             onChange={setQueryTerms}
             placeholder={t("themes:addTheme.queryTermsPlaceholder")}
           />
-          <span className="field-hint">{t("themes:addTheme.queryTermsHint")}</span>
         </label>
         <label>
-          {t("themes:addTheme.excludeTerms")}
+          {t("themes:addTheme.excludeTerms")} <HelpTooltip content={t("themes:addTheme.excludeTermsHint")} />
           <TagInput
             tags={excludeTerms}
             onChange={setExcludeTerms}
             placeholder={t("themes:addTheme.excludeTermsPlaceholder")}
           />
-          <span className="field-hint">{t("themes:addTheme.excludeTermsHint")}</span>
         </label>
         <ThemeQueryPreviewPanel
           loading={createPreview.loading}
@@ -649,17 +663,16 @@ export default function ThemesPage() {
         <ThemeSourceSelector value={newsSources} onChange={setNewsSources} />
         <SourceAllowlistField value={sourceAllowlist} onChange={setSourceAllowlist} />
         <label>
-          {t("themes:addTheme.sourceDenylist")}
+          {t("themes:addTheme.sourceDenylist")} <HelpTooltip content={t("themes:addTheme.sourceDenylistHint")} />
           <TagInput
             tags={sourceDenylist}
             onChange={setSourceDenylist}
             placeholder={t("themes:addTheme.sourceDenylistPlaceholder")}
           />
-          <span className="field-hint">{t("themes:addTheme.sourceDenylistHint")}</span>
         </label>
         <div className="field-row">
           <label>
-            {t("themes:addTheme.country")}
+            {t("themes:addTheme.country")} <HelpTooltip content={t("themes:addTheme.editionHint")} />
             <input
               value={country}
               onChange={(e) => setCountry(e.target.value)}
@@ -675,7 +688,6 @@ export default function ThemesPage() {
             />
           </label>
         </div>
-        <span className="field-hint">{t("themes:addTheme.editionHint")}</span>
         {duplicateConflict && (
           <div className="panel-card warning-banner">
             <strong>{t("themes:duplicate.title")}</strong>
@@ -771,22 +783,20 @@ export default function ThemesPage() {
                     </label>
                   </div>
                   <label>
-                    {t("themes:addTheme.queryTerms")}
+                    {t("themes:addTheme.queryTerms")} <HelpTooltip content={t("themes:addTheme.queryTermsHint")} />
                     <TagInput
                       tags={editQueryTerms}
                       onChange={setEditQueryTerms}
                       placeholder={t("themes:addTheme.queryTermsPlaceholder")}
                     />
-                    <span className="field-hint">{t("themes:addTheme.queryTermsHint")}</span>
                   </label>
                   <label>
-                    {t("themes:addTheme.excludeTerms")}
+                    {t("themes:addTheme.excludeTerms")} <HelpTooltip content={t("themes:addTheme.excludeTermsHint")} />
                     <TagInput
                       tags={editExcludeTerms}
                       onChange={setEditExcludeTerms}
                       placeholder={t("themes:addTheme.excludeTermsPlaceholder")}
                     />
-                    <span className="field-hint">{t("themes:addTheme.excludeTermsHint")}</span>
                   </label>
                   <ThemeQueryPreviewPanel
                     loading={editPreview.loading}
@@ -795,13 +805,12 @@ export default function ThemesPage() {
                     googleNewsDisabled={googleNewsDisabled}
                   />
                   <label>
-                    {t("themes:addTheme.sourceDenylist")}
+                    {t("themes:addTheme.sourceDenylist")} <HelpTooltip content={t("themes:addTheme.sourceDenylistHint")} />
                     <TagInput
                       tags={editSourceDenylist}
                       onChange={setEditSourceDenylist}
                       placeholder={t("themes:addTheme.sourceDenylistPlaceholder")}
                     />
-                    <span className="field-hint">{t("themes:addTheme.sourceDenylistHint")}</span>
                   </label>
                   <ThemeSourceSelector value={editNewsSources} onChange={setEditNewsSources} />
                   <SourceAllowlistField
@@ -810,7 +819,7 @@ export default function ThemesPage() {
                   />
                   <div className="field-row">
                     <label>
-                      {t("themes:addTheme.country")}
+                      {t("themes:addTheme.country")} <HelpTooltip content={t("themes:addTheme.editionHint")} />
                       <input
                         value={editCountry}
                         onChange={(e) => setEditCountry(e.target.value)}
@@ -826,7 +835,6 @@ export default function ThemesPage() {
                       />
                     </label>
                   </div>
-                  <span className="field-hint">{t("themes:addTheme.editionHint")}</span>
                   <div className="actions">
                     <button type="submit" disabled={pendingId === theme.id || editQueryTerms.length === 0}>
                       {t("themes:save")}
@@ -970,6 +978,7 @@ export default function ThemesPage() {
             {matches.map((match) => (
               <li key={match.id}>
                 <div className="signal-row">
+                  <FavoriteButton isFavorited={match.is_favorited} onToggle={() => toggleMatchFavorite(match)} />
                   <div className="signal-row-main">
                     <span className={`status-badge status-${match.status}`}>
                       {t(`signals:status.${match.status}`)}

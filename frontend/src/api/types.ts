@@ -455,6 +455,7 @@ export interface TopicTemplate {
   name: string;
   description: string;
   category: string | null;
+  language: string | null;
   query_terms: string[];
   exclude_terms: string[];
   suggested_source_allowlist: string[];
@@ -506,6 +507,7 @@ export interface ThemeMatch {
   extracted_company_name: string | null;
   matched_target_company_id: string | null;
   matched_target_company_name: string | null;
+  is_favorited: boolean;
 }
 
 

@@ -8,12 +8,14 @@ import type {
   IngestionRunStatus,
   Signal,
   TargetCompany,
+  ThemeMatch,
   ThemeWatch,
   WorkspaceSettings,
 } from "../api/types";
 import Skeleton from "../components/Skeleton";
 import SetupChecklist from "../components/SetupChecklist";
 import SignalRow from "../components/SignalRow";
+import FavoriteButton from "../components/FavoriteButton";
 import EmptyStateIllustration from "../components/icons/EmptyStateIllustration";
 import { useToast } from "../context/ToastContext";
 import { useIsAdmin } from "../hooks/useIsAdmin";
@@ -137,6 +139,28 @@ export default function Dashboard() {
     }
   }
 
+  function patchThemeMatchInLists(id: string, updated: ThemeMatch) {
+    setSummary((prev) =>
+      prev
+        ? { ...prev, top_theme_matches: prev.top_theme_matches.map((m) => (m.id === id ? updated : m)) }
+        : prev
+    );
+  }
+
+  async function handleThemeMatchFavoriteToggle(match: ThemeMatch) {
+    const nextFavorited = !match.is_favorited;
+    patchThemeMatchInLists(match.id, { ...match, is_favorited: nextFavorited });
+    try {
+      const updated = nextFavorited
+        ? await api.post<ThemeMatch>(`/theme-matches/${match.id}/favorite`)
+        : await api.delete<ThemeMatch>(`/theme-matches/${match.id}/favorite`);
+      patchThemeMatchInLists(match.id, updated);
+    } catch (err) {
+      patchThemeMatchInLists(match.id, match);
+      showToast(err instanceof ApiError ? err.message : t("favoriteUpdateFailed"), "error");
+    }
+  }
+
   async function handleTodoDone(todoId: string) {
     let removed: DashboardSummary["open_todos"][number] | undefined;
     setSummary((prev) => {
@@ -256,9 +280,6 @@ export default function Dashboard() {
       <div className="panel-card">
         <div className="feed-toolbar">
           <h3>{t("topSignals")}</h3>
-          <Link to="/signals" className="link-button">
-            {t("viewAllSignals")}
-          </Link>
         </div>
         {summary.top_signals.length === 0 ? (
           <div className="empty-state">
@@ -272,6 +293,9 @@ export default function Dashboard() {
             ))}
           </ul>
         )}
+        <Link to="/signals" className="link-button dashboard-panel-footer-link">
+          {t("viewAllSignals")}
+        </Link>
       </div>
 
       {/* Only rendered for users who actually follow a topic, so a company-only
@@ -280,9 +304,6 @@ export default function Dashboard() {
         <div className="panel-card">
           <div className="feed-toolbar">
             <h3>{t("topThemeMatches")}</h3>
-            <Link to="/themes" className="link-button">
-              {t("viewAllThemeMatches")}
-            </Link>
           </div>
           {summary.top_theme_matches.length === 0 ? (
             <p className="subtitle">{t("noThemeMatchesYet")}</p>
@@ -290,9 +311,16 @@ export default function Dashboard() {
             <ul className="dashboard-mini-list">
               {summary.top_theme_matches.map((match) => (
                 <li key={match.id}>
-                  <a href={match.url} target="_blank" rel="noreferrer">
-                    {match.title}
-                  </a>
+                  <div className="dashboard-mini-list-row">
+                    <FavoriteButton
+                      isFavorited={match.is_favorited}
+                      onToggle={() => handleThemeMatchFavoriteToggle(match)}
+                      className="detail"
+                    />
+                    <a href={match.url} target="_blank" rel="noreferrer">
+                      {match.title}
+                    </a>
+                  </div>
                   <span className="subtitle">
                     {match.theme_watch_name}
                     {match.relevance_score !== null && ` · ${match.relevance_score}/5`}
@@ -301,6 +329,9 @@ export default function Dashboard() {
               ))}
             </ul>
           )}
+          <Link to="/themes" className="link-button dashboard-panel-footer-link">
+            {t("viewAllThemeMatches")}
+          </Link>
         </div>
       )}
 

@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import HelpTooltip from "./HelpTooltip";
 import TagInput from "./TagInput";
 
 /**
@@ -25,9 +26,18 @@ export default function SourceAllowlistField({
   const { t } = useTranslation("settings");
   const mode = value === null ? "inherit" : value.length === 0 ? "all" : "custom";
 
+  const hint =
+    mode === "inherit"
+      ? t("targets.allowlistInheritHint")
+      : mode === "all"
+        ? t("targets.allowlistAllHint")
+        : t("targets.allowlistCustomHint");
+
   return (
     <div className="source-allowlist-field">
-      <span className="field-label">{t("targets.sourceAllowlist")}</span>
+      <span className="field-label">
+        {t("targets.sourceAllowlist")} <HelpTooltip content={hint} />
+      </span>
       <div className="field-row">
         <label className="checkbox-label">
           <input
@@ -60,13 +70,6 @@ export default function SourceAllowlistField({
           placeholder={t("targets.sourceAllowlistPlaceholder")}
         />
       )}
-      <span className="field-hint">
-        {mode === "inherit"
-          ? t("targets.allowlistInheritHint")
-          : mode === "all"
-            ? t("targets.allowlistAllHint")
-            : t("targets.allowlistCustomHint")}
-      </span>
     </div>
   );
 }
