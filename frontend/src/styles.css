@@ -124,6 +124,12 @@ button.danger { background: var(--danger-solid); }
 
 .field-hint { font-size: 0.75rem; color: var(--muted); }
 
+/* A label's own text and a following inline element (e.g. HelpTooltip) must be wrapped in
+   a single <span> to sit next to each other. Because label is a flex column, each of its
+   children — including an inline-level element sibling to a text run — becomes its own
+   flex item and stacks on its own row rather than flowing inline with the text next to it. */
+.label-text { display: inline-flex; align-items: center; flex-wrap: wrap; }
+
 .help-tooltip { position: relative; display: inline-flex; align-items: center; margin-left: 4px; vertical-align: middle; }
 .help-tooltip-trigger {
   display: flex;
@@ -408,6 +414,23 @@ button.danger { background: var(--danger-solid); }
   padding: 4px;
 }
 .tag-input-field:focus { outline: none; }
+
+/* Groups a long form into named blocks (see ThemesPage's add-topic form) so it reads as a
+   few decisions instead of one undifferentiated stack of fields. */
+.form-section {
+  padding-top: 18px;
+  margin-top: 4px;
+  border-top: 1px solid var(--border);
+}
+.form-section:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+.form-section-heading {
+  margin: 0 0 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
 
 .feed-toolbar {
   display: flex;
@@ -975,6 +998,11 @@ button.secondary {
    the reason to run a preview at all — but dimmed so the kept ones read first. */
 .query-preview-entries li.muted { opacity: 0.55; }
 
-.source-allowlist-field { display: flex; flex-direction: column; gap: 6px; }
+.source-allowlist-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .source-allowlist-field .field-label { font-size: 0.8rem; font-weight: 600; }
-.source-allowlist-field .field-row { gap: 16px; }
+/* This field-row holds a radio/checkbox group, not paired inputs, so it shouldn't inherit
+   .field-row's 640px cap meant for two side-by-side text inputs — that cap was squeezing
+   "Workspace-Standard verwenden" onto two lines while the shorter options next to it had
+   room to spare. */
+.source-allowlist-field .field-row { gap: 16px; max-width: none; flex-wrap: wrap; }
+.source-allowlist-field .field-row .checkbox-label { flex: 0 0 auto; }

@@ -638,55 +638,75 @@ export default function ThemesPage() {
             <input value={industry} onChange={(e) => setIndustry(e.target.value)} />
           </label>
         </div>
-        <label>
-          {t("themes:addTheme.queryTerms")} <HelpTooltip content={t("themes:addTheme.queryTermsHint")} />
-          <TagInput
-            tags={queryTerms}
-            onChange={setQueryTerms}
-            placeholder={t("themes:addTheme.queryTermsPlaceholder")}
-          />
-        </label>
-        <label>
-          {t("themes:addTheme.excludeTerms")} <HelpTooltip content={t("themes:addTheme.excludeTermsHint")} />
-          <TagInput
-            tags={excludeTerms}
-            onChange={setExcludeTerms}
-            placeholder={t("themes:addTheme.excludeTermsPlaceholder")}
-          />
-        </label>
-        <ThemeQueryPreviewPanel
-          loading={createPreview.loading}
-          result={createPreview.result}
-          error={createPreview.error}
-          googleNewsDisabled={googleNewsDisabled}
-        />
-        <ThemeSourceSelector value={newsSources} onChange={setNewsSources} />
-        <SourceAllowlistField value={sourceAllowlist} onChange={setSourceAllowlist} />
-        <label>
-          {t("themes:addTheme.sourceDenylist")} <HelpTooltip content={t("themes:addTheme.sourceDenylistHint")} />
-          <TagInput
-            tags={sourceDenylist}
-            onChange={setSourceDenylist}
-            placeholder={t("themes:addTheme.sourceDenylistPlaceholder")}
-          />
-        </label>
-        <div className="field-row">
+        <div className="form-section">
+          <h3 className="form-section-heading">{t("themes:addTheme.sections.criteria")}</h3>
           <label>
-            {t("themes:addTheme.country")} <HelpTooltip content={t("themes:addTheme.editionHint")} />
-            <input
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              placeholder={workspaceEditionPlaceholder()}
+            <span className="label-text">
+              {t("themes:addTheme.queryTerms")}{" "}
+              <HelpTooltip content={t("themes:addTheme.queryTermsHint")} />
+            </span>
+            <TagInput
+              tags={queryTerms}
+              onChange={setQueryTerms}
+              placeholder={t("themes:addTheme.queryTermsPlaceholder")}
             />
           </label>
           <label>
-            {t("themes:addTheme.language")}
-            <input
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              placeholder={workspaceLanguagePlaceholder()}
+            <span className="label-text">
+              {t("themes:addTheme.excludeTerms")}{" "}
+              <HelpTooltip content={t("themes:addTheme.excludeTermsHint")} />
+            </span>
+            <TagInput
+              tags={excludeTerms}
+              onChange={setExcludeTerms}
+              placeholder={t("themes:addTheme.excludeTermsPlaceholder")}
             />
           </label>
+          <ThemeQueryPreviewPanel
+            loading={createPreview.loading}
+            result={createPreview.result}
+            error={createPreview.error}
+            googleNewsDisabled={googleNewsDisabled}
+          />
+        </div>
+        <div className="form-section">
+          <h3 className="form-section-heading">{t("themes:addTheme.sections.sources")}</h3>
+          <ThemeSourceSelector value={newsSources} onChange={setNewsSources} />
+          <SourceAllowlistField subject="topic" value={sourceAllowlist} onChange={setSourceAllowlist} />
+          <label>
+            <span className="label-text">
+              {t("themes:addTheme.sourceDenylist")}{" "}
+              <HelpTooltip content={t("themes:addTheme.sourceDenylistHint")} />
+            </span>
+            <TagInput
+              tags={sourceDenylist}
+              onChange={setSourceDenylist}
+              placeholder={t("themes:addTheme.sourceDenylistPlaceholder")}
+            />
+          </label>
+        </div>
+        <div className="form-section">
+          <h3 className="form-section-heading">{t("themes:addTheme.sections.region")}</h3>
+          <div className="field-row">
+            <label>
+              <span className="label-text">
+                {t("themes:addTheme.country")} <HelpTooltip content={t("themes:addTheme.editionHint")} />
+              </span>
+              <input
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                placeholder={workspaceEditionPlaceholder()}
+              />
+            </label>
+            <label>
+              {t("themes:addTheme.language")}
+              <input
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                placeholder={workspaceLanguagePlaceholder()}
+              />
+            </label>
+          </div>
         </div>
         {duplicateConflict && (
           <div className="panel-card warning-banner">
@@ -783,7 +803,10 @@ export default function ThemesPage() {
                     </label>
                   </div>
                   <label>
-                    {t("themes:addTheme.queryTerms")} <HelpTooltip content={t("themes:addTheme.queryTermsHint")} />
+                    <span className="label-text">
+                      {t("themes:addTheme.queryTerms")}{" "}
+                      <HelpTooltip content={t("themes:addTheme.queryTermsHint")} />
+                    </span>
                     <TagInput
                       tags={editQueryTerms}
                       onChange={setEditQueryTerms}
@@ -791,7 +814,10 @@ export default function ThemesPage() {
                     />
                   </label>
                   <label>
-                    {t("themes:addTheme.excludeTerms")} <HelpTooltip content={t("themes:addTheme.excludeTermsHint")} />
+                    <span className="label-text">
+                      {t("themes:addTheme.excludeTerms")}{" "}
+                      <HelpTooltip content={t("themes:addTheme.excludeTermsHint")} />
+                    </span>
                     <TagInput
                       tags={editExcludeTerms}
                       onChange={setEditExcludeTerms}
@@ -805,7 +831,10 @@ export default function ThemesPage() {
                     googleNewsDisabled={googleNewsDisabled}
                   />
                   <label>
-                    {t("themes:addTheme.sourceDenylist")} <HelpTooltip content={t("themes:addTheme.sourceDenylistHint")} />
+                    <span className="label-text">
+                      {t("themes:addTheme.sourceDenylist")}{" "}
+                      <HelpTooltip content={t("themes:addTheme.sourceDenylistHint")} />
+                    </span>
                     <TagInput
                       tags={editSourceDenylist}
                       onChange={setEditSourceDenylist}
@@ -814,12 +843,15 @@ export default function ThemesPage() {
                   </label>
                   <ThemeSourceSelector value={editNewsSources} onChange={setEditNewsSources} />
                   <SourceAllowlistField
+                    subject="topic"
                     value={editSourceAllowlist}
                     onChange={setEditSourceAllowlist}
                   />
                   <div className="field-row">
                     <label>
-                      {t("themes:addTheme.country")} <HelpTooltip content={t("themes:addTheme.editionHint")} />
+                      <span className="label-text">
+                        {t("themes:addTheme.country")} <HelpTooltip content={t("themes:addTheme.editionHint")} />
+                      </span>
                       <input
                         value={editCountry}
                         onChange={(e) => setEditCountry(e.target.value)}
