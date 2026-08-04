@@ -14,6 +14,7 @@ from app.api import (
     dashboard,
     digest,
     ingestion,
+    news_diagnostics,
     news_usage,
     settings,
     signal_todos,
@@ -88,6 +89,7 @@ app.include_router(dashboard.router)
 app.include_router(digest.router)
 app.include_router(ai_usage.router)
 app.include_router(news_usage.router)
+app.include_router(news_diagnostics.router)
 app.include_router(admin.router)
 app.include_router(theme_watches.router)
 app.include_router(theme_matches.router)

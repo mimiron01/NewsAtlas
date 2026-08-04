@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.common_validators import validate_news_sources
 from app.services.news_query import is_valid_source_hostname
 
 
@@ -54,6 +55,15 @@ class WorkspaceSettingsResponse(BaseModel):
     # Workspace-wide default trusted domains for Google News RSS (see TargetCompany's
     # own per-company list, which unions with this rather than overriding it).
     google_news_source_allowlist: list[str]
+    google_news_source_denylist: list[str]
+    google_news_time_operator_enabled: bool
+    google_news_query_strategy: str
+    google_news_resolve_urls_enabled: bool
+    google_news_fetch_snippets_enabled: bool
+    max_enrichment_fetches_per_run: int
+    max_enrichment_seconds_per_run: int
+    theme_news_sources: list[str]
+    max_theme_requests_per_run_per_source: int
 
     newsdata_enabled: bool
     newsdata_api_key_configured: bool
@@ -100,6 +110,15 @@ class WorkspaceSettingsUpdate(BaseModel):
     google_news_rss_language: str = Field(min_length=2, max_length=8)
     google_news_rss_max_requests_per_minute: int = Field(ge=1, le=1000)
     google_news_source_allowlist: list[str] = Field(default_factory=list, max_length=50)
+    google_news_source_denylist: list[str] = Field(default_factory=list, max_length=50)
+    google_news_time_operator_enabled: bool = True
+    google_news_query_strategy: str = "single"
+    google_news_resolve_urls_enabled: bool = False
+    google_news_fetch_snippets_enabled: bool = False
+    max_enrichment_fetches_per_run: int = Field(default=50, ge=0, le=1000)
+    max_enrichment_seconds_per_run: int = Field(default=120, ge=0, le=3600)
+    theme_news_sources: list[str] = Field(default_factory=lambda: ["google_news_rss"])
+    max_theme_requests_per_run_per_source: int = Field(default=0, ge=0, le=1000)
 
     newsdata_enabled: bool = False
     # Same set/clear/leave-unchanged convention as mistral_api_key.
@@ -117,7 +136,19 @@ class WorkspaceSettingsUpdate(BaseModel):
     # active theme watches a workspace can have at once, so it starts at 1.
     max_active_theme_watches: int = Field(ge=1, le=1000)
 
-    @field_validator("google_news_source_allowlist")
+    @field_validator("google_news_query_strategy")
+    @classmethod
+    def _query_strategy_valid(cls, value: str) -> str:
+        if value not in ("single", "split"):
+            raise ValueError('query strategy must be "single" or "split"')
+        return value
+
+    @field_validator("theme_news_sources")
+    @classmethod
+    def _theme_sources_valid(cls, value: list[str]) -> list[str]:
+        return validate_news_sources(value) or []
+
+    @field_validator("google_news_source_allowlist", "google_news_source_denylist")
     @classmethod
     def _validate_source_allowlist(cls, value: list[str]) -> list[str]:
         cleaned = [domain.strip().lower() for domain in value]

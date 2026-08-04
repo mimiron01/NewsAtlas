@@ -1,6 +1,6 @@
 from app.services.workspace_settings import get_or_create_workspace_settings
 
-from tests.conftest import auth_headers, signup
+from tests.conftest import admin_headers, auth_headers, signup
 
 
 def test_create_list_update_delete_theme_watch(client):
@@ -233,6 +233,40 @@ def test_google_news_source_allowlist_rejects_non_hostname(client):
     assert resp.status_code == 422
 
 
+
+def test_theme_source_selection_round_trips(client):
+    """news_sources distinguishes null (inherit the workspace default) from an explicit
+    list, so both states have to survive create/update rather than collapsing."""
+    headers = admin_headers(client)
+    created = client.post(
+        "/theme-watches",
+        json={"name": "Automotive", "query_terms": ["EV battery"]},
+        headers=headers,
+    ).json()
+    assert created["news_sources"] is None
+
+    updated = client.patch(
+        f"/theme-watches/{created['id']}",
+        json={"news_sources": ["newsapi", "google_news_rss"]},
+        headers=headers,
+    ).json()
+    assert updated["news_sources"] == ["newsapi", "google_news_rss"]
+
+    reverted = client.patch(
+        f"/theme-watches/{created['id']}", json={"news_sources": None}, headers=headers
+    ).json()
+    assert reverted["news_sources"] is None
+
+
+def test_theme_rejects_an_unknown_news_source(client):
+    resp = client.post(
+        "/theme-watches",
+        json={"name": "Bad", "query_terms": ["x"], "news_sources": ["bing_news"]},
+        headers=admin_headers(client),
+    )
+    assert resp.status_code == 422
+
+
 def test_theme_watch_round_trips_exclude_terms(client):
     headers = auth_headers(client)
     create_resp = client.post(
@@ -261,6 +295,23 @@ def test_theme_watch_exclude_terms_respects_term_cap(client):
     assert resp.status_code == 422
 
 
+def test_theme_allowlist_distinguishes_inherit_from_unrestricted(client):
+    headers = admin_headers(client)
+    created = client.post(
+        "/theme-watches",
+        json={"name": "Automotive", "query_terms": ["EV battery"]},
+        headers=headers,
+    ).json()
+    assert created["google_news_source_allowlist"] is None
+
+    unrestricted = client.patch(
+        f"/theme-watches/{created['id']}",
+        json={"google_news_source_allowlist": []},
+        headers=headers,
+    ).json()
+    assert unrestricted["google_news_source_allowlist"] == []
+
+
 # --- Query preview (POST /theme-watches/preview) -----------------------------------
 
 
@@ -283,7 +334,7 @@ def test_preview_theme_query_returns_sample_headlines(client, db_session, monkey
     headers = auth_headers(client)
     _enable_google_news(db_session)
 
-    from app.services.news_client import NewsArticle
+    from app.services.news_client import FetchOutcome, NewsArticle
 
     fake_articles = [
         NewsArticle(
@@ -295,9 +346,13 @@ def test_preview_theme_query_returns_sample_headlines(client, db_session, monkey
         )
         for i in range(3)
     ]
+    # The client returns a FetchOutcome now, carrying the query it sent and the funnel
+    # counters alongside the articles (see docs/google-news-quality-planning.html §5.1).
     monkeypatch.setattr(
         "app.services.google_news_rss_client.GoogleNewsRSSClient.fetch_articles",
-        lambda self, **kwargs: fake_articles,
+        lambda self, **kwargs: FetchOutcome(
+            articles=fake_articles, requests_used=1, articles_raw=len(fake_articles)
+        ),
     )
 
     resp = client.post(
@@ -314,9 +369,11 @@ def test_preview_theme_query_returns_sample_headlines(client, db_session, monkey
 def test_preview_theme_query_never_persists_anything(client, db_session, monkeypatch):
     headers = auth_headers(client)
     _enable_google_news(db_session)
+    from app.services.news_client import FetchOutcome
+
     monkeypatch.setattr(
         "app.services.google_news_rss_client.GoogleNewsRSSClient.fetch_articles",
-        lambda self, **kwargs: [],
+        lambda self, **kwargs: FetchOutcome(articles=[], requests_used=1),
     )
 
     client.post("/theme-watches/preview", json={"query_terms": ["Automotive"]}, headers=headers)
@@ -425,3 +482,116 @@ def test_bulk_delete_requires_non_empty_list(client):
     resp = client.post("/theme-watches/bulk-delete", json={"theme_watch_ids": []}, headers=headers)
     assert resp.status_code == 422
 
+
+def test_preview_theme_query_counts_against_the_google_news_ceiling(client, db_session, monkeypatch):
+    """The preview makes a real outbound request per call, so it has to be visible to the
+    workspace's self-imposed Google News ceiling — otherwise N users previewing is N×30
+    uncounted fetches/hour against a feed that has no official quota and can block us."""
+    from app.models.article import ArticleSource
+    from app.models.news_source_usage_log import NewsSourceUsageLog
+    from app.services.news_client import FetchOutcome
+
+    headers = auth_headers(client)
+    _enable_google_news(db_session)
+    monkeypatch.setattr(
+        "app.services.google_news_rss_client.GoogleNewsRSSClient.fetch_articles",
+        lambda self, **kwargs: FetchOutcome(articles=[], requests_used=1, query_text="Automotive"),
+    )
+
+    client.post("/theme-watches/preview", json={"query_terms": ["Automotive"]}, headers=headers)
+
+    log = db_session.query(NewsSourceUsageLog).one()
+    assert log.call_type == "preview"
+    assert log.source == ArticleSource.GOOGLE_NEWS_RSS
+    assert log.requests_used == 1
+
+
+def test_preview_theme_query_is_refused_when_the_ceiling_is_reached(client, db_session, monkeypatch):
+    from app.models.article import ArticleSource
+    from app.services.news_usage import log_usage
+
+    headers = auth_headers(client)
+    settings = _enable_google_news(db_session)
+    settings.google_news_rss_max_requests_per_minute = 1
+    db_session.commit()
+    log_usage(db_session, source=ArticleSource.GOOGLE_NEWS_RSS, target_company_id=None)
+
+    def explode(self, **kwargs):
+        raise AssertionError("no outbound request may be made once the ceiling is reached")
+
+    monkeypatch.setattr(
+        "app.services.google_news_rss_client.GoogleNewsRSSClient.fetch_articles", explode
+    )
+
+    resp = client.post(
+        "/theme-watches/preview", json={"query_terms": ["Automotive"]}, headers=headers
+    )
+    assert resp.status_code == 429
+
+
+def test_preview_theme_query_uses_override_allowlist_semantics(client, db_session, monkeypatch):
+    """The preview must build the same query the saved topic will run, or it reports on a
+    search nobody is going to perform. An explicitly empty allowlist means "search
+    everything", not "fall back to the workspace list"."""
+    from app.services.news_client import FetchOutcome
+
+    headers = auth_headers(client)
+    settings = _enable_google_news(db_session)
+    settings.google_news_source_allowlist = ["reuters.com"]
+    db_session.commit()
+
+    captured: dict = {}
+
+    def capture(self, **kwargs):
+        captured.update(kwargs)
+        return FetchOutcome(articles=[], requests_used=1)
+
+    monkeypatch.setattr(
+        "app.services.google_news_rss_client.GoogleNewsRSSClient.fetch_articles", capture
+    )
+
+    client.post(
+        "/theme-watches/preview",
+        json={"query_terms": ["Automotive"], "google_news_source_allowlist": []},
+        headers=headers,
+    )
+    assert "site:" not in captured["query_override"]
+
+    client.post(
+        "/theme-watches/preview",
+        json={"query_terms": ["Automotive"]},
+        headers=headers,
+    )
+    assert "site:reuters.com" in captured["query_override"]
+
+
+def test_preview_theme_query_includes_exclusions_and_the_freshness_operator(
+    client, db_session, monkeypatch
+):
+    from app.services.news_client import FetchOutcome
+
+    headers = auth_headers(client)
+    _enable_google_news(db_session)
+    captured: dict = {}
+
+    def capture(self, **kwargs):
+        captured.update(kwargs)
+        return FetchOutcome(articles=[], requests_used=1)
+
+    monkeypatch.setattr(
+        "app.services.google_news_rss_client.GoogleNewsRSSClient.fetch_articles", capture
+    )
+
+    client.post(
+        "/theme-watches/preview",
+        json={
+            "query_terms": ["Automotive"],
+            "exclude_terms": ["insurance"],
+            "google_news_source_denylist": ["msn.com"],
+        },
+        headers=headers,
+    )
+
+    assert "-insurance" in captured["query_override"]
+    assert "-site:msn.com" in captured["query_override"]
+    assert "when:" in captured["query_override"]

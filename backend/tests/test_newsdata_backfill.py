@@ -25,7 +25,7 @@ class FakeArchiveClient:
 
 
 def _make_company(db_session, **overrides) -> TargetCompany:
-    tc = TargetCompany(name="Acme Corp", keywords=["Acme"], **overrides)
+    tc = TargetCompany(name="Acme Corp", aliases=["Acme"], keywords=["Acme"], **overrides)
     db_session.add(tc)
     db_session.commit()
     db_session.refresh(tc)

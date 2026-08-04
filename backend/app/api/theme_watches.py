@@ -9,6 +9,7 @@ from app.core.audit import log_event
 from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.db.session import get_db
+from app.models.article import ArticleSource
 from app.models.ingestion_run import TRIGGER_MANUAL
 from app.models.theme_follow import ThemeFollow
 from app.models.theme_watch import ThemeWatch
@@ -35,7 +36,14 @@ from app.services.ingestion_runs import (
     to_status_response,
 )
 from app.services.news_client import NewsClientError
-from app.services.news_query import build_theme_query
+from app.services.news_query import (
+    build_theme_query,
+    google_when_operator,
+    resolve_allowlist,
+    resolve_denylist,
+)
+from app.services.news_rate_limiter import HeadroomStatus, check_headroom
+from app.services.news_usage import log_usage
 from app.services.theme_follows import (
     ensure_follow,
     find_theme_by_name,
@@ -137,6 +145,8 @@ def create_theme_watch(
         industry=payload.industry,
         created_by=current_user.id,
         google_news_source_allowlist=payload.google_news_source_allowlist,
+        google_news_source_denylist=payload.google_news_source_denylist,
+        news_sources=payload.news_sources,
         google_news_country=payload.google_news_country,
         google_news_language=payload.google_news_language,
     )
@@ -160,7 +170,18 @@ def preview_theme_query(
     """Live, unsaved-query preview against Google News RSS — no ThemeMatch/ThemeWatch
     rows are created and no AI call is made, so this is free and near-instant (see
     docs/topics-ux-improvements-planning.html §1.3). Works with a theme_watch_id (editing)
-    or without one (initial creation), since it takes the raw fields, not an id."""
+    or without one (initial creation), since it takes the raw fields, not an id.
+
+    Shares the query builder with ingestion, so the preview reflects what the saved topic
+    will actually fetch — exclusions, denylists and the freshness operator included. A
+    preview built any other way would quietly disagree with the real thing, which is worse
+    than no preview at all.
+
+    It also makes a real outbound Google News request, so it goes through the same
+    headroom check and usage log as every other call: the workspace's self-imposed ceiling
+    exists because this feed has no official quota and can block a noisy client, and
+    per-user previews are exactly the traffic that would otherwise be invisible to it.
+    """
     workspace_settings = get_or_create_workspace_settings(db)
     if not workspace_settings.google_news_rss_enabled:
         raise HTTPException(
@@ -171,20 +192,47 @@ def preview_theme_query(
             ),
         )
 
-    sources = list(
-        dict.fromkeys(
-            [*(workspace_settings.google_news_source_allowlist or []),
-             *(payload.google_news_source_allowlist or [])]
-        )
+    headroom = check_headroom(
+        db,
+        ArticleSource.GOOGLE_NEWS_RSS,
+        per_minute_limit=workspace_settings.google_news_rss_max_requests_per_minute,
+        per_day_limit=None,
     )
-    query = build_theme_query(payload.query_terms, sources, payload.exclude_terms)
+    if headroom is not HeadroomStatus.OK:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                "Google News is at this workspace's configured request limit — "
+                "try the preview again shortly."
+            ),
+        )
+
+    since = datetime.now(timezone.utc) - timedelta(days=PREVIEW_LOOKBACK_DAYS)
+    query, _truncated = build_theme_query(
+        payload.query_terms,
+        exclude_terms=payload.exclude_terms,
+        # Override semantics, matching a saved topic: an empty list means "search
+        # everything", not "fall back to the workspace list".
+        allow_sites=resolve_allowlist(
+            payload.google_news_source_allowlist,
+            workspace_settings.google_news_source_allowlist,
+        ),
+        deny_sites=resolve_denylist(
+            payload.google_news_source_denylist,
+            workspace_settings.google_news_source_denylist,
+        ),
+        when=(
+            google_when_operator(since)
+            if workspace_settings.google_news_time_operator_enabled
+            else None
+        ),
+    )
     client = GoogleNewsRSSClient(
         country=workspace_settings.google_news_rss_country,
         language=workspace_settings.google_news_rss_language,
     )
-    since = datetime.now(timezone.utc) - timedelta(days=PREVIEW_LOOKBACK_DAYS)
     try:
-        fetched = client.fetch_articles(
+        outcome = client.fetch_articles(
             since=since,
             query_override=query,
             country=payload.google_news_country,
@@ -195,9 +243,21 @@ def preview_theme_query(
             status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Preview fetch failed: {exc}"
         )
 
+    log_usage(
+        db,
+        source=ArticleSource.GOOGLE_NEWS_RSS,
+        call_type="preview",
+        target_company_id=None,
+        requests_used=outcome.requests_used,
+        articles_returned=len(outcome.articles),
+        query_text=outcome.query_text,
+        articles_raw=outcome.articles_raw,
+        drop_counts=outcome.drop_counts,
+    )
+
     return ThemeQueryPreviewResponse(
-        article_count=len(fetched),
-        sample_headlines=[item.title for item in fetched[:PREVIEW_SAMPLE_HEADLINES]],
+        article_count=len(outcome.articles),
+        sample_headlines=[item.title for item in outcome.articles[:PREVIEW_SAMPLE_HEADLINES]],
     )
 
 

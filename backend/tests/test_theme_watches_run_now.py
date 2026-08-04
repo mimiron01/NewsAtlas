@@ -228,10 +228,10 @@ def test_run_now_end_to_end_produces_matches_for_the_theme(client, db_session, m
 
     requested_urls: list[str] = []
 
-    def fake_parse(url):
-        requested_urls.append(url)
+    def fake_parse(body):
         return SimpleNamespace(
             bozo=False,
+            version="rss20",
             entries=[
                 {
                     "link": "https://example.com/de-startup-series-b",
@@ -242,6 +242,13 @@ def test_run_now_end_to_end_produces_matches_for_the_theme(client, db_session, m
             ],
         )
 
+    def fake_get(url, **kwargs):
+        # The client owns the HTTP request now (timeout, User-Agent, status handling), so
+        # the transport is what tests stub — feedparser only ever sees bytes.
+        requested_urls.append(url)
+        return SimpleNamespace(status_code=200, content=b"<rss/>", encoding="utf-8")
+
+    monkeypatch.setattr("app.services.google_news_rss_client.httpx.get", fake_get)
     monkeypatch.setattr("app.services.google_news_rss_client.feedparser.parse", fake_parse)
     monkeypatch.setattr("app.services.ingestion.AIClient", lambda **kwargs: FakeThemeAIClient())
     # execute_ingestion_run opens its own session; point it at the test session so the

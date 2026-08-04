@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NewsAtlas — Google News Feed Quality Planning</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6270;
+    --accent: #2757c7;
+    --accent-bg: #eef2fc;
+    --border: #e2e5ea;
+    --code-bg: #f5f6f8;
+    --ok: #1a7f4e;
+    --warn: #a15c00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.1rem; margin-top: 28px; color: var(--fg); }
+  h4 { font-size: 1rem; margin-top: 20px; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  .meta {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 12px 0 32px;
+    padding: 12px 16px;
+    background: var(--accent-bg);
+    border-radius: 8px;
+  }
+  .meta strong { color: var(--fg); }
+  nav.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin: 24px 0 40px;
+  }
+  nav.toc h2 { margin-top: 0; border: none; font-size: 1.05rem; padding-bottom: 4px; }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.92rem; }
+  nav.toc a:hover { text-decoration: underline; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--code-bg); font-weight: 600; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+  .decision {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-bg);
+    padding: 10px 16px;
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .decision strong { color: var(--accent); }
+  .gap {
+    border-left: 4px solid #b23b3b;
+    background: #fdecec;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .gap strong { color: #b23b3b; }
+  .ok-box {
+    border-left: 4px solid var(--ok);
+    background: #eaf7f0;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .ok-box strong { color: var(--ok); }
+  .phase {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px 20px 16px;
+    margin: 24px 0;
+  }
+  .phase > h3:first-child { margin-top: 16px; display: flex; align-items: center; gap: 10px; }
+  .phase-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 20px;
+  }
+  .item {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 4px 18px 14px;
+    margin: 18px 0;
+    background: #fbfbfc;
+  }
+  .item h4 { display: flex; align-items: center; gap: 8px; }
+  .assumption {
+    border-left: 4px solid var(--warn);
+    background: #fdf4e3;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+  ul.checklist { list-style: none; padding-left: 4px; }
+  ul.checklist li::before { content: "☐ "; color: var(--muted); }
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    margin-left: 6px;
+  }
+  .status-table td:first-child { white-space: nowrap; font-weight: 600; }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --fg: #e7e9ee; --muted: #9aa2b1; --accent: #7fa5ff;
+      --accent-bg: #1c2436; --border: #2b3040; --code-bg: #1b1e26; --ok: #4fd190; --warn: #e0a94a;
+    }
+    .gap { background: #3a1f1f; }
+    .ok-box { background: #17301f; }
+    .item { background: #171a21; }
+    .assumption { background: #33290f; }
+  }
+</style>
+</head>
+<body>
+
+<h1>NewsAtlas — Google News Feed Quality Planning</h1>
+<p class="subtitle">What can technically be improved in the Google News RSS ingestion path so the signals it produces actually fit — a code-grounded audit plus a phased implementation plan</p>
+
+<div class="meta">
+  <div><strong>Status:</strong> <strong>Implemented</strong> (2026-07-30). All seven phases have shipped — see the implementation notes in <a href="#checklist">§17</a> for the two places the implementation deliberately departed from this plan. The document is kept as written so the reasoning behind each decision stays readable; it is a record of why, not a to-do list.</div>
+  <div><strong>Reported symptom (this conversation):</strong> too much irrelevant noise. Articles arrive that aren't really about the target company, or have no business angle. This is a <em>precision</em> complaint, and the phase ordering below reflects that.</div>
+  <div><strong>Builds on:</strong>
+    <a href="news-source-expansion-planning.html">news-source-expansion-planning.html</a> §7.2/§15 (the original <code>GoogleNewsRSSClient</code> spec and its open questions),
+    <a href="v1-release-roadmap.html">v1-release-roadmap.html</a> §2.3 (query tightening + source allowlists, already shipped),
+    <a href="ingestion-reliability-planning.html">ingestion-reliability-planning.html</a> §5 (the wrong-company attribution root cause and its grounding fix),
+    <a href="theme-search-planning.html">theme-search-planning.html</a> §3/§5/§6 (the theme path, which shares this client)
+  </div>
+  <div><strong>Codebase grounded against:</strong> commit <code>d5233ad</code> on <code>main</code>. Everything described as "current state" was read in the tree at that commit, with file:line references.</div>
+  <div><strong>Verification caveat:</strong> the environment has no outbound egress to <code>news.google.com</code> (the agent proxy denies CONNECT), so <em>no claim below was tested against the live feed</em>, before or after implementation. The spikes in <a href="#spikes">§16</a> remain outstanding and should be run before trusting the query-syntax assumptions in production. Behavioural claims about Google's query syntax come from external documentation (see <a href="#external">§4</a>) and are flagged <span class="tag">verify</span> where a spike must confirm them before implementation depends on them.</div>
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#decisions">1. Decisions already made</a></li>
+    <li><a href="#current">2. Current state</a></li>
+    <li><a href="#findings">3. Findings, ranked</a></li>
+    <li><a href="#external">4. What the feed actually supports</a></li>
+    <li><a href="#phase0">5. Phase 0 — Measurement</a></li>
+    <li><a href="#phase1">6. Phase 1 — Fetch, recency, edition</a></li>
+    <li><a href="#phase2">7. Phase 2 — Query model</a></li>
+    <li><a href="#phase3">8. Phase 3 — Selection before AI spend</a></li>
+    <li><a href="#phase4">9. Phase 4 — URL resolution &amp; enrichment</a></li>
+    <li><a href="#phase5">10. Phase 5 — Precision feedback loop</a></li>
+    <li><a href="#phase6">11. Phase 6 — Multi-provider themes</a></li>
+    <li><a href="#datamodel">12. Data model summary</a></li>
+    <li><a href="#api">13. API &amp; frontend surface</a></li>
+    <li><a href="#security">14. Security considerations</a></li>
+    <li><a href="#tests">15. Test plan &amp; acceptance criteria</a></li>
+    <li><a href="#spikes">16. Spikes &amp; open questions</a></li>
+    <li><a href="#checklist">17. Implementation checklist</a></li>
+  </ol>
+</nav>
+
+<h2 id="decisions">1. Decisions already made</h2>
+<p>Resolved in the planning conversation on 2026-07-30, recorded so an implementation session doesn't re-litigate them:</p>
+
+<div class="decision"><strong>Decision — the problem to optimize for is precision, not recall.</strong> The complaint is noise: articles that aren't really about the target company, or that are but carry no business angle. Where a change trades recall for precision, take it; where the two conflict, precision wins. (This is the opposite trade-off from what a "we're missing news" complaint would justify, so it is recorded explicitly.)</div>
+
+<div class="decision"><strong>Decision — the primary market is German (<code>DE:de</code>), and target companies get their own edition override.</strong> <code>TargetCompany</code> gains <code>google_news_country</code>/<code>google_news_language</code> with the same NULL-means-inherit semantics <code>ThemeWatch</code> already has (<code>models/theme_watch.py:36-37</code>). A single workspace-wide edition can only ever be right for one market.</div>
+
+<div class="decision"><strong>Decision — the backend may make outbound requests to publisher domains, behind an admin toggle, off by default.</strong> This unlocks resolving Google's redirect links to canonical publisher URLs and pulling a real snippet for articles that today are headline-only. It requires an SSRF-safe fetcher with strict timeouts and a per-run budget (<a href="#security">§13</a>).</div>
+
+<div class="decision"><strong>Decision — the target-company term model is split into distinct roles.</strong> Today's single <code>keywords</code> list is doing two incompatible jobs at once (identity alias vs. topic narrower). It becomes <code>aliases</code> (identity), <code>context_terms</code> (narrowing), and <code>exclusion_terms</code> (negation). Migrations and UI changes are acceptable.</div>
+
+<div class="decision"><strong>Decision — article URLs are deduplicated per company.</strong> A story naming two tracked companies must produce a signal for both, so <code>articles.url</code> becomes unique on <code>(target_company_id, url)</code> and the pre-insert check becomes company-scoped. Full consequences in <a href="#phase3">§8.3</a>.</div>
+
+<div class="decision"><strong>Decision — the workspace source allowlist is a <em>default</em>, not a floor.</strong> An entity (company or theme) that sets its own allowlist <strong>replaces</strong> the workspace list rather than extending it. This supersedes the "union, not override" decision recorded in <a href="v1-release-roadmap.html">v1 roadmap §2.3</a>, for the reasons in <a href="#phase2">§7.6</a>. Denylists keep union semantics — the asymmetry is deliberate and explained there.</div>
+
+<div class="decision"><strong>Decision — <code>build_or_query()</code>'s query semantics stay untouched.</strong> Following the precedent set by v1 roadmap §2.3, the OR-join used by NewsAPI.org / NewsData.io is not rewritten. Where the new term fields must reach those providers and the AI prompts, they do so through a synchronized legacy <code>keywords</code> column (<a href="#phase2">§7.2</a>), not by rewriting those call sites.
+<br><br><em>Amended 2026-07-30:</em> this was originally written as "the blast radius stays inside the Google News path", which two later decisions overtake — F16's hardcoded-English fix and multi-provider themes (<a href="#phase6">§11</a>) both necessarily touch <code>NewsClient</code> and <code>NewsDataClient</code>. The rule that survives is narrower and still worth keeping: <em>query-building semantics</em> for those two providers don't change, only their request parameters and their reachability from the theme loop.</div>
+
+<div class="decision"><strong>Decision — themes are no longer Google-News-only.</strong> <code>ThemeWatch</code> ingestion may use any enabled provider, chosen per workspace with a per-theme override. This supersedes the "Google News RSS only for theme ingestion" decision in <a href="theme-search-planning.html">theme-search §1</a>; the reasoning that decision gave is re-examined in <a href="#phase6">§11</a> and only the cost half of it survives.</div>
+
+<h2 id="current">2. Current state</h2>
+<p>The Google News path is small and easy to hold in your head, which is why it is worth being precise about where its limits are.</p>
+
+<table class="status-table">
+  <tr><th>Concern</th><th>Where</th><th>What it does today</th></tr>
+  <tr><td>Query building</td><td><code>services/news_query.py:53</code></td><td><code>build_google_news_query()</code> → <code>name AND (kw1 OR kw2 …)</code>, optionally wrapped as <code>(base) (site:a OR site:b)</code>. Falls back to bare name when a company has no keywords.</td></tr>
+  <tr><td>Theme query</td><td><code>services/news_query.py:76</code></td><td><code>build_theme_query()</code> → flat OR of the theme's terms, same optional site clause.</td></tr>
+  <tr><td>Fetch</td><td><code>services/google_news_rss_client.py:60-73</code></td><td>Builds <code>…/rss/search?q=…&amp;hl={lang}&amp;gl={country}&amp;ceid={country}:{lang}</code> and calls <code>feedparser.parse(url)</code>, which performs the HTTP request itself.</td></tr>
+  <tr><td>Date filter</td><td><code>google_news_rss_client.py:84</code></td><td>Entries older than <code>since</code> are dropped client-side after parsing. Entries with an unparseable date are kept.</td></tr>
+  <tr><td>Parsing</td><td><code>google_news_rss_client.py:89-130</code></td><td>Title (with the "— Source" suffix stripped), <code>&lt;source&gt;</code> element with title-suffix fallback, HTML-stripped summary, <code>published_parsed</code>. Rejects non-http(s) links.</td></tr>
+  <tr><td>Allowlists</td><td><code>ingestion.py:517</code>, <code>:590</code></td><td>Workspace list ∪ per-company (or per-theme) list, deduped, spliced into <code>site:</code> clauses. Union semantics: an entity can only widen, never narrow.</td></tr>
+  <tr><td>Editions</td><td><code>workspace_settings.py:81-82</code>, <code>theme_watch.py:36-37</code></td><td>Workspace-wide country/language; themes may override per-theme. Companies may not.</td></tr>
+  <tr><td>Rate limiting</td><td><code>services/news_rate_limiter.py</code></td><td>Self-imposed 20 req/min, enforced from persisted usage rows, with a wait-out path for per-minute ceilings.</td></tr>
+  <tr><td>Grounding</td><td><code>news_query.py:98</code></td><td><code>article_mentions_company()</code> — substring check for name <em>or any keyword</em> across title/description/full_content.</td></tr>
+  <tr><td>Budget cap</td><td><code>ingestion.py:429-435</code></td><td>Newest <em>N</em> by <code>published_at</code> (default 10) survive to embedding/triage/summarization.</td></tr>
+  <tr><td>Headline-only</td><td><code>models/article.py:70</code>, <code>ai_client.py</code> <code>_HEADLINE_ONLY_DIRECTIVE</code></td><td>All Google News articles are flagged headline-only; prompts are told not to expect body text and to always return an empty <code>supporting_quote</code>.</td></tr>
+</table>
+
+<div class="ok-box"><strong>Already good, do not re-implement:</strong> the enforced (not merely logged) rate limiter with its persisted-counter design; the per-source error isolation in the provider loop; the cross-path <code>Article</code>/<code>ThemeMatch</code> URL dedupe; the "0 = unlimited" cap convention; the grounding guard's existence at all (v1 roadmap §2.3 and reliability §5 both landed). The findings below are about what those mechanisms <em>can't</em> see, not about redoing them.</div>
+
+<h2 id="findings">3. Findings, ranked</h2>
+<p>Ranked by expected effect on the reported symptom, with the cheapest fixes first within each tier.</p>
+
+<h3>3.1 Tier 1 — precision</h3>
+
+<div class="gap"><strong>F1 — one <code>keywords</code> field is doing two incompatible jobs.</strong> <code>build_google_news_query()</code> treats keywords as <em>required topic narrowers</em> (<code>name AND (kw1 OR …)</code>), while <code>article_mentions_company()</code> treats the exact same list as <em>identity aliases</em> (<code>name OR kw1 OR …</code>). Both readings are legitimate, and users have no way to say which they meant. A topic-style keyword ("EV battery") silently hides a funding story about the company; an alias-style keyword can't rescue an article that uses only the alias, because the name is required by the <code>AND</code>. Every other precision lever is capped by this ambiguity.</div>
+
+<div class="gap"><strong>F2 — the grounding guard is <code>OR</code> while the query is <code>AND</code>.</strong> <code>news_query.py:98-116</code> returns true if <em>any</em> keyword appears, so an article containing only a generic term like "Produktion" and never the company name passes the guard and is stored with that company's <code>target_company_id</code>. This is a live instance of the exact failure class <a href="ingestion-reliability-planning.html">ingestion-reliability §5</a> was written to close — the guard was added, but with OR semantics that leave the hole open for any company whose keyword list contains a generic term. Fixing F1 fixes this: only identity terms should ever satisfy the guard.</div>
+
+<div class="gap"><strong>F3 — no exclusion support at all.</strong> Google supports <code>-term</code> and <code>-site:</code>. NewsAtlas exposes neither. There is no way to say "not the stock ticker", "not the football club of the same name", or "never msn.com". For a precision complaint this is the most obviously missing tool, and it is cheap: a query-builder change plus two array columns. A denylist is also a better <em>default</em> posture than an allowlist, because <code>site:</code> allowlists cut recall hard while a denylist only removes known-bad sources.</div>
+
+<div class="gap"><strong>F4 — no per-company edition, and <code>hl</code> is non-canonical.</strong> Every company is searched in the workspace edition (<code>ingestion.py:146-152</code>), so a German target in a <code>US:en</code> workspace gets a materially different and worse result set — German-language coverage of a German <em>Mittelstand</em> company largely does not exist in the US/English edition, so what comes back is whatever loosely matched in English. Separately, the client emits <code>hl=de</code> where the documented canonical form is language-region (<code>hl=de-DE</code>); <span class="tag">verify</span> whether this changes results in practice.</div>
+
+<div class="gap"><strong>F5 — the budget cap selects the <em>newest</em> N, not the best N.</strong> <code>ingestion.py:429-435</code> sorts by <code>published_at</code> and truncates. On a syndication-heavy, relevance-ranked feed, "newest" systematically favours aggregator reposts over the original wire story, and spends the whole AI budget on them. A free, deterministic composite score would pick better candidates without a single extra token.</div>
+
+<div class="gap"><strong>F16 — NewsAPI.org and NewsData.io are hardcoded to English.</strong> <code>news_client.py:43</code> and <code>newsdata_client.py:84</code> both send <code>"language": "en"</code> as a literal, and nothing reads <code>workspace_settings.main_language</code>. For the German-market decision in <a href="#decisions">§1</a> this is a plain defect, not a tuning issue: those two providers <em>cannot return German-language coverage at all</em>, so a German target company gets only whatever English-language coverage exists — typically thin, superficial, or about a different company of the same name. That is noise by construction. <code>news_client.py:44</code> also pins <code>pageSize: 20</code> with no pagination, so NewsAPI.org returns at most 20 candidates per company per run regardless of what exists. Neither is a Google News issue, but both directly cause the reported symptom, and F16 is arguably the cheapest precision fix in this entire document.</div>
+
+<div class="gap"><strong>F17 — the theme path is structurally the weakest in the app.</strong> Three compounding limits: it has exactly one provider (<code>ingestion.py:236-255</code> — with Google News RSS disabled, themes fetch nothing at all), every theme match is therefore permanently headline-only (<code>ThemeMatch.headline_only</code> is hardcoded true in practice, and the model has no <code>full_content</code> column), and it has <em>no</em> cheap pre-AI relevance guard — the company path's <code>article_mentions_company</code> has no theme equivalent, so LLM triage is the first filter anything meets. The theme feed therefore pays tokens to reject articles a substring check could have rejected for free, on the lowest-quality input in the system, from the single source with the loosest relevance ranking. Every Google News precision ceiling in this document is inherited whole by themes.</div>
+
+<h3>3.2 Tier 2 — yield and freshness</h3>
+
+<div class="gap"><strong>F6 — no time operator in the query.</strong> Google News RSS supports <code>when:1h|12h|1d|7d</code> and <code>after:</code>/<code>before:</code>; the builder emits none, and recency is enforced only client-side at <code>google_news_rss_client.py:84</code>. Because the feed is capped at ~100 items with no pagination, the relevance ranking spends that entire budget on all-time-relevant items — external sampling in July 2026 measured a <strong>~6.6-day median item age with only 7.6% of items ≤6h old</strong> (<a href="#external">§4</a>). With the app's typical 24h lookback, most of every response is fetched, parsed and discarded, and genuinely fresh coverage may never make the 100 at all. Adding <code>when:</code> moves the filter server-side <em>and</em> makes Google re-rank within the window. One-line change, largest yield effect in the document.</div>
+
+<div class="gap"><strong>F7 — a single compound query per company per run.</strong> The feed is free and the limiter permits 20 requests/minute; ingestion uses 1 per company. Two narrower queries (identity-only, identity + context) each get their own 100-item budget and beat one broad compound query on both precision and recall. Worth doing only once <a href="#phase0">Phase 0</a> can measure whether it helps.</div>
+
+<div class="gap"><strong>F8 — probable silent query truncation.</strong> Google has historically capped queries at roughly 32 words. The validators permit <strong>20 keywords × 100 chars plus 50 allowlist domains</strong> (<code>schemas/target_company.py</code>, <code>schemas/settings.py:102</code>); a fully-populated configuration produces a query well past that, and the <code>site:</code> clause is appended <em>last</em>. Whatever Google truncates, it does so silently, and the user sees only "bad results". <span class="tag">verify</span> the current limit, then enforce a word budget in the builder with a defined drop order and a visible warning.</div>
+
+<h3>3.3 Tier 3 — duplicate work and thin content</h3>
+
+<div class="gap"><strong>F9 — cross-source URL dedupe never fires for Google.</strong> Links are <code>news.google.com/rss/articles/CBMi…</code> redirect URLs, not publisher URLs — already acknowledged as a known consequence in <a href="news-source-expansion-planning.html">news-source-expansion §6/§15</a>. The same story arriving via NewsAPI.org and via Google News is embedded and triaged twice, and only the semantic dedupe (a 0.90 cosine threshold over a 50-item window) can catch it.</div>
+
+<div class="gap"><strong>F10 — semantic dedupe is weaker for Google than for other sources.</strong> The embedding input is <code>title + description</code> (<code>ingestion.py:848</code>), but for Google News the description is a mechanical repeat of the title (<code>models/article.py:70</code>) — so it is effectively a title-only embedding judged against a threshold tuned for title+snippet. A free normalized-title near-duplicate pass <em>before</em> embedding would cut both token cost and duplicate signals.</div>
+
+<div class="gap"><strong>F11 — every Google article is headline-only.</strong> Triage and summarization run on a headline with an explicit "don't expect body text, never quote" directive, so <code>supporting_quote</code> is always empty and confidence is structurally lower for this source. This makes triage's job — the very filter meant to remove noise — much harder than it is for NewsAPI.org snippets.</div>
+
+<div class="gap"><strong>F12 — global URL uniqueness mis-attributes multi-company stories.</strong> <code>Article.url</code> is globally unique (<code>models/article.py</code>) and the pre-insert check at <code>ingestion.py:406</code> is not company-scoped, so "Acme acquires Beta" produces a signal for whichever company the loop reaches first and silently nothing for the other. Not Google-specific, but Google's syndication depth makes it hit more often.</div>
+
+<h3>3.4 Tier 4 — reliability and observability</h3>
+
+<div class="gap"><strong>F13 — <code>self.timeout</code> is set and never used.</strong> <code>google_news_rss_client.py:25-28</code> stores a 10s timeout that nothing reads: <code>feedparser.parse(url)</code> performs its own HTTP request and has no timeout parameter, inheriting the global socket default of <code>None</code>. An unresponsive Google can hang an ingestion run indefinitely. Compare <code>news_client.py:48</code> and <code>newsdata_client.py:102</code>, which both pass <code>timeout=self.timeout</code> to <code>httpx</code> correctly.</div>
+
+<div class="gap"><strong>F14 — HTTP status is never checked, so being blocked looks like "no news".</strong> A 429/403/consent-page response leaves <code>feed.entries</code> empty; the <code>bozo</code> check at <code>:70</code> only raises when a parse error is <em>also</em> flagged. A throttled fetch therefore returns an empty list that is indistinguishable from a company genuinely having no coverage — run after run, with nothing in the Logs view. There is also no custom User-Agent (feedparser's default UA is a known throttling magnet) and no retry/backoff.</div>
+
+<div class="gap"><strong>F15 — the executed query is never persisted and the funnel is invisible.</strong> <code>news_source_usage_logs.articles_returned</code> records the count <em>after</em> the client-side date filter; nothing anywhere counts entries dropped by date, by the unsafe-URL guard, by grounding, by URL dedupe, or by the cap. There is no way to answer "why did this company get bad results this run" without attaching a debugger. <strong>Every other item in this document is guesswork until this exists</strong> — which is why measurement is Phase 0 and not an afterthought.</div>
+
+<h2 id="external">4. What the feed actually supports</h2>
+<p>Google publishes no official documentation for this feed. The following is the consolidated picture from third-party documentation, and each item that implementation depends on is re-listed as a spike in <a href="#spikes">§15</a>.</p>
+
+<table>
+  <tr><th>Capability</th><th>Syntax</th><th>Notes</th></tr>
+  <tr><td>Exact phrase</td><td><code>"HWA AG"</code></td><td>Already used by <code>_quote_terms()</code>. Essential for company/person/place names.</td></tr>
+  <tr><td>Alternation</td><td><code>a OR b</code></td><td>Already used.</td></tr>
+  <tr><td>Exclusion</td><td><code>-term</code>, <code>-site:domain</code></td><td>Not used today (F3). Google uses <code>-</code>, not the word <code>NOT</code>.</td></tr>
+  <tr><td>Publisher restriction</td><td><code>site:reuters.com</code></td><td>Already used. Google's own "filter by publisher" UI is implemented with this operator.</td></tr>
+  <tr><td>Headline restriction</td><td><code>intitle:</code>, <code>allintitle:</code></td><td>Not used. Useful for very generic company names.</td></tr>
+  <tr><td>Freshness</td><td><code>when:1h</code>, <code>when:12h</code>, <code>when:1d</code>, <code>when:7d</code></td><td>Not used (F6). The single highest-value missing operator.</td></tr>
+  <tr><td>Absolute date range</td><td><code>after:YYYY-MM-DD</code>, <code>before:YYYY-MM-DD</code></td><td>Alternative to <code>when:</code>; timezone semantics unclear, so <code>when:</code> is preferred.</td></tr>
+  <tr><td>Locale</td><td><code>hl</code>, <code>gl</code>, <code>ceid</code></td><td>Documented canonical <code>hl</code> is language-region (<code>de-DE</code>), <code>gl</code> is country, <code>ceid</code> is <code>COUNTRY:lang</code>.</td></tr>
+  <tr><td>Other feed shapes</td><td><code>/rss/headlines/section/topic/…</code>, <code>…/section/geo/…</code></td><td>Not used. Potentially interesting for themes later; out of scope here.</td></tr>
+</table>
+
+<p><strong>Hard limits:</strong> ~100 items per query, no pagination, no SLA, no official quota. Links are redirect URLs, not publisher URLs. July-2026 sampling across 48 queries measured a ~6.6-day median item age and only 7.6% of items ≤6h old, while 96.9% of a structured endpoint's fresh top-10 stories <em>did</em> appear somewhere in the RSS results — i.e. the feed is <strong>deep but stale-ranked</strong>. That asymmetry is the justification for Phase 1 (<code>when:</code>) and Phase 3 (score-then-cap) rather than for abandoning the source.</p>
+
+<p class="subtitle">Sources: <a href="https://www.newscatcherapi.com/blog-posts/google-news-rss-search-parameters-the-missing-documentaiton">NewsCatcher — Google News RSS search parameters</a>, <a href="https://www.fivefilters.org/2021/google-news-rss-feeds/">FiveFilters — Google News RSS feeds</a>, <a href="https://cloro.dev/blog/google-news-rss/">cloro.dev — how it works, its limits</a>, <a href="https://www.wprssaggregator.com/google-news-rss-feed/">WP RSS Aggregator — Google News RSS feed (2026)</a>, <a href="https://docs.feedly.com/article/71-what-are-the-keyword-alerts-operators">Feedly — Google News search operators</a>, <a href="https://github.com/SSujitX/google-news-url-decoder">SSujitX/google-news-url-decoder</a>.</p>
+
+<h2 id="phase0">5. Phase 0 — Measurement</h2>
+
+<div class="phase">
+<h3><span class="phase-badge">Phase 0</span> Make the funnel visible before changing it <span class="tag">backend + frontend + migration</span> <span class="tag">size: S</span></h3>
+
+<p>Nothing else in this plan can be validated without this, and the same instrumentation is what tells you afterwards whether a change helped. It is deliberately small.</p>
+
+<div class="item">
+<h4>0.1 Persist the executed query and the drop funnel</h4>
+<p>Extend <code>news_source_usage_logs</code> (the existing per-call table, <code>models/news_source_usage_log.py</code>) rather than inventing a parallel one:</p>
+<table>
+  <tr><th>Column</th><th>Type</th><th>Notes</th></tr>
+  <tr><td><code>query_text</code></td><td><code>Text</code>, nullable</td><td>The <code>q=</code> value actually sent, pre-encoding. Null for providers that don't build one.</td></tr>
+  <tr><td><code>articles_raw</code></td><td><code>Integer</code>, default 0</td><td>Entries the provider returned <em>before</em> any client-side filtering. <code>articles_returned</code> keeps its current post-filter meaning.</td></tr>
+  <tr><td><code>drop_counts</code></td><td><code>JSONB</code>, nullable</td><td><code>{"stale": 41, "unsafe_url": 0, "not_grounded": 12, "url_duplicate": 6, "over_cap": 22}</code> — one key per pipeline stage that discards a candidate.</td></tr>
+</table>
+<p>The counters are produced by the client (stale, unsafe_url) and by <code>_ingest_target_company</code> (not_grounded, url_duplicate, over_cap), merged into one dict at log time. Cheap: they are loop counters that already exist implicitly as list-length differences.</p>
+</div>
+
+<div class="item">
+<h4>0.2 A query preview endpoint that spends no AI</h4>
+<p><code>POST /admin/news-sources/google-news/preview</code> <span class="tag">admin</span> <span class="tag">rate-limited</span> — body carries a provisional configuration (name, aliases, context terms, exclusions, allowlist, denylist, country, language, time window) and returns:</p>
+<pre><code>{
+  "resolved_url": "https://news.google.com/rss/search?q=…",
+  "query_text": "\"HWA AG\" (Motorsport OR Rennsport) -Aktie -site:msn.com when:1d",
+  "word_count": 9,
+  "truncated": false,
+  "entries_raw": 100,
+  "entries": [
+    {"title": "…", "source_name": "Motorsport-Total", "published_at": "…",
+     "outcome": "kept" | "stale" | "unsafe_url" | "not_grounded"}
+  ]
+}</code></pre>
+<p>It runs exactly one real fetch (counted by the rate limiter, logged with <code>call_type="preview"</code>), applies the same client-side filters the real path applies, and stops there — no embedding, no triage, no summarization, no writes to <code>articles</code>. This turns every tuning question in this document from an argument into a two-second experiment, and it is the tool an admin uses to curate the term split introduced in Phase 2.</p>
+</div>
+
+<div class="item">
+<h4>0.3 Surface both in the UI</h4>
+<p>The recent-activity table in <code>SourcesTab.tsx</code> (already rendering per-call rows) gains an expandable cell showing <code>query_text</code> and the drop breakdown. The preview endpoint gets a "Test query" panel in the same tab, and a "Preview this company's query" button on the target-company edit form in <code>SettingsTargets.tsx</code>.</p>
+</div>
+</div>
+
+<h2 id="phase1">6. Phase 1 — Fetch, recency, edition</h2>
+
+<div class="phase">
+<h3><span class="phase-badge">Phase 1</span> Stop discarding most of what you fetch, and search the right edition <span class="tag">backend + frontend + migration</span> <span class="tag">size: M</span></h3>
+
+<div class="item">
+<h4>1.1 Own the HTTP request (F13, F14)</h4>
+<p>Stop letting feedparser do the fetch. Use <code>httpx</code> — which the other two clients already use — and hand the bytes to feedparser for parsing only:</p>
+<pre><code>response = httpx.get(
+    url,
+    timeout=self.timeout,
+    headers={"User-Agent": GOOGLE_NEWS_USER_AGENT},
+    follow_redirects=True,
+)
+if response.status_code == 429 or response.status_code &gt;= 500:
+    # one bounded retry with backoff, then give up
+    ...
+if response.status_code != 200:
+    raise NewsClientError(
+        f"Google News RSS returned HTTP {response.status_code} "
+        "(likely throttling — this is not the same as 'no news')"
+    )
+feed = feedparser.parse(response.content)</code></pre>
+<div class="decision"><strong>Decision — an empty result and a blocked request must never look the same.</strong> A non-200 raises <code>NewsClientError</code>, which the provider loop already records per-company into the run's error list (<code>ingestion.py:352-356</code>) and therefore into the Logs view. Today a 429 is silently a zero.</div>
+<p>Also: set an explicit descriptive User-Agent, and keep the existing <code>bozo</code> check as a second line of defence for a 200 that isn't valid XML (a consent interstitial, for instance).</p>
+</div>
+
+<div class="item">
+<h4>1.2 Push recency into the query (F6)</h4>
+<p>Derive a <code>when:</code> token from the caller's <code>since</code> and append it to every query:</p>
+<pre><code>def google_when_operator(since: datetime, now: datetime | None = None) -> str:
+    """Smallest Google `when:` bucket that still covers `since`. Google accepts
+    hour and day granularities; anything longer than a week is clamped to 7d,
+    which is also roughly where the feed's own depth runs out."""
+    hours = max(1, ceil((now - since).total_seconds() / 3600))
+    if hours &lt;= 1:  return "when:1h"
+    if hours &lt;= 12: return "when:12h"
+    if hours &lt;= 24: return "when:1d"
+    return f"when:{min(ceil(hours / 24), 7)}d"</code></pre>
+<p>Gated by a workspace toggle <code>google_news_time_operator_enabled</code> (default <strong>on</strong>) so it can be switched off without a redeploy if the spike in <a href="#spikes">§15</a> finds it interacts badly with <code>site:</code> clauses. The client-side <code>since</code> filter stays as a belt-and-braces check — Google's bucket boundaries are coarse and it must not be trusted to be exact.</p>
+</div>
+
+<div class="item">
+<h4>1.3 Per-company edition, canonical <code>hl</code> (F4)</h4>
+<p><code>TargetCompany</code> gains <code>google_news_country</code>/<code>google_news_language</code> (both <code>String(8)</code>, nullable, NULL = inherit workspace), mirroring <code>ThemeWatch</code> exactly — including reusing its <code>_normalize_country</code>/<code>_normalize_language</code> validators from <code>schemas/theme_watch.py</code>. <code>_fetch_from_source()</code> passes them through to the existing per-call <code>country</code>/<code>language</code> parameters on <code>fetch_articles()</code> (<code>google_news_rss_client.py:37-39</code>), which already exist for themes — <strong>no client signature change needed</strong>.</p>
+<p>Separately, build <code>hl</code> canonically: <code>hl=de-DE</code> rather than <code>hl=de</code>, by combining language and country when the language has no region subtag. <span class="tag">verify</span></p>
+<div class="assumption"><strong>Assumption — the code-level defaults stay <code>US</code>/<code>en</code>.</strong> Changing the model defaults would only affect fresh installs while doing nothing for this deployment, and would silently change behaviour for any other. Set <code>DE</code>/<code>de</code> through Settings → News sources instead. Add a validator that rejects implausible country/language pairs outright rather than letting them produce a <code>ceid</code> Google ignores.</div>
+</div>
+
+<div class="item">
+<h4>1.4 Unhardcode the provider language (F16)</h4>
+<p>Not a Google News change, but it belongs in the same phase as the edition work because it is the same bug in a different provider, and it is a two-line fix with an outsized effect on a German workspace.</p>
+<ul>
+  <li><code>NewsClient.fetch_articles()</code> takes a <code>language</code> parameter instead of the literal <code>"en"</code> at <code>news_client.py:43</code>; <code>NewsDataClient._base_params()</code> the same at <code>newsdata_client.py:84</code>.</li>
+  <li>Both are fed from the effective language for the entity being fetched — the per-company override from §6.3 where set, otherwise <code>workspace_settings.google_news_rss_language</code>. <span class="tag">proposed default</span> Reusing the Google edition's language keeps one language concept per entity rather than three; the alternative (a separate <code>main_language</code>-driven setting) splits "what language do we search in" from "what language do we search Google in" for no clear gain.</li>
+  <li>Raise <code>pageSize</code> from 20 toward NewsAPI.org's maximum of 100. Free — NewsAPI.org bills per request, not per article — and it hands the Phase 3 scorer a real candidate pool instead of an arbitrary 20.</li>
+</ul>
+<div class="assumption"><strong>Assumption — one language per request, not a multi-language fan-out.</strong> Both providers accept a comma-separated language list, which would cover companies that get meaningful coverage in two languages. Deferred: it multiplies result volume and interacts with the per-run cap, and the single-language fix already closes the actual defect.</div>
+</div>
+
+<div class="item">
+<h4>1.5 Query word budget (F8)</h4>
+<p>The builder counts the tokens it emits and, when over budget, drops in a defined, documented order — <em>context terms first, then allowlist domains</em> — never identity terms or exclusions. The truncation is recorded in <code>drop_counts</code> and returned by the preview endpoint as <code>"truncated": true</code>, so silent degradation becomes visible degradation. Budget constant lives next to the builder with the measured limit from the spike.</p>
+</div>
+</div>
+
+<h2 id="phase2">7. Phase 2 — Query model</h2>
+
+<div class="phase">
+<h3><span class="phase-badge">Phase 2</span> Separate identity from topic from exclusion <span class="tag">backend + frontend + migration</span> <span class="tag">size: L</span></h3>
+<p>This is the core precision work (F1, F2, F3) and the largest single change in the plan.</p>
+
+<div class="item">
+<h4>7.1 New term fields</h4>
+<table>
+  <tr><th>Field</th><th>Role</th><th>How it enters the query</th><th>Satisfies grounding?</th></tr>
+  <tr><td><code>aliases</code></td><td>Other ways this company is named ("HWA", "HWA Team")</td><td>OR'd with the name into the identity group</td><td><strong>Yes</strong></td></tr>
+  <tr><td><code>context_terms</code></td><td>Topic narrowers ("Motorsport", "Rennsport")</td><td>AND'd as an OR-group</td><td><strong>No</strong></td></tr>
+  <tr><td><code>exclusion_terms</code></td><td>Known false-positive traps ("Aktie", a same-named football club)</td><td><code>-term</code></td><td>n/a</td></tr>
+  <tr><td><code>google_news_source_denylist</code></td><td>Domains to never accept</td><td><code>-site:domain</code></td><td>n/a</td></tr>
+</table>
+<p>All four exist on <code>TargetCompany</code>; <code>exclusion_terms</code> and <code>google_news_source_denylist</code> also on <code>ThemeWatch</code> and on <code>WorkspaceSettings</code> (workspace denylist unioned into every query, same convention as the allowlist).</p>
+</div>
+
+<div class="item">
+<h4>7.2 Migration without a behaviour cliff</h4>
+<div class="decision"><strong>Decision — the migration copies <code>keywords</code> into <code>context_terms</code>, and leaves <code>aliases</code> empty.</strong> That is precisely the role keywords play in today's Google query (<code>name AND (kw…)</code>), so the query is byte-for-byte unchanged on day one and no user has to re-enter anything. The only immediate behaviour change is that the grounding guard gets <em>stricter</em> — it now requires the name (aliases being empty), which is exactly the F2 fix. Curation from there can only improve precision. The tempting alternative — copying keywords into <code>aliases</code> — would loosen the query overnight and make the noise complaint worse.</div>
+<p><code>keywords</code> itself is <strong>retained</strong> as a derived column, written as <code>aliases + context_terms</code> whenever a company is created or updated, so <code>build_or_query()</code>, the NewsAPI.org/NewsData.io clients, the AI triage/summarize prompts, and the CSV importer all keep working with zero changes (per the §1 blast-radius decision). One synchronization point in the service layer, asserted by a test.</p>
+</div>
+
+<div class="item">
+<h4>7.3 The new builder</h4>
+<pre><code>def build_google_news_query(
+    *, name, aliases, context_terms, exclusion_terms,
+    allow_sites, deny_sites, when=None, require_name_in_title=False,
+) -> str:
+    identity = _or_group([name, *aliases])                 # ("HWA AG" OR "HWA Team")
+    if require_name_in_title:
+        identity = _or_group([f"intitle:{t}" for t in ...])
+    parts = [identity]
+    if context_terms: parts.append(_or_group(context_terms))
+    parts += [f"-{t}" for t in _quote_terms(exclusion_terms)]
+    if allow_sites:   parts.append(_or_group([f"site:{d}" for d in allow_sites]))
+    parts += [f"-site:{d}" for d in deny_sites]
+    if when:          parts.append(when)
+    return " ".join(parts)</code></pre>
+<div class="decision"><strong>Decision — implicit AND (a space), not the literal token <code>AND</code>.</strong> Google's boolean handling is documented as loose rather than strict, a bare space is unambiguously conjunction, and it saves a word against the F8 budget on every query. <span class="tag">verify</span> that dropping the literal <code>AND</code> doesn't change result sets, since today's builder emits it.</div>
+<p><code>build_theme_query()</code> gains the same <code>exclusion_terms</code>, <code>deny_sites</code> and <code>when</code> handling; its identity group stays a flat OR of the theme's terms, since a theme has no identity to anchor to (theme-search §3).</p>
+</div>
+
+<div class="item">
+<h4>7.4 Fix the grounding guard (F2)</h4>
+<pre><code>def article_mentions_company(*, title, description, full_content, name, aliases) -&gt; bool:
+    """Identity terms ONLY. A context term matching is not evidence the article is
+    about this company — that conflation is what let keyword-only matches through."""</code></pre>
+<p>Call sites in <code>ingestion.py:380-386</code> pass <code>aliases=target_company.aliases</code> instead of <code>keywords=target_company.keywords</code>. Expect the <code>not_grounded</code> counter from Phase 0 to jump on the first run after this ships — that is the fix working, and Phase 0's instrumentation is what lets you tell that apart from a regression.</p>
+</div>
+
+<div class="item">
+<h4>7.5 Optional: <code>intitle:</code> and split queries</h4>
+<p>Two smaller levers, both toggle-gated and both only worth enabling once the preview tool shows they help for a given workspace:</p>
+<ul>
+  <li><strong>Per-company <code>google_news_require_name_in_title</code></strong> (bool, default false) — wraps identity terms in <code>intitle:</code>. Very strong precision lever for generic company names, very costly to recall otherwise.</li>
+  <li><strong>Split queries (F7)</strong> — when a company has context terms, issue identity-only <em>and</em> identity+context as two requests and merge by URL. Workspace toggle <code>google_news_query_strategy</code> ∈ {<code>single</code>, <code>split</code>}, default <code>single</code>. Doubles request count (2 of 20/min), zero extra AI cost because the merged set still goes through the Phase 3 scorer and the existing cap.</li>
+</ul>
+</div>
+
+<div class="item">
+<h4>7.6 Allowlist becomes an overridable default; denylist stays a union</h4>
+<p>Today both <code>ingestion.py:517</code> (companies) and <code>:590</code> (themes) compute <code>union(workspace_allowlist, entity_allowlist)</code>, per the "union, not override" decision in <a href="v1-release-roadmap.html">v1 roadmap §2.3</a>. That decision is superseded here.</p>
+
+<div class="decision"><strong>Decision — an entity's own allowlist replaces the workspace allowlist; the workspace list is only the default for entities that don't set one.</strong>
+<pre><code>allow_sites = entity.allowlist if entity.allowlist is not None else workspace.allowlist
+deny_sites  = workspace.denylist + (entity.denylist or [])   # union, unchanged</code></pre></div>
+
+<p><strong>Why the union was wrong for allowlists.</strong> <code>site:</code> is a hard restriction, not a preference: everything outside the list is excluded outright. Under union, setting a workspace allowlist silently hard-restricts <em>every</em> company and theme in the workspace, and an entity can only ever widen — there is no way to say "this company is covered by trade press the workspace list doesn't include" without also polluting it for everyone else, and no way at all to search a company unrestricted once a workspace list exists. Override makes the workspace list what it reads like in the UI: a sensible default.</p>
+
+<p><strong>Why the union is right for denylists.</strong> A denylist subtracts rather than restricts, and "never accept this aggregator" is a workspace-wide policy an individual entity should not be able to silently drop. Union also fails safe: the worst case is slightly less coverage, whereas a dropped denylist entry reintroduces exactly the noise the entry was added to remove. The asymmetry is deliberate and should be stated in the UI help text, not just in code.</p>
+
+<div class="gap"><strong>Blocker — empty list and "unset" are currently the same value.</strong> The allowlist columns are <code>ARRAY(String), nullable=False, default=list</code>, so an entity with no allowlist and an entity that explicitly wants no site restriction are indistinguishable. Override semantics need to tell them apart, or a workspace allowlist becomes impossible to opt out of — the exact problem being fixed.</div>
+
+<p><strong>Fix:</strong> make <code>google_news_source_allowlist</code> nullable on <code>target_companies</code> and <code>theme_watches</code>, adopting the NULL-means-inherit convention already established by <code>ThemeWatch.google_news_country</code>/<code>_language</code> (<code>models/theme_watch.py:30-37</code>):</p>
+<table>
+  <tr><th>Value</th><th>Meaning</th><th>Effective allowlist</th></tr>
+  <tr><td><code>NULL</code></td><td>Inherit (the default for every entity)</td><td>Workspace list</td></tr>
+  <tr><td><code>[]</code></td><td>Explicitly unrestricted</td><td>None — no <code>site:</code> clause at all</td></tr>
+  <tr><td><code>["a.com", …]</code></td><td>Override</td><td>Exactly this list</td></tr>
+</table>
+
+<div class="decision"><strong>Decision — the migration backfills the union so no query changes on day one.</strong> Set each entity's allowlist to <code>NULL</code> where it is currently empty, and to <code>union(workspace, entity)</code> where it is non-empty. Every effective query is then byte-identical to before the migration, and override semantics govern only what users change afterwards. Without this backfill, every entity with its own list would silently narrow the moment the migration runs — a behaviour change arriving inside what is supposed to be a semantics change.</div>
+
+<p><strong>UI (<code>SettingsTargets.tsx</code>, theme form).</strong> The allowlist input needs three visible states, not two: inheriting (showing which workspace domains are in effect, read-only, with an "override" action), overriding (the entity's own tags, with a "revert to workspace default" action), and explicitly unrestricted. Without that, NULL-vs-<code>[]</code> is invisible to the user and the feature is unusable no matter how correct the backend is.</p>
+</div>
+</div>
+
+<h2 id="phase3">8. Phase 3 — Selection before AI spend</h2>
+
+<div class="phase">
+<h3><span class="phase-badge">Phase 3</span> Choose the best N, not the newest N <span class="tag">backend</span> <span class="tag">size: M</span></h3>
+
+<div class="item">
+<h4>8.1 Composite candidate scoring (F5)</h4>
+<p>Replace the <code>published_at</code> sort at <code>ingestion.py:429-435</code> with a deterministic, unit-testable score. No AI, no network, no new dependencies:</p>
+<table>
+  <tr><th>Signal</th><th>Weight</th><th>Rationale</th></tr>
+  <tr><td>Identity term appears in the <em>title</em></td><td>+3</td><td>Strongest cheap predictor that the article is genuinely about the company.</td></tr>
+  <tr><td>Identity term appears only in the description</td><td>+1</td><td>Weaker but still real.</td></tr>
+  <tr><td>Domain on the effective allowlist</td><td>+2</td><td>The user already said they trust it.</td></tr>
+  <tr><td>Published within the first half of the lookback window</td><td>+2</td><td>Recency, without letting it dominate.</td></tr>
+  <tr><td>Context term appears anywhere</td><td>+1</td><td>Topical fit, as a tiebreak rather than a gate.</td></tr>
+  <tr><td>Nth (n&gt;3) article from the same domain this run</td><td>−2</td><td>Source-diversity cap; one outlet shouldn't consume the budget.</td></tr>
+</table>
+<p>Ties break on <code>published_at</code> descending, preserving today's behaviour exactly when everything else is equal. Weights live in one module-level table with a comment explaining they are a starting point to be tuned against Phase 0's data, not tuned constants pretending to be principled.</p>
+</div>
+
+<div class="item">
+<h4>8.2 Free near-duplicate collapse before embedding (F10)</h4>
+<p>Normalize titles (lowercase, strip punctuation and any trailing "— Outlet" suffix), compare token sets by Jaccard similarity, cluster at ≥0.85, keep the highest-scoring member and mark the rest <code>skip_reason="duplicate"</code> with <code>duplicate_of_article_id</code> set — <em>before</em> the embedding call at <code>ingestion.py:848</code>. Pure-Python, no tokenizer dependency, and it removes exactly the syndicated-repost cluster that Google returns most of. The existing embedding dedupe stays as the semantic layer behind it.</p>
+</div>
+
+<div class="item">
+<h4>8.3 Company-scoped URL dedupe (F12)</h4>
+<div class="decision"><strong>Decision (2026-07-30) — <code>articles.url</code> becomes unique per company.</strong> The unique constraint moves from <code>url</code> to <code>(target_company_id, url)</code>, and the pre-insert check at <code>ingestion.py:406</code> becomes company-scoped, so a story naming two tracked companies produces a signal for both instead of silently only for whichever the loop reached first.</div>
+<p>Consequences to handle in implementation:</p>
+<ul>
+  <li><strong>Spend.</strong> This deliberately increases AI cost on exactly the stories most likely to matter to several targets. It is bounded by the existing per-company cap (<code>max_articles_per_company_per_run</code>), which applies independently per company, so the worst case is linear in the number of companies a single story names.</li>
+  <li><strong>Theme path.</strong> The cross-path rule in <a href="theme-search-planning.html">theme-search §6</a> — never create a <code>ThemeMatch</code> for a URL already covered by some company's <code>Article</code> — is unaffected: it is a global existence check, not a uniqueness constraint, and stays global.</li>
+  <li><strong>Migration.</strong> Dropping a unique index and adding a composite one is straightforward; existing rows already satisfy the weaker constraint, so no data cleanup is needed. The downgrade path is <em>not</em> truly reversible once duplicate-URL rows exist — say so in the migration rather than pretending it round-trips.</li>
+  <li><strong>Duplicate AI work across companies</strong> is still caught downstream: the same story ingested for two companies is embedded and summarized twice by design (each company gets its own outreach angle), but the per-company semantic dedupe is unaffected, since its candidate pool was already company-filtered (<code>ingestion.py:858-873</code>).</li>
+</ul>
+<div class="assumption"><strong>Assumption — no configuration knob for this.</strong> Per-company dedupe is simply the correct behaviour, so it ships unconditionally rather than behind a setting. If the extra spend turns out to matter, the lever is the existing per-company cap, not a scope toggle.</div>
+</div>
+</div>
+
+<h2 id="phase4">9. Phase 4 — URL resolution &amp; enrichment</h2>
+
+<div class="phase">
+<h3><span class="phase-badge">Phase 4</span> Turn headline-only items into real articles <span class="tag">backend + migration</span> <span class="tag">size: L</span></h3>
+<p>Approved in §1 behind an admin toggle, off by default. Two independent steps, shippable separately.</p>
+
+<div class="item">
+<h4>9.1 Resolve the redirect to a canonical publisher URL (F9)</h4>
+<p>New nullable <code>articles.canonical_url</code>. <code>url</code> keeps the Google link as provenance; <code>canonical_url</code> is what the dashboard and the digest email link to when present, and what cross-source URL dedupe compares on. Two resolution strategies, tried in order:</p>
+<ol>
+  <li><strong>Decode the payload.</strong> The <code>CBMi…</code> segment is a base64 protobuf; current community decoders extract parameters from the article page and call Google's internal <code>batchexecute</code> endpoint. Fast and cheap when it works, but it is an unofficial internal API that has already changed once and will change again.</li>
+  <li><strong>Follow the redirect.</strong> A bounded <code>GET</code> with <code>follow_redirects=True</code> and a short timeout, reading the final URL. Slower, one request per article, but robust to Google changing its encoding.</li>
+</ol>
+<div class="decision"><strong>Decision — implement the redirect-follow path first, keep decoding as an optimization behind the same interface.</strong> Resolution failure must be non-fatal: <code>canonical_url</code> stays NULL, everything falls back to today's behaviour. This also closes the open question in <a href="news-source-expansion-planning.html">news-source-expansion §15</a> about redirect-link durability in digest emails a rep opens days later.</div>
+</div>
+
+<div class="item">
+<h4>9.2 Pull a real snippet (F11)</h4>
+<p>With <code>canonical_url</code> known, fetch the publisher page through the SSRF-safe fetcher (<a href="#security">§13</a>) and extract, in order of preference: JSON-LD <code>description</code>, <code>og:description</code>, <code>&lt;meta name="description"&gt;</code>. Store it in <code>articles.description</code> and set a new <code>content_enriched</code> boolean. <code>Article.is_headline_only</code> becomes:</p>
+<pre><code>return self.source == ArticleSource.GOOGLE_NEWS_RSS and not self.content_enriched</code></pre>
+<p>Everything downstream then improves for free: triage judges real text instead of a headline, <code>supporting_quote</code> becomes possible, the embedding stops being title-only (which also strengthens Phase 3's semantic dedupe), and the UI's lower-confidence labelling for this source stops applying to enriched items.</p>
+<p>Budgets: per-run cap on enrichment fetches, per-domain serialization, total wall-clock ceiling, and enrichment attempted <em>only for articles that survived scoring and the cap</em> — never for the whole raw result set. Failure is silent and non-fatal: the article stays headline-only.</p>
+</div>
+</div>
+
+<h2 id="phase5">10. Phase 5 — Precision feedback loop</h2>
+
+<div class="phase">
+<h3><span class="phase-badge">Phase 5</span> Let the app tell you which sources are wasting your budget <span class="tag">backend + frontend</span> <span class="tag">size: M</span></h3>
+<p>Once Phase 0's data exists, per-domain precision is a straightforward aggregate: for each <code>source_name</code>/domain over the last 30 days, count signals created, signals dismissed, and articles triaged out. A domain with 40 fetched, 2 kept and 15 explicitly dismissed is a denylist candidate, and the Settings panel can say so with a one-click "add to denylist" that writes straight into the Phase 2 field.</p>
+<p>This extends the same rule-based, no-LLM-call philosophy <code>services/feedback.py</code> already uses to derive <code>ai_feedback_note</code> from dismissal patterns — adding a <em>domain</em> dimension alongside the existing category dimension.</p>
+</div>
+
+<h2 id="phase6">11. Phase 6 — Multi-provider theme ingestion</h2>
+
+<div class="phase">
+<h3><span class="phase-badge">Phase 6</span> Stop themes depending on the single loosest source <span class="tag">backend + frontend + migration</span> <span class="tag">size: L</span></h3>
+
+<h4>11.1 Re-examining the v1 decision</h4>
+<p><a href="theme-search-planning.html">theme-search §1</a> gave three reasons for Google-News-only themes. Two don't hold up:</p>
+<table>
+  <tr><th>Original reason</th><th>Verdict</th></tr>
+  <tr><td>"NewsAPI.org has the same 'no name to ground against' problem ingestion-reliability §5 fixed for companies"</td><td><strong>Doesn't discriminate.</strong> Themes have no name to ground against under <em>any</em> provider, Google News included. This is an argument for giving the theme path its own cheap relevance guard (§11.4), not for excluding one provider.</td></tr>
+  <tr><td>"NewsData.io's native-dedupe/historical-backfill machinery is built around one company at a time"</td><td><strong>Conflates two code paths.</strong> Backfill is <code>services/newsdata_backfill.py</code>, a separate one-time workflow that themes simply never invoke. Routine <code>/news</code> polling has no company-shaped assumption in it — <code>_base_params</code> takes a query string like any other.</td></tr>
+  <tr><td>"NewsData.io's per-call credit cost… a broad topical query would be expensive"</td><td><strong>Holds.</strong> This is the real constraint, and it is a budgeting problem with a budgeting solution — explicit opt-in plus a theme-specific ceiling — not a reason to hardcode the provider.</td></tr>
+</table>
+
+<div class="decision"><strong>Decision — themes may use any enabled provider, opt-in, defaulting to exactly today's behaviour.</strong> The default provider set for themes is <code>["google_news_rss"]</code>, so nothing changes until an admin opts in. Cost is the reason to be careful, not a reason to stay locked to the one source with the loosest relevance ranking and no article text.</div>
+
+<h4>11.2 Why the other two providers are actually <em>better</em> for themes</h4>
+<p>This is worth stating plainly, because it inverts the v1 assumption. A theme query is broad and has no identity anchor, which is precisely the situation where the paid providers' native features earn their cost:</p>
+<table>
+  <tr><th>Capability</th><th>Google News RSS</th><th>NewsAPI.org</th><th>NewsData.io</th></tr>
+  <tr><td>Article text for the AI</td><td>Headline only</td><td>Real snippet</td><td>Full body (paid tier)</td></tr>
+  <tr><td>Sort by date</td><td>No — relevance-ranked and stale (<a href="#external">§4</a>)</td><td><code>sortBy=publishedAt</code></td><td>Recency-ordered</td></tr>
+  <tr><td>Server-side date filter</td><td>Only via <code>when:</code> buckets</td><td><code>from</code>/<code>to</code>, exact</td><td><code>from_date</code>, exact</td></tr>
+  <tr><td>Domain allow/deny</td><td><code>site:</code> / <code>-site:</code>, spends query words (F8)</td><td><code>domains</code>/<code>excludeDomains</code>, free of the query budget</td><td><code>domain</code>/<code>excludedomain</code></td></tr>
+  <tr><td>Native dedupe</td><td>None</td><td>None</td><td><code>removeduplicate</code></td></tr>
+</table>
+<p>In other words the two providers excluded from themes are the ones that fix, natively and for free, three of the Google News limits this whole document is working around. For the theme feed specifically — no identity anchor, so article text matters more, not less — that is a significant quality argument, independent of cost.</p>
+
+<h4>11.3 Provider selection</h4>
+<p>Same shape as the allowlist decision in <a href="#phase2">§7.6</a>, for consistency:</p>
+<table>
+  <tr><th>Setting</th><th>Type</th><th>Meaning</th></tr>
+  <tr><td><code>workspace_settings.theme_news_sources</code></td><td><code>ARRAY(String)</code>, default <code>["google_news_rss"]</code></td><td>Which providers themes may use by default.</td></tr>
+  <tr><td><code>theme_watches.news_sources</code></td><td><code>ARRAY(String)</code>, nullable</td><td>NULL = inherit the workspace list; a non-empty list overrides it.</td></tr>
+</table>
+<p>A provider is only ever called for a theme if it appears in the effective list <strong>and</strong> is enabled workspace-wide (<code>*_enabled</code>) — the existing toggles stay the master switch, so this can never resurrect a source an admin turned off.</p>
+
+<h4>11.4 A cheap relevance guard for themes (part of F17)</h4>
+<p>The company path drops non-matching articles for free before any AI call; the theme path does not, and with three providers instead of one that gap gets more expensive. Add the theme equivalent:</p>
+<pre><code>def article_matches_theme_terms(*, title, description, full_content, query_terms) -&gt; bool:
+    """A theme's query terms are its relevance signal, so an article that contains none
+    of them verbatim was matched by provider fuzz, not by the theme. Cheap pre-filter
+    ahead of triage — NOT a replacement for it: triage still judges whether a genuinely
+    on-topic article carries a business angle."""</code></pre>
+<div class="assumption"><strong>Assumption — verbatim substring matching, same as the company guard.</strong> It will drop some legitimate matches (an article about "Serie-B-Finanzierung" when the term is "Series B"). That is the right trade under the §1 precision decision, and the promotion path for triaged-out items already exists as the escape hatch. Worth measuring with Phase 0's counters before tightening further.</div>
+
+<h4>11.5 Pipeline changes</h4>
+<ul>
+  <li><strong>Client signatures.</strong> Give <code>NewsClient</code> and <code>NewsDataClient</code> the <code>query_override</code> parameter <code>GoogleNewsRSSClient</code> already has (<code>google_news_rss_client.py:37</code>). Note that <code>build_or_query("", terms)</code> already degrades to a plain OR of terms, so the behaviour exists — it just shouldn't be reached by passing an empty name.</li>
+  <li><strong>Shared dispatch.</strong> <code>_fetch_from_source()</code> (<code>ingestion.py:495</code>) currently hardcodes company attributes. With both loops multi-provider, collapse it and the theme fetch into one dispatcher over a small <code>FetchSpec</code> (query terms, allowlist, denylist, edition, language, full-content flag), so provider handling exists once rather than diverging between the two loops. This is the main refactor in the phase and should land before the new providers are wired, not after.</li>
+  <li><strong>Rate limiting.</strong> The theme loop gains the same per-source <code>check_headroom</code>/<code>wait_for_minute_headroom</code> handling the company loop already has (<code>ingestion.py:325-346</code>), replacing today's Google-News-only check at <code>:557-587</code>. Companies are processed first, so they keep natural priority on a shared daily quota — but add <code>max_theme_requests_per_run_per_source</code> so a themes-heavy workspace can't drain the NewsAPI.org daily allowance before the next company run.</li>
+  <li><strong>The "no provider" error</strong> at <code>ingestion.py:249-255</code> generalizes from "Google News RSS is disabled" to naming whichever effective provider set came back empty, and why.</li>
+  <li><strong><code>ThemeMatch</code> gains <code>full_content</code></strong> (plus optionally <code>external_sentiment</code>/<code>external_tags</code> for parity with <code>Article</code>), and <code>_theme_grounding_text()</code> (<code>ingestion.py:1092</code>) starts preferring it exactly as <code>_grounding_text()</code> does. <code>ThemeMatch.headline_only</code> stops being effectively-constant and becomes the same computed expression <code>Article.is_headline_only</code> uses after Phase 4.</li>
+  <li><strong>Cross-provider URL dedupe</strong> for themes already exists (<code>ingestion.py:636-641</code>) and starts actually firing once <code>canonical_url</code> from Phase 4 is populated — <code>ThemeMatch</code> needs that column too.</li>
+</ul>
+
+<div class="assumption"><strong>Sequencing — this phase depends on Phase 0 and reads best after Phases 1–3.</strong> Phase 0's counters are what prove a newly enabled theme provider helps rather than just adding volume, and the §11.4 guard is a smaller version of the F2 work in Phase 2. Doing Phase 6 first would mean enabling paid providers for the broadest queries in the system with no instrumentation to see what they return.</div>
+</div>
+
+<h2 id="datamodel">12. Data model summary</h2>
+<table>
+  <tr><th>Table</th><th>Column</th><th>Type</th><th>Phase</th></tr>
+  <tr><td><code>news_source_usage_logs</code></td><td><code>query_text</code></td><td><code>Text</code>, nullable</td><td>0</td></tr>
+  <tr><td><code>news_source_usage_logs</code></td><td><code>articles_raw</code></td><td><code>Integer</code>, default 0</td><td>0</td></tr>
+  <tr><td><code>news_source_usage_logs</code></td><td><code>drop_counts</code></td><td><code>JSONB</code>, nullable</td><td>0</td></tr>
+  <tr><td><code>workspace_settings</code></td><td><code>google_news_time_operator_enabled</code></td><td><code>Boolean</code>, default true</td><td>1</td></tr>
+  <tr><td><code>target_companies</code></td><td><code>google_news_country</code> / <code>google_news_language</code></td><td><code>String(8)</code>, nullable (NULL = inherit)</td><td>1</td></tr>
+  <tr><td><code>target_companies</code></td><td><code>aliases</code></td><td><code>ARRAY(String)</code>, default <code>[]</code></td><td>2</td></tr>
+  <tr><td><code>target_companies</code></td><td><code>context_terms</code></td><td><code>ARRAY(String)</code>, default <code>[]</code> — backfilled from <code>keywords</code></td><td>2</td></tr>
+  <tr><td><code>target_companies</code></td><td><code>exclusion_terms</code></td><td><code>ARRAY(String)</code>, default <code>[]</code></td><td>2</td></tr>
+  <tr><td><code>target_companies</code></td><td><code>google_news_source_denylist</code></td><td><code>ARRAY(String)</code>, default <code>[]</code></td><td>2</td></tr>
+  <tr><td><code>target_companies</code></td><td><code>google_news_require_name_in_title</code></td><td><code>Boolean</code>, default false</td><td>2</td></tr>
+  <tr><td><code>theme_watches</code></td><td><code>exclusion_terms</code>, <code>google_news_source_denylist</code></td><td><code>ARRAY(String)</code>, default <code>[]</code></td><td>2</td></tr>
+  <tr><td><code>workspace_settings</code></td><td><code>google_news_source_denylist</code></td><td><code>ARRAY(String)</code>, default <code>[]</code></td><td>2</td></tr>
+  <tr><td><code>workspace_settings</code></td><td><code>google_news_query_strategy</code></td><td><code>String(16)</code>, default <code>"single"</code></td><td>2</td></tr>
+  <tr><td><code>target_companies</code>, <code>theme_watches</code></td><td><code>google_news_source_allowlist</code></td><td><code>ARRAY(String)</code> → <strong>nullable</strong> (NULL = inherit, <code>[]</code> = unrestricted); backfilled to the union of workspace + entity where non-empty, NULL where empty</td><td>2</td></tr>
+  <tr><td><code>articles</code></td><td><code>url</code></td><td>unique → unique on <code>(target_company_id, url)</code></td><td>3</td></tr>
+  <tr><td><code>workspace_settings</code></td><td><code>google_news_resolve_urls_enabled</code>, <code>google_news_fetch_snippets_enabled</code></td><td><code>Boolean</code>, default false</td><td>4</td></tr>
+  <tr><td><code>articles</code></td><td><code>canonical_url</code></td><td><code>Text</code>, nullable</td><td>4</td></tr>
+  <tr><td><code>articles</code></td><td><code>content_enriched</code></td><td><code>Boolean</code>, default false</td><td>4</td></tr>
+  <tr><td><code>theme_matches</code></td><td><code>canonical_url</code>, <code>content_enriched</code></td><td>mirrors <code>articles</code></td><td>4</td></tr>
+  <tr><td><code>workspace_settings</code></td><td><code>theme_news_sources</code></td><td><code>ARRAY(String)</code>, default <code>["google_news_rss"]</code></td><td>6</td></tr>
+  <tr><td><code>workspace_settings</code></td><td><code>max_theme_requests_per_run_per_source</code></td><td><code>Integer</code>, default 0 (= unlimited, per the existing convention)</td><td>6</td></tr>
+  <tr><td><code>theme_watches</code></td><td><code>news_sources</code></td><td><code>ARRAY(String)</code>, nullable (NULL = inherit)</td><td>6</td></tr>
+  <tr><td><code>theme_matches</code></td><td><code>full_content</code></td><td><code>Text</code>, nullable</td><td>6</td></tr>
+  <tr><td><code>theme_matches</code></td><td><code>external_sentiment</code>, <code>external_tags</code></td><td><code>String(32)</code> / <code>ARRAY(String)</code>, nullable — optional, for parity with <code>Article</code></td><td>6</td></tr>
+</table>
+<p>Every array column reuses the existing <code>validate_term_list</code> / <code>validate_source_allowlist</code> validators in <code>schemas/common_validators.py</code>, including their length caps — with the caps re-checked against the F8 word budget rather than inherited unexamined.</p>
+
+<h2 id="api">13. API &amp; frontend surface</h2>
+<ul>
+  <li><strong><code>POST /admin/news-sources/google-news/preview</code></strong> — new, admin-gated, rate-limited (§5.2).</li>
+  <li><strong><code>GET</code>/<code>PUT /settings</code></strong> — the new workspace fields, following the existing <code>settingsPayload.ts</code> pattern.</li>
+  <li><strong><code>POST</code>/<code>PATCH /target-companies</code></strong> — aliases, context terms, exclusions, denylist, edition override, title-only flag. The response schema gains all of them; <code>keywords</code> stays in the response as a derived field. The allowlist becomes <code>list[str] | None</code> on both request and response, and the <code>PATCH</code> schema must distinguish "field absent" (leave as-is) from an explicit <code>null</code> (revert to inheriting) — the existing <code>*Update</code> schemas already use <code>None</code> as the sentinel for "not provided" (<code>schemas/target_company.py:39</code>), so this one field needs a different sentinel or <code>model_fields_set</code>.</li>
+  <li><strong><code>SettingsTargets.tsx</code></strong> — the single keyword <code>TagInput</code> becomes three (Aliases / Context / Exclusions) with inline help explaining the distinction in one sentence each, plus optional edition selects and the preview button. Getting this copy right matters more than the code: the whole precision gain in Phase 2 depends on users understanding the split.</li>
+  <li><strong><code>SourcesTab.tsx</code></strong> — workspace denylist input, time-operator and query-strategy toggles, the "Test query" panel, and the query/funnel detail in the recent-activity table.</li>
+  <li><strong><code>POST</code>/<code>PATCH /theme-watches</code></strong> — <code>news_sources</code> (nullable, same inherit semantics and the same PATCH-sentinel problem as the allowlist), exclusions and denylist. The theme form gains a provider multi-select showing which sources are inherited.</li>
+  <li><strong>i18n</strong> — every new string in both <code>en</code> and <code>de</code>, per <a href="german-i18n-planning.html">german-i18n-planning.html</a>.</li>
+</ul>
+
+<h2 id="security">14. Security considerations</h2>
+<p>Phase 4 is the only part of this plan that changes the app's security posture: it makes the backend fetch URLs derived from third-party feed content. That is a textbook SSRF surface and must be built as such.</p>
+<ul>
+  <li><strong>Scheme allowlist</strong> — <code>https://</code> only (stricter than the existing <code>is_safe_article_url</code>, which permits <code>http</code> for display purposes).</li>
+  <li><strong>DNS resolution guard</strong> — resolve first, reject loopback, link-local, private, CGNAT and reserved ranges; re-check after <em>every</em> redirect hop, not just the first (DNS rebinding).</li>
+  <li><strong>Bounded everything</strong> — connect/read timeouts, max redirect hops, max response bytes, per-run fetch count, total wall-clock budget. An enrichment pass must never be able to extend an ingestion run indefinitely.</li>
+  <li><strong>No credentials, ever</strong> — no cookies, no auth headers, no proxy credentials on these requests.</li>
+  <li><strong>Parse defensively</strong> — extracted metadata is untrusted text: length-capped, HTML-stripped, and it flows into AI prompts, so it inherits the prompt-injection exposure the pipeline already has for titles/descriptions. Worth stating in the AI prompt that article-derived text is data, not instructions.</li>
+  <li><strong>Off by default</strong>, admin-gated, with the toggle's help text naming the trade-off explicitly.</li>
+</ul>
+<p>Phases 0–3 add no new outbound surface. The preview endpoint (§5.2) must be admin-only and rate-limited, since it triggers a real outbound request on demand — the same reasoning that already governs <code>create_signal_from_skipped_article</code> and <code>/ingestion/run-now</code>.</p>
+
+<h2 id="tests">15. Test plan &amp; acceptance criteria</h2>
+<ul class="checklist">
+  <li><code>build_google_news_query</code>: identity-only; identity + aliases; context terms; exclusions; allowlist; denylist; <code>when:</code>; <code>intitle:</code>; and every combination at the word-budget boundary, asserting the documented drop order.</li>
+  <li><code>google_when_operator</code>: bucket boundaries at 1h/12h/24h/7d and the &gt;7d clamp.</li>
+  <li>Client: 200-with-entries; 429 → <code>NewsClientError</code> (<em>not</em> an empty list); 500 → retry then error; malformed XML → error; timeout is actually applied (assert the value reaches the <code>httpx</code> call).</li>
+  <li><code>article_mentions_company</code>: an article containing only a context term must now be rejected — the direct regression test for F2.</li>
+  <li>Scoring: a newer aggregator repost loses to an older allowlisted original naming the company in its title.</li>
+  <li>Near-dup collapse: five syndicated variants of one headline yield one surviving article and four <code>duplicate</code> rows, with no embedding call made for the four.</li>
+  <li>Funnel counters: a fixture run produces <code>drop_counts</code> that sums correctly to <code>articles_raw</code>.</li>
+  <li>Migration: <code>context_terms</code> is populated from <code>keywords</code>, <code>aliases</code> is empty, and the generated query for an unedited company is byte-identical to the pre-migration query.</li>
+  <li><code>keywords</code> stays synchronized with <code>aliases + context_terms</code> across create and update.</li>
+  <li>SSRF guard: private/loopback/link-local targets rejected, including on a redirect hop.</li>
+  <li>Preview endpoint: admin-gated, rate-limited, writes no <code>articles</code> rows and makes no AI call.</li>
+  <li>Company-scoped dedupe: one article naming two tracked companies produces a <code>Signal</code> for both; the theme path's global URL check still suppresses a <code>ThemeMatch</code> for that URL.</li>
+  <li>Allowlist resolution: NULL inherits the workspace list, <code>[]</code> emits no <code>site:</code> clause at all, a non-empty list replaces the workspace list entirely — and the denylist unions in every case.</li>
+  <li>Allowlist migration: an entity with an existing non-empty list produces a byte-identical query before and after the migration (union backfill), and an entity with an empty list becomes NULL and keeps inheriting.</li>
+  <li>Provider language: <code>NewsClient</code>/<code>NewsDataClient</code> send the entity's effective language, not <code>"en"</code> — a German company's request carries <code>language=de</code> (the direct F16 regression test).</li>
+  <li><code>article_matches_theme_terms</code>: an article containing none of a theme's terms is rejected before any AI call is made.</li>
+  <li>Theme provider resolution: NULL <code>news_sources</code> inherits the workspace list; a workspace-enabled provider absent from the effective list is never called; a provider in the list but disabled workspace-wide is never called either.</li>
+  <li>Theme rate limiting: a source at its ceiling is skipped for themes with a <code>rate_limited</code> row and a run error, while the other theme providers keep running — the per-source isolation the company loop already has.</li>
+  <li>Defaults preserve behaviour: with <code>theme_news_sources</code> untouched, a theme run issues exactly the Google-News-only request set it issues today.</li>
+  <li>Existing NewsAPI.org / NewsData.io query-building tests unchanged and passing — <code>build_or_query</code>'s semantics are untouched even though those clients gain parameters.</li>
+</ul>
+<p><strong>Acceptance for the whole effort</strong> is measured, not asserted: with Phase 0 shipped first, record a baseline week of <code>drop_counts</code>, <code>triaged_out</code> and dismissal rates for Google News, then compare after each phase. "Fewer noisy signals" has to show up as a lower triaged-out + dismissed fraction at equal or higher signal volume.</p>
+
+<h2 id="spikes">16. Spikes &amp; open questions</h2>
+<p>These must be answered against the live feed before the code that depends on them is written. None could be tested while writing this document (no egress to <code>news.google.com</code> from the research environment), and each is small — a handful of manual requests.</p>
+<table>
+  <tr><th>#</th><th>Question</th><th>Blocks</th></tr>
+  <tr><td>S1</td><td>Is <code>when:</code> honoured, and does it still work when combined with <code>site:</code> clauses and quoted phrases? Which buckets are accepted?</td><td>§6.2</td></tr>
+  <tr><td>S2</td><td>What is the actual query length limit today, and what does Google do past it — truncate silently, ignore operators, or return nothing?</td><td>§6.4</td></tr>
+  <tr><td>S3</td><td>Are parentheses honoured for grouping, and does removing the literal <code>AND</code> token change the result set?</td><td>§7.3</td></tr>
+  <tr><td>S4</td><td>Does <code>hl=de-DE</code> return different results from <code>hl=de</code> at the same <code>gl</code>/<code>ceid</code>?</td><td>§6.3</td></tr>
+  <tr><td>S5</td><td>Do <code>-site:</code> and <code>-term</code> work in this feed, or only in Google web search?</td><td>§7.3</td></tr>
+  <tr><td>S6</td><td>Does the <code>CBMi</code> payload still decode, and does the redirect-follow path survive Google's consent interstitials from a datacenter IP?</td><td>§9.1</td></tr>
+  <tr><td>S7</td><td>At what request rate does Google actually throttle a server-side client, and is the current self-imposed 20/min ceiling anywhere near it?</td><td>§7.5 (split queries)</td></tr>
+</table>
+<p>Open product questions, deliberately not decided here:</p>
+<ul>
+  <li><strong>Whether themes should also get identity-style grounding</strong> — §11.4 adds a verbatim term-match guard, which is the theme analogue of <code>article_mentions_company</code>. Whether that is enough, or whether theme relevance eventually needs the embedding-similarity-to-the-theme approach instead of substring matching, is a question Phase 0's data should answer rather than this document.</li>
+  <li><strong>Whether NewsData.io full content justifies its cost for themes</strong> — §11.2 argues it is the single biggest quality upgrade available to the theme path, but it is also the most expensive request in the system aimed at the broadest query. Enable it for one theme first and compare triaged-out rates before rolling it out.</li>
+</ul>
+
+<h2 id="checklist">17. Implementation checklist</h2>
+
+<div class="ok-box"><strong>Shipped 2026-07-30.</strong> Every item below is implemented and covered by tests (508 passing). The Alembic chain runs clean on an empty database, and both data backfills in the Phase 2 migration were verified against real rows: <code>context_terms</code> is populated from <code>keywords</code> with <code>aliases</code> left empty, and an entity that already had an allowlist keeps its <em>effective</em> list via the union backfill.</div>
+
+<div class="ok-box"><strong>Reconciled with the topics-UX work (2026-07-30).</strong> That branch landed on <code>main</code> while this was in flight and overlapped in three places; all three are merged rather than duplicated:
+<ul>
+  <li><strong>Exclusions were built twice.</strong> It shipped <code>ThemeWatch.exclude_terms</code>; this plan called the same concept <code>exclusion_terms</code>. Its name won — it was already merged, with a migration, UI, i18n and tests — and <code>TargetCompany</code> was renamed to match, so one concept has one name across both models.</li>
+  <li><strong>Two query previews now coexist deliberately.</strong> <code>POST /theme-watches/preview</code> stays the in-flow "will this topic find anything?" check for any user; <code>POST /news-diagnostics/google-news/preview</code> stays the admin "why were these dropped?" tool. The theme one was rewired onto this document's builder, so exclusions, denylists, the freshness operator and override-allowlist semantics apply identically — a preview built differently from the real fetch reports on a search nobody will run.</li>
+  <li><strong>Per-topic health stats and per-publisher precision stats are different axes</strong> (which topics earn their slot vs. which publishers waste the budget) and were left as two independent views.</li>
+</ul>
+The theme preview also now goes through the Google News headroom check and usage log. It had been making a real outbound request per call, per user, entirely outside the workspace's self-imposed ceiling — the exact traffic that ceiling exists to bound, given the feed has no official quota.</div>
+
+<div class="assumption"><strong>Deliberate departures from this plan, both narrowing what it said:</strong>
+<ul>
+  <li><strong>§11.4's theme term guard uses prefix-stemmed token matching, not verbatim substring matching.</strong> The plan recorded verbatim matching as an assumption to validate; it failed immediately on ordinary inflection — "EV batteries" does not contain "EV battery" — and in German, where compounds and cases are the norm, it would have rejected far more than it kept. Comparing token stems keeps the check free and deterministic. Identity matching (<code>article_mentions_company</code>) keeps the stricter verbatim rule, because a loose match there means attributing a story to the wrong company.</li>
+  <li><strong>§8.3 ships without a configuration knob.</strong> An earlier revision of this document specified a workspace <code>article_dedupe_scope</code> setting; per-company URL dedupe is simply the correct behaviour, so it ships unconditionally. If the extra AI spend matters, the lever is the existing per-company cap.</li>
+</ul>
+</div>
+
+<p>One implementation detail worth recording, because it isn't obvious from the plan: the usage row is now written <strong>once per provider at the end of an entity's fetch</strong> rather than at the fetch boundary. Grounding, dedupe and the cap all discard candidates after the fetch returns, and a drop breakdown that stops at the boundary answers none of the questions §5 exists to answer.</p>
+
+<ul class="checklist">
+  <li><strong>Phase 0</strong> — usage-log columns + migration; funnel counters through client and ingestion; preview endpoint; Settings UI for query/funnel; i18n strings.</li>
+  <li><strong>Spikes S1–S5</strong> — run against the live feed, record answers in this doc before Phase 1 lands.</li>
+  <li><strong>Phase 1</strong> — httpx fetch with timeout/UA/status handling and bounded retry; <code>when:</code> operator + toggle; per-company edition columns, schema, API, UI; canonical <code>hl</code>; word budget with documented drop order.</li>
+  <li><strong>Phase 2</strong> — four new term fields + migration backfilling <code>context_terms</code> from <code>keywords</code>; <code>keywords</code> synchronization; new builder; grounding guard on identity terms only; three-input UI with copy that explains the split; theme + workspace denylists; optional <code>intitle:</code> and split-query toggles; allowlist made nullable with the union backfill, override resolution in both ingestion call sites, and the three-state allowlist UI.</li>
+  <li><strong>Phase 3</strong> — composite scorer replacing newest-N; title near-dup collapse before embedding; source-diversity cap; company-scoped URL dedupe (unique-constraint migration).</li>
+  <li><strong>Spike S6</strong>, then <strong>Phase 4</strong> — SSRF-safe fetcher; URL resolution + <code>canonical_url</code>; snippet enrichment + <code>content_enriched</code>; <code>is_headline_only</code> update; UI/digest linking to the canonical URL; both toggles off by default.</li>
+  <li><strong>Phase 5</strong> — per-domain precision aggregate; Settings panel with one-click denylisting.</li>
+  <li><strong>Phase 6</strong> — <code>FetchSpec</code> refactor collapsing the two fetch paths <em>first</em>; <code>query_override</code> on both paid clients; <code>theme_news_sources</code> + per-theme <code>news_sources</code>; per-source headroom handling in the theme loop plus the per-run theme ceiling; <code>article_matches_theme_terms</code> guard; <code>ThemeMatch.full_content</code>/<code>canonical_url</code> and the <code>headline_only</code> update; generalized "no provider enabled" error; provider multi-select in the theme form and Settings.</li>
+  <li>Update <code>README.md</code> and <code>docs/planning.html</code> to reflect the new term model and the enrichment toggles.</li>
+</ul>
+
+<footer>
+  NewsAtlas — Google News feed quality planning. Written 2026-07-30 against commit <code>d5233ad</code>.
+  Research and design only; no implementation performed. All live-feed behavioural claims are unverified —
+  see <a href="#spikes">§15</a>.
+</footer>
+
+</body>
+</html>

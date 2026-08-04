@@ -2,11 +2,14 @@ import { FormEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ApiError, api } from "../../api/client";
+import { ARTICLE_SOURCE_LABELS } from "../../api/types";
 import type { ArticleSource, NewsSourceUsageStat, WorkspaceSettings } from "../../api/types";
 import Skeleton from "../../components/Skeleton";
 import TagInput from "../../components/TagInput";
 import { useToast } from "../../context/ToastContext";
 import { useLocaleFormat } from "../../hooks/useLocaleFormat";
+import QueryPreviewPanel from "./QueryPreviewPanel";
+import SourcePrecisionPanel from "./SourcePrecisionPanel";
 import { useSettingsContext } from "./SettingsLayout";
 import { buildSettingsPayload } from "./settingsPayload";
 
@@ -64,6 +67,7 @@ function UsageSummary({ stat }: { stat: NewsSourceUsageStat | undefined }) {
                 <th>{t("sources.table.attributedTo")}</th>
                 <th>{t("sources.table.requests")}</th>
                 <th>{t("sources.table.articles")}</th>
+                <th>{t("sources.table.query")}</th>
               </tr>
             </thead>
             <tbody>
@@ -79,7 +83,23 @@ function UsageSummary({ stat }: { stat: NewsSourceUsageStat | undefined }) {
                       : (entry.target_company_name ?? "—")}
                   </td>
                   <td>{entry.requests_used}</td>
-                  <td>{entry.articles_returned}</td>
+                  <td>
+                    {entry.articles_returned}
+                    {entry.articles_raw > entry.articles_returned && (
+                      <span className="field-hint"> / {entry.articles_raw}</span>
+                    )}
+                  </td>
+                  <td className="usage-query-cell">
+                    {entry.query_text && <code title={entry.query_text}>{entry.query_text}</code>}
+                    {entry.drop_counts && Object.keys(entry.drop_counts).length > 0 && (
+                      <span className="field-hint">
+                        {Object.entries(entry.drop_counts)
+                          .filter(([, count]) => count > 0)
+                          .map(([stage, count]) => `${stage}: ${count}`)
+                          .join(" · ")}
+                      </span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -237,6 +257,100 @@ export default function SourcesTab() {
                 />
                 <span className="field-hint">{t("sources.googleNewsRss.sourceAllowlistHint")}</span>
               </label>
+              <label>
+                {t("sources.googleNewsRss.sourceDenylist")}
+                <TagInput
+                  tags={settings.google_news_source_denylist}
+                  onChange={(tags) => setSettings({ ...settings, google_news_source_denylist: tags })}
+                  placeholder={t("sources.googleNewsRss.sourceDenylistPlaceholder")}
+                />
+                <span className="field-hint">{t("sources.googleNewsRss.sourceDenylistHint")}</span>
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={settings.google_news_time_operator_enabled}
+                  onChange={(e) =>
+                    setSettings({ ...settings, google_news_time_operator_enabled: e.target.checked })
+                  }
+                />
+                {t("sources.googleNewsRss.timeOperator")}
+              </label>
+              <span className="field-hint">{t("sources.googleNewsRss.timeOperatorHint")}</span>
+              <label>
+                {t("sources.googleNewsRss.queryStrategy")}
+                <select
+                  value={settings.google_news_query_strategy}
+                  onChange={(e) =>
+                    setSettings({ ...settings, google_news_query_strategy: e.target.value })
+                  }
+                >
+                  <option value="single">{t("sources.googleNewsRss.queryStrategySingle")}</option>
+                  <option value="split">{t("sources.googleNewsRss.queryStrategySplit")}</option>
+                </select>
+                <span className="field-hint">{t("sources.googleNewsRss.queryStrategyHint")}</span>
+              </label>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={settings.google_news_resolve_urls_enabled}
+                  onChange={(e) =>
+                    setSettings({ ...settings, google_news_resolve_urls_enabled: e.target.checked })
+                  }
+                />
+                {t("sources.googleNewsRss.resolveUrls")}
+              </label>
+              <span className="field-hint">{t("sources.googleNewsRss.resolveUrlsHint")}</span>
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={settings.google_news_fetch_snippets_enabled}
+                  // Snippet fetching needs a resolved publisher URL to fetch from, so the
+                  // two toggles aren't independent — enabling this enables that.
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      google_news_fetch_snippets_enabled: e.target.checked,
+                      google_news_resolve_urls_enabled:
+                        e.target.checked || settings.google_news_resolve_urls_enabled,
+                    })
+                  }
+                />
+                {t("sources.googleNewsRss.fetchSnippets")}
+              </label>
+              <span className="field-hint">{t("sources.googleNewsRss.fetchSnippetsHint")}</span>
+              {settings.google_news_fetch_snippets_enabled && (
+                <div className="field-row">
+                  <label>
+                    {t("sources.googleNewsRss.enrichmentFetches")}
+                    <input
+                      type="number"
+                      min={0}
+                      value={settings.max_enrichment_fetches_per_run}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          max_enrichment_fetches_per_run: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    {t("sources.googleNewsRss.enrichmentSeconds")}
+                    <input
+                      type="number"
+                      min={0}
+                      value={settings.max_enrichment_seconds_per_run}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          max_enrichment_seconds_per_run: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+              )}
             </div>
           )}
           <UsageSummary stat={usageFor("google_news_rss")} />
@@ -340,11 +454,64 @@ export default function SourcesTab() {
           )}
           <UsageSummary stat={usageFor("newsdata")} />
         </div>
+
+        <div className="news-source-row">
+          <strong>{t("sources.googleNewsRss.themeSources")}</strong>
+          <p className="field-hint">{t("sources.googleNewsRss.themeSourcesHint")}</p>
+          <div className="field-row">
+            {(["google_news_rss", "newsapi", "newsdata"] as ArticleSource[]).map((source) => (
+              <label key={source} className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={settings.theme_news_sources.includes(source)}
+                  onChange={(e) =>
+                    setSettings({
+                      ...settings,
+                      theme_news_sources: e.target.checked
+                        ? [...settings.theme_news_sources, source]
+                        : settings.theme_news_sources.filter((s) => s !== source),
+                    })
+                  }
+                />
+                {ARTICLE_SOURCE_LABELS[source]}
+              </label>
+            ))}
+          </div>
+          <label>
+            {t("sources.googleNewsRss.themeRequestBudget")}
+            <input
+              type="number"
+              min={0}
+              value={settings.max_theme_requests_per_run_per_source}
+              onChange={(e) =>
+                setSettings({
+                  ...settings,
+                  max_theme_requests_per_run_per_source: Number(e.target.value),
+                })
+              }
+            />
+            <span className="field-hint">{t("sources.googleNewsRss.themeRequestBudgetHint")}</span>
+          </label>
+        </div>
       </div>
 
       <button type="submit" disabled={isSaving}>
         {isSaving ? t("saving") : t("save")}
       </button>
+
+      {/* Advisory panels, below the save button: neither edits settings directly, and the
+          precision one writes into the denylist above rather than saving on its own, so
+          the admin still reviews the change before it takes effect. */}
+      <QueryPreviewPanel />
+      <SourcePrecisionPanel
+        blockedDomains={settings.google_news_source_denylist}
+        onBlockDomain={(domain) =>
+          setSettings({
+            ...settings,
+            google_news_source_denylist: [...settings.google_news_source_denylist, domain],
+          })
+        }
+      />
     </form>
   );
 }

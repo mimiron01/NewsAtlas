@@ -914,3 +914,34 @@ button.secondary {
 }
 .settings-tab:hover { color: var(--fg); }
 .settings-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+/* --- News-source diagnostics (docs/google-news-quality-planning.html) --- */
+
+/* The executed query can be long; it's diagnostic detail, so it stays on one line and
+   truncates rather than pushing the usage table's real columns out of view. */
+.usage-query-cell { max-width: 22rem; }
+.usage-query-cell code {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.7rem;
+}
+.usage-query-cell .field-hint { display: block; }
+
+.query-preview-result { margin-top: 12px; }
+.query-preview-result code { word-break: break-all; }
+
+.query-preview-entries { list-style: none; padding: 0; margin: 8px 0 0; }
+.query-preview-entries li {
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+.query-preview-entries li .field-hint { display: block; }
+/* Entries the pipeline would discard are shown, not hidden — seeing what gets dropped is
+   the reason to run a preview at all — but dimmed so the kept ones read first. */
+.query-preview-entries li.muted { opacity: 0.55; }
+
+.source-allowlist-field { display: flex; flex-direction: column; gap: 6px; }
+.source-allowlist-field .field-label { font-size: 0.8rem; font-weight: 600; }
+.source-allowlist-field .field-row { gap: 16px; }

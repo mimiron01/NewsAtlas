@@ -5,7 +5,7 @@ from app.models.theme_match import ThemeMatch
 from app.models.theme_watch import ThemeWatch
 from app.services.ai_client import MistralUsage, ThemeArticleResult, TriageResult
 from app.services.ingestion import run_ingestion
-from app.services.news_client import NewsClientError
+from app.services.news_client import FetchOutcome, NewsClientError
 from app.services.news_usage import log_usage
 from tests.test_ingestion import USAGE, _article
 from tests.test_ingestion_multi_source import _enable_sources
@@ -32,6 +32,7 @@ class FakeGoogleClient:
         query_override=None,
         country=None,
         language=None,
+        when=None,
     ):
         self.calls.append(
             {
@@ -40,13 +41,23 @@ class FakeGoogleClient:
                 "sources": sources,
                 "country": country,
                 "language": language,
+                "when": when,
             }
         )
         if self.error:
             raise NewsClientError("google news boom")
-        if query_override is not None:
-            return self.articles
-        return self.articles_by_company.get(name, [])
+        # Both paths come through query_override now, so a fetch is identified as a
+        # company's by its name appearing in the built query; anything else is the theme
+        # query and gets `articles`.
+        articles = self.articles
+        for company_name, company_articles in self.articles_by_company.items():
+            if query_override and company_name in query_override:
+                articles = company_articles
+                break
+        return FetchOutcome(
+            articles=articles, requests_used=1, query_text=query_override,
+            articles_raw=len(articles),
+        )
 
 
 class FakeThemeAIClient:
@@ -146,9 +157,9 @@ def test_theme_ingestion_keeps_company_less_matches(db_session):
     _make_theme(db_session, name="Automotive")
     _enable_sources(db_session, google_news_rss_enabled=True)
     google = FakeGoogleClient(
-        articles=[_article("EV sales up 20% industry-wide", "https://example.com/ev-trend")]
+        articles=[_article("EV battery sales up 20% industry-wide", "https://example.com/ev-trend")]
     )
-    ai = FakeThemeAIClient(extracted_company_by_title={"EV sales up 20% industry-wide": None})
+    ai = FakeThemeAIClient(extracted_company_by_title={"EV battery sales up 20% industry-wide": None})
 
     result = run_ingestion(db_session, ai_client=ai, google_news_client=google)
 
@@ -166,7 +177,8 @@ def test_theme_ingestion_auto_links_existing_target_company(db_session):
     db_session.refresh(tc)
 
     google = FakeGoogleClient(
-        articles=[_article("Acme Corp raises $10M for EV batteries", "https://example.com/acme-ev")]
+        articles=[_article("Acme Corp raises $10M for EV batteries", "https://example.com/acme-ev")],
+        articles_by_company={"Acme Corp": []},
     )
     ai = FakeThemeAIClient(
         extracted_company_by_title={"Acme Corp raises $10M for EV batteries": "acme corp"}
@@ -182,9 +194,9 @@ def test_theme_ingestion_skips_triaged_out_article(db_session):
     _make_theme(db_session, name="Automotive")
     _enable_sources(db_session, google_news_rss_enabled=True)
     google = FakeGoogleClient(
-        articles=[_article("Local softball team wins", "https://example.com/softball")]
+        articles=[_article("EV battery plant softball team wins local derby", "https://example.com/softball")]
     )
-    ai = FakeThemeAIClient(not_relevant_titles={"Local softball team wins"})
+    ai = FakeThemeAIClient(not_relevant_titles={"EV battery plant softball team wins local derby"})
 
     result = run_ingestion(db_session, ai_client=ai, google_news_client=google)
 
@@ -201,14 +213,14 @@ def test_theme_ingestion_dedupes_semantic_duplicate_within_theme(db_session):
     same_vector = [1.0] + [0.0] * 63
     google = FakeGoogleClient(
         articles=[
-            _article("Acme Corp raises funding A", "https://example.com/a"),
-            _article("Acme Corp raises funding B", "https://example.com/b"),
+            _article("Acme Corp raises EV battery funding A", "https://example.com/a"),
+            _article("Acme Corp raises EV battery funding B", "https://example.com/b"),
         ]
     )
     ai = FakeThemeAIClient(
         embeddings_by_title={
-            "Acme Corp raises funding A": same_vector,
-            "Acme Corp raises funding B": same_vector,
+            "Acme Corp raises EV battery funding A": same_vector,
+            "Acme Corp raises EV battery funding B": same_vector,
         }
     )
 
@@ -229,14 +241,14 @@ def test_theme_ingestion_cross_path_dedup_skips_url_already_an_article(db_sessio
         Article(
             target_company_id=tc.id,
             source_name="Reuters",
-            title="Already covered",
+            title="Already covered EV battery story",
             url="https://example.com/shared-url",
             description="desc",
         )
     )
     db_session.commit()
 
-    google = FakeGoogleClient(articles=[_article("Already covered", "https://example.com/shared-url")])
+    google = FakeGoogleClient(articles=[_article("Already covered EV battery story", "https://example.com/shared-url")])
     ai = FakeThemeAIClient()
 
     result = run_ingestion(db_session, ai_client=ai, google_news_client=google)
@@ -253,8 +265,8 @@ def test_theme_ingestion_respects_max_articles_per_theme_per_run_cap(db_session)
 
     google = FakeGoogleClient(
         articles=[
-            _article("Story one", "https://example.com/one"),
-            _article("Story two", "https://example.com/two"),
+            _article("EV battery story one", "https://example.com/one"),
+            _article("EV battery story two", "https://example.com/two"),
         ]
     )
     ai = FakeThemeAIClient()
@@ -270,13 +282,14 @@ def test_theme_ingestion_not_run_when_google_news_rss_disabled(db_session):
     # google_news_rss_enabled defaults to False, and no google_news_client is injected.
     result = run_ingestion(db_session, ai_client=FakeThemeAIClient())
 
-    assert result.themes_processed == 0
     assert result.theme_matches_created == 0
-    # The skip must be visible, not silent: Google News RSS is the only source themes can
-    # use, so without this the run reports success and the user is left with a topic that
-    # never produces anything and no stated reason.
+    # The skip must be visible, not silent: without this the run reports success and the
+    # user is left with a topic that never produces anything and no stated reason. The
+    # message names the theme, since with multiple possible providers "no source is
+    # enabled" can now be true for one topic and false for another.
     assert len(result.errors) == 1
-    assert "Google News RSS is disabled" in result.errors[0]
+    assert "none of the news sources this topic may use are enabled" in result.errors[0]
+    assert "[theme:Automotive]" in result.errors[0]
 
 
 def test_no_google_news_disabled_error_when_there_are_no_themes(db_session):
@@ -305,7 +318,7 @@ def test_theme_ingestion_records_error_when_rate_limited(db_session, monkeypatch
         requests_used=1,
     )
     monkeypatch.setattr("app.services.ingestion.wait_for_minute_headroom", lambda *a, **k: False)
-    google = FakeGoogleClient(articles=[_article("Some story", "https://example.com/x")])
+    google = FakeGoogleClient(articles=[_article("Some EV battery story", "https://example.com/x")])
 
     result = run_ingestion(db_session, ai_client=FakeThemeAIClient(), google_news_client=google)
 
@@ -364,7 +377,7 @@ def test_theme_without_locale_override_inherits_workspace_edition(db_session):
 def test_scoped_run_processes_only_that_theme_and_no_companies(db_session):
     wanted = _make_theme(db_session, name="Automotive", query_terms=["EV battery"])
     _make_theme(db_session, name="Fintech", query_terms=["neobank"])
-    company = TargetCompany(name="Acme Corp", keywords=["Acme"], is_active=True)
+    company = TargetCompany(name="Acme Corp", aliases=["Acme"], keywords=["Acme"], is_active=True)
     db_session.add(company)
     db_session.commit()
     _enable_sources(db_session, google_news_rss_enabled=True)
@@ -412,7 +425,7 @@ def test_scoped_run_ignores_a_paused_other_theme_and_still_runs_the_target(db_se
 def test_theme_fetch_usage_is_attributed_to_the_theme(db_session):
     theme = _make_theme(db_session, name="Automotive")
     _enable_sources(db_session, google_news_rss_enabled=True)
-    google = FakeGoogleClient(articles=[_article("EV story", "https://example.com/ev")])
+    google = FakeGoogleClient(articles=[_article("EV battery story", "https://example.com/ev")])
 
     run_ingestion(db_session, ai_client=FakeThemeAIClient(), google_news_client=google)
 
@@ -440,7 +453,7 @@ def test_company_ingestion_skips_url_already_covered_by_a_theme_match(db_session
             description="desc",
         )
     )
-    company = TargetCompany(name="Acme Corp", keywords=["Acme"], is_active=True)
+    company = TargetCompany(name="Acme Corp", aliases=["Acme"], keywords=["Acme"], is_active=True)
     db_session.add(company)
     db_session.commit()
     _enable_sources(db_session, google_news_rss_enabled=True)
@@ -461,7 +474,7 @@ def test_company_ingestion_skips_url_already_covered_by_a_theme_match(db_session
 def test_theme_ingestion_skips_inactive_themes(db_session):
     _make_theme(db_session, name="Paused theme", is_active=False)
     _enable_sources(db_session, google_news_rss_enabled=True)
-    google = FakeGoogleClient(articles=[_article("Some story", "https://example.com/x")])
+    google = FakeGoogleClient(articles=[_article("Some EV battery story", "https://example.com/x")])
 
     result = run_ingestion(db_session, ai_client=FakeThemeAIClient(), google_news_client=google)
 
@@ -472,8 +485,8 @@ def test_theme_ingestion_skips_inactive_themes(db_session):
 def test_theme_ingestion_continues_after_ai_failure(db_session):
     _make_theme(db_session, name="Automotive")
     _enable_sources(db_session, google_news_rss_enabled=True)
-    google = FakeGoogleClient(articles=[_article("Will fail", "https://example.com/fail")])
-    ai = FakeThemeAIClient(fail_summarize_titles={"Will fail"})
+    google = FakeGoogleClient(articles=[_article("EV battery story that will fail", "https://example.com/fail")])
+    ai = FakeThemeAIClient(fail_summarize_titles={"EV battery story that will fail"})
 
     result = run_ingestion(db_session, ai_client=ai, google_news_client=google)
 

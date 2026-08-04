@@ -8,7 +8,10 @@ const DEBOUNCE_MS = 600;
 interface PreviewParams {
   queryTerms: string[];
   excludeTerms: string[];
-  sourceAllowlist: string[];
+  // null = inherit the workspace allowlist; [] = explicitly unrestricted. Passed through
+  // as-is so the preview resolves it exactly the way the saved topic will.
+  sourceAllowlist: string[] | null;
+  sourceDenylist: string[];
   country: string;
   language: string;
   /** Skip calling the endpoint entirely — used when Google News RSS is disabled
@@ -30,6 +33,7 @@ export function useThemeQueryPreview({
   queryTerms,
   excludeTerms,
   sourceAllowlist,
+  sourceDenylist,
   country,
   language,
   disabled,
@@ -50,6 +54,7 @@ export function useThemeQueryPreview({
           query_terms: queryTerms,
           exclude_terms: excludeTerms,
           google_news_source_allowlist: sourceAllowlist,
+          google_news_source_denylist: sourceDenylist,
           google_news_country: country || null,
           google_news_language: language || null,
         })
@@ -74,6 +79,7 @@ export function useThemeQueryPreview({
     JSON.stringify(queryTerms),
     JSON.stringify(excludeTerms),
     JSON.stringify(sourceAllowlist),
+    JSON.stringify(sourceDenylist),
     country,
     language,
     disabled,

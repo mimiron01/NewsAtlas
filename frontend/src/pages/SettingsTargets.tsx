@@ -8,6 +8,7 @@ import type {
   TargetCompanyBulkDeleteResult,
   WorkspaceSettings,
 } from "../api/types";
+import SourceAllowlistField from "../components/SourceAllowlistField";
 import TagInput from "../components/TagInput";
 import TargetCompanyCsvImport from "../components/TargetCompanyCsvImport";
 import { useAuth } from "../context/AuthContext";
@@ -23,9 +24,13 @@ export default function SettingsTargets() {
   const isAdmin = useIsAdmin();
   const [companies, setCompanies] = useState<TargetCompany[]>([]);
   const [name, setName] = useState("");
-  const [keywords, setKeywords] = useState<string[]>([]);
+  const [aliases, setAliases] = useState<string[]>([]);
+  const [contextTerms, setContextTerms] = useState<string[]>([]);
+  const [excludeTerms, setExclusionTerms] = useState<string[]>([]);
   const [industry, setIndustry] = useState("");
-  const [sourceAllowlist, setSourceAllowlist] = useState<string[]>([]);
+  // null = inherit the workspace allowlist. Kept as null rather than [] so a new company
+  // defaults to inheriting, which is what almost every company should do.
+  const [sourceAllowlist, setSourceAllowlist] = useState<string[] | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -35,9 +40,11 @@ export default function SettingsTargets() {
   const [confirmingBulk, setConfirmingBulk] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   const [editName, setEditName] = useState("");
-  const [editKeywords, setEditKeywords] = useState<string[]>([]);
+  const [editAliases, setEditAliases] = useState<string[]>([]);
+  const [editContextTerms, setEditContextTerms] = useState<string[]>([]);
+  const [editExclusionTerms, setEditExclusionTerms] = useState<string[]>([]);
   const [editIndustry, setEditIndustry] = useState("");
-  const [editSourceAllowlist, setEditSourceAllowlist] = useState<string[]>([]);
+  const [editSourceAllowlist, setEditSourceAllowlist] = useState<string[] | null>(null);
 
   function canEdit(company: TargetCompany): boolean {
     return isAdmin || (user !== null && company.created_by === user.id);
@@ -78,14 +85,18 @@ export default function SettingsTargets() {
     try {
       const created = await api.post<TargetCompany>("/target-companies", {
         name,
-        keywords,
+        aliases,
+        context_terms: contextTerms,
+        exclude_terms: excludeTerms,
         industry: industry || null,
         google_news_source_allowlist: sourceAllowlist,
       });
       setName("");
-      setKeywords([]);
+      setAliases([]);
+      setContextTerms([]);
+      setExclusionTerms([]);
       setIndustry("");
-      setSourceAllowlist([]);
+      setSourceAllowlist(null);
       showToast(t("targets.addedToast"), "success");
       if (backfillEnabled && created.backfilled_at === null) {
         setJustCreatedId(created.id);
@@ -102,7 +113,9 @@ export default function SettingsTargets() {
     setConfirmingId(null);
     setEditingId(company.id);
     setEditName(company.name);
-    setEditKeywords(company.keywords);
+    setEditAliases(company.aliases);
+    setEditContextTerms(company.context_terms);
+    setEditExclusionTerms(company.exclude_terms);
     setEditIndustry(company.industry ?? "");
     setEditSourceAllowlist(company.google_news_source_allowlist);
   }
@@ -117,8 +130,12 @@ export default function SettingsTargets() {
     try {
       await api.patch(`/target-companies/${company.id}`, {
         name: editName,
-        keywords: editKeywords,
+        aliases: editAliases,
+        context_terms: editContextTerms,
+        exclude_terms: editExclusionTerms,
         industry: editIndustry || null,
+        // Sent explicitly, including as null: null means "go back to inheriting the
+        // workspace list", which is a real edit, not an omission.
         google_news_source_allowlist: editSourceAllowlist,
       });
       setEditingId(null);
@@ -256,23 +273,29 @@ export default function SettingsTargets() {
           </label>
         </div>
         <label>
-          {t("targets.keywords")}
-          <TagInput
-            tags={keywords}
-            onChange={setKeywords}
-            placeholder={t("targets.keywordsPlaceholder")}
-          />
-          <span className="field-hint">{t("targets.keywordsHint")}</span>
+          {t("targets.aliases")}
+          <TagInput tags={aliases} onChange={setAliases} placeholder={t("targets.aliasesPlaceholder")} />
+          <span className="field-hint">{t("targets.aliasesHint")}</span>
         </label>
         <label>
-          {t("targets.sourceAllowlist")}
+          {t("targets.contextTerms")}
           <TagInput
-            tags={sourceAllowlist}
-            onChange={setSourceAllowlist}
-            placeholder={t("targets.sourceAllowlistPlaceholder")}
+            tags={contextTerms}
+            onChange={setContextTerms}
+            placeholder={t("targets.contextTermsPlaceholder")}
           />
-          <span className="field-hint">{t("targets.sourceAllowlistHint")}</span>
+          <span className="field-hint">{t("targets.contextTermsHint")}</span>
         </label>
+        <label>
+          {t("targets.excludeTerms")}
+          <TagInput
+            tags={excludeTerms}
+            onChange={setExclusionTerms}
+            placeholder={t("targets.excludeTermsPlaceholder")}
+          />
+          <span className="field-hint">{t("targets.excludeTermsHint")}</span>
+        </label>
+        <SourceAllowlistField value={sourceAllowlist} onChange={setSourceAllowlist} />
         <button type="submit" disabled={isSubmitting}>
           {t("targets.addTargetCompany")}
         </button>
@@ -352,23 +375,36 @@ export default function SettingsTargets() {
                             </label>
                           </div>
                           <label>
-                            {t("targets.keywords")}
+                            {t("targets.aliases")}
                             <TagInput
-                              tags={editKeywords}
-                              onChange={setEditKeywords}
-                              placeholder={t("targets.keywordsPlaceholder")}
+                              tags={editAliases}
+                              onChange={setEditAliases}
+                              placeholder={t("targets.aliasesPlaceholder")}
                             />
-                            <span className="field-hint">{t("targets.keywordsHint")}</span>
+                            <span className="field-hint">{t("targets.aliasesHint")}</span>
                           </label>
                           <label>
-                            {t("targets.sourceAllowlist")}
+                            {t("targets.contextTerms")}
                             <TagInput
-                              tags={editSourceAllowlist}
-                              onChange={setEditSourceAllowlist}
-                              placeholder={t("targets.sourceAllowlistPlaceholder")}
+                              tags={editContextTerms}
+                              onChange={setEditContextTerms}
+                              placeholder={t("targets.contextTermsPlaceholder")}
                             />
-                            <span className="field-hint">{t("targets.sourceAllowlistHint")}</span>
+                            <span className="field-hint">{t("targets.contextTermsHint")}</span>
                           </label>
+                          <label>
+                            {t("targets.excludeTerms")}
+                            <TagInput
+                              tags={editExclusionTerms}
+                              onChange={setEditExclusionTerms}
+                              placeholder={t("targets.excludeTermsPlaceholder")}
+                            />
+                            <span className="field-hint">{t("targets.excludeTermsHint")}</span>
+                          </label>
+                          <SourceAllowlistField
+                            value={editSourceAllowlist}
+                            onChange={setEditSourceAllowlist}
+                          />
                           <div className="actions">
                             <button type="submit" disabled={pendingId === company.id}>
                               {t("targets.save")}

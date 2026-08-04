@@ -5,7 +5,7 @@ from app.models.news_source_usage_log import NewsSourceUsageLog
 from app.models.target_company import TargetCompany
 from app.models.workspace_settings import WorkspaceSettings
 from app.services.ingestion import run_ingestion
-from app.services.news_client import NewsArticle, NewsClientError
+from app.services.news_client import FetchOutcome, NewsArticle, NewsClientError
 from app.services.workspace_settings import get_or_create_workspace_settings
 from tests.test_ingestion import USAGE, FakeAIClient, FakeNewsClient, _article, _make_target_company
 from tests.test_ingestion_progress import _RecordingProgress
@@ -16,12 +16,30 @@ class FakeGoogleClient:
         self.articles_by_company = articles_by_company
         self.error_for = error_for or set()
         self.calls: list[str] = []
+        self.queries: list[str] = []
 
-    def fetch_articles(self, *, name, keywords, since, sources=None):
-        self.calls.append(name)
-        if name in self.error_for:
+    def fetch_articles(
+        self, *, name=None, keywords=None, since, sources=None, query_override=None,
+        country=None, language=None, when=None,
+    ):
+        # Ingestion drives Google News through query_override now, so the fixture keys off
+        # the query text to find which company's articles to return.
+        self.calls.append(query_override or name)
+        self.queries.append(query_override)
+        haystack = query_override or name or ""
+        for company_name in self.articles_by_company:
+            if company_name in haystack:
+                name = company_name
+                break
+        # error_for is keyed by company name, which now reaches this fake only inside the
+        # built query string.
+        if any(failing in haystack for failing in self.error_for) or name in self.error_for:
             raise NewsClientError("google news boom")
-        return self.articles_by_company.get(name, [])
+        articles = self.articles_by_company.get(name, [])
+        return FetchOutcome(
+            articles=articles, requests_used=1, query_text=query_override,
+            articles_raw=len(articles),
+        )
 
 
 class FakeNewsDataClient:
@@ -30,7 +48,7 @@ class FakeNewsDataClient:
         self.requests_used = requests_used
         self.calls: list[str] = []
 
-    def fetch_articles(self, *, name, keywords, since, full_content, use_native_dedupe):
+    def fetch_articles(self, *, name, keywords, since, full_content, use_native_dedupe, language="en", query_override=None):
         self.calls.append(name)
         return self.articles_by_company.get(name, []), self.requests_used
 
@@ -162,7 +180,7 @@ def test_ingestion_waits_out_a_per_minute_rate_limit_instead_of_skipping_the_com
         db_session, news_client=news, ai_client=FakeAIClient(), google_news_client=google
     )
 
-    assert google.calls == ["Acme Corp"]
+    assert len(google.calls) == 1 and "Acme Corp" in google.calls[0]
     assert result.rate_limited == {}
     assert result.articles_new == 1
 
@@ -262,7 +280,7 @@ def test_ingestion_grounds_summarization_in_full_content_when_present(db_session
     newsdata_article.full_content = long_body  # type: ignore[attr-defined]
 
     class SingleArticleNewsDataClient:
-        def fetch_articles(self, *, name, keywords, since, full_content, use_native_dedupe):
+        def fetch_articles(self, *, name, keywords, since, full_content, use_native_dedupe, language="en", query_override=None):
             return [newsdata_article], 1
 
     ai = FakeAIClient()

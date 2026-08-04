@@ -47,11 +47,25 @@ class NewsDataClient:
         since: datetime,
         full_content: bool = False,
         use_native_dedupe: bool = True,
+        language: str = "en",
+        query_override: str | None = None,
     ) -> tuple[list[NewsDataArticle], int]:
         """Returns (articles, requests_used) — requests_used is the number of API pages
         actually fetched (NewsData.io charges roughly one credit per call), for the caller
-        to log to NewsSourceUsageLog."""
-        params = self._base_params(name, keywords, full_content=full_content, use_native_dedupe=use_native_dedupe)
+        to log to NewsSourceUsageLog.
+
+        language was hardcoded to "en" until docs/google-news-quality-planning.html §6.4
+        (finding F16). query_override serves theme ingestion, which has no company name to
+        anchor a query to (§11.5).
+        """
+        params = self._base_params(
+            name,
+            keywords,
+            full_content=full_content,
+            use_native_dedupe=use_native_dedupe,
+            language=language,
+            query_override=query_override,
+        )
         params["from_date"] = since.strftime("%Y-%m-%d")
         return self._paginate(f"{self.BASE_URL}/news", params)
 
@@ -64,24 +78,34 @@ class NewsDataClient:
         until: datetime,
         full_content: bool = False,
         use_native_dedupe: bool = True,
+        language: str = "en",
     ) -> tuple[list[NewsDataArticle], int]:
         """Historical coverage via the paid-only /archive endpoint, used solely by the
         one-time backfill workflow (services/newsdata_backfill.py) — not the routine
         polling loop."""
-        params = self._base_params(name, keywords, full_content=full_content, use_native_dedupe=use_native_dedupe)
+        params = self._base_params(
+            name, keywords, full_content=full_content, use_native_dedupe=use_native_dedupe, language=language
+        )
         params["from_date"] = since.strftime("%Y-%m-%d")
         params["to_date"] = until.strftime("%Y-%m-%d")
         return self._paginate(f"{self.BASE_URL}/archive", params)
 
     def _base_params(
-        self, name: str, keywords: list[str], *, full_content: bool, use_native_dedupe: bool
+        self,
+        name: str,
+        keywords: list[str],
+        *,
+        full_content: bool,
+        use_native_dedupe: bool,
+        language: str = "en",
+        query_override: str | None = None,
     ) -> dict:
         if not self.api_key:
             raise NewsClientError("NEWSDATA_API_KEY is not configured")
         params: dict = {
-            "q": build_or_query(name, keywords),
+            "q": query_override if query_override is not None else build_or_query(name, keywords),
             "apikey": self.api_key,
-            "language": "en",
+            "language": language,
         }
         if use_native_dedupe:
             params["removeduplicate"] = 1

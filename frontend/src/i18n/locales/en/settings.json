@@ -114,7 +114,22 @@
       "resultSummary": "{{created}} created, {{skipped}} skipped as duplicates, {{errors}} errored.",
       "skippedRow": "Row {{row}}: \"{{name}}\" skipped ({{reason}})",
       "errorRow": "Row {{row}}: {{reason}}"
-    }
+    },
+    "aliases": "Other names for this company",
+    "aliasesPlaceholder": "e.g. HWA, HWA Team — press Enter after each",
+    "aliasesHint": "Ways this company is written in the news besides its full name. Only these count as identifying it: an article that matches only a topic term below is never filed under this company.",
+    "contextTerms": "Topic terms (optional)",
+    "contextTermsPlaceholder": "e.g. Motorsport, Rennsport — press Enter after each",
+    "contextTermsHint": "Narrows the search to news that also touches these topics. Leave empty to get everything about the company — add terms only if you're getting too much unrelated news.",
+    "excludeTerms": "Never match (optional)",
+    "excludeTermsPlaceholder": "e.g. Aktie — press Enter after each",
+    "excludeTermsHint": "Words that mean an article isn't what you're looking for — useful when the name clashes with a stock ticker, a sports club, or a different company.",
+    "allowlistInherit": "Use the workspace default",
+    "allowlistAll": "Search everything",
+    "allowlistCustom": "Only these sources",
+    "allowlistInheritHint": "Follows the trusted sources set under Settings → News sources.",
+    "allowlistAllHint": "Ignores the workspace default and searches all of Google News for this company.",
+    "allowlistCustomHint": "Replaces the workspace default. Only these domains are searched for this company."
   },
   "sources": {
     "title": "News sources",
@@ -131,7 +146,8 @@
       "requests": "Requests",
       "articles": "Articles",
       "attributedTo": "Company / topic",
-      "themeAttribution": "Topic: {{name}}"
+      "themeAttribution": "Topic: {{name}}",
+      "query": "Query / drops"
     },
     "requestsToday": "{{used}} / {{limit}} requests today",
     "requestsLastMinute": "{{used}} / {{limit}} in the last minute",
@@ -141,7 +157,26 @@
       "language": "Language",
       "sourceAllowlist": "Trusted sources (workspace default)",
       "sourceAllowlistPlaceholder": "Type a domain (e.g. reuters.com) and press Enter",
-      "sourceAllowlistHint": "Optional. When set, Google News RSS results for every company are restricted to these domains, plus any domains a company adds for itself. Leave empty to search all of Google News."
+      "sourceAllowlistHint": "Optional workspace default. A company or topic that sets its own list replaces this one rather than adding to it; leave a company's list empty to search all of Google News for it. Leave this empty to place no restriction by default.",
+      "sourceDenylist": "Blocked sources (workspace-wide)",
+      "sourceDenylistPlaceholder": "Type a domain to block (e.g. msn.com) and press Enter",
+      "sourceDenylistHint": "Never accepted, anywhere. Unlike the trusted list above, companies and topics can only add to this, never remove from it.",
+      "timeOperator": "Only search recent news",
+      "timeOperatorHint": "Adds a freshness filter to every Google News query, so Google ranks within your fetch window instead of by all-time relevance. The feed skews old without it. Turn off only if results get worse.",
+      "queryStrategy": "Query strategy",
+      "queryStrategySingle": "One query per company",
+      "queryStrategySplit": "Also search the name alone",
+      "queryStrategyHint": "\"Also search the name alone\" runs a second query without the company's context terms, so a story that doesn't happen to use them is still found. Costs one extra request per company per run.",
+      "resolveUrls": "Resolve links to the publisher",
+      "resolveUrlsHint": "Follows Google's redirect to the real article URL. Makes links in digest emails durable and lets the same story from two sources be recognised as one.",
+      "fetchSnippets": "Fetch article summaries",
+      "fetchSnippetsHint": "Reads the publisher's own summary from the article page, so the AI judges real text instead of only a headline. Requires link resolution above. The server contacts publisher sites directly when this is on.",
+      "enrichmentFetches": "Max article fetches / run",
+      "enrichmentSeconds": "Max seconds spent fetching / run",
+      "themeSources": "Sources topics may use",
+      "themeSourcesHint": "Topics used to be limited to Google News. A source must also be enabled above to be used. Paid sources give topics real article text, but a topic's search is broad, so watch the cost.",
+      "themeRequestBudget": "Max requests / run for topics",
+      "themeRequestBudgetHint": "0 = no limit. Companies are fetched before topics, so this stops a topic-heavy workspace from using up a paid source's daily allowance."
     },
     "newsdata": {
       "hint": "Paid API — leans on full-article-content grounding, native duplicate removal, native sentiment/tags, and a one-time historical backfill when a company is added.",
@@ -157,7 +192,30 @@
     "usingEnvKey": "Using a key from the server's environment variable{{suffix}}.",
     "endingIn": " ending in ...{{last4}}",
     "clearNewsdataKeyToast": "In-app NewsData.io API key override cleared.",
-    "clearNewsdataKeyFailed": "Failed to clear API key"
+    "clearNewsdataKeyFailed": "Failed to clear API key",
+    "preview": {
+      "title": "Test a query",
+      "hint": "Runs one real Google News search and shows what comes back, without using any AI budget. Use it to try a company's terms before saving them.",
+      "namePlaceholder": "Company name (or leave empty and use topic terms)",
+      "run": "Run test",
+      "running": "Searching…",
+      "resultQuery": "Query sent",
+      "resultCounts": "{{raw}} returned, {{kept}} would be kept",
+      "truncated": "Too long — some terms were dropped before sending. Shorten the term lists.",
+      "empty": "No results.",
+      "outcomeKept": "kept",
+      "outcomeNotGrounded": "dropped: doesn't name the company"
+    },
+    "precision": {
+      "title": "Source quality (last 30 days)",
+      "hint": "Publishers ranked by how much of what they produced was discarded. A high share usually means the source is worth blocking.",
+      "empty": "Not enough data yet — this fills in after a few fetch runs.",
+      "articles": "Fetched",
+      "kept": "Kept",
+      "discarded": "Discarded",
+      "block": "Block this source",
+      "blocked": "Blocked"
+    }
   },
   "ai": {
     "title": "AI configuration",

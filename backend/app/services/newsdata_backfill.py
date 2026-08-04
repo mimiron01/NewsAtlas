@@ -96,12 +96,17 @@ def run_backfill_for_company(
             description=item.description,
             full_content=getattr(item, "full_content", None),
             name=target_company.name,
-            keywords=target_company.keywords,
+            aliases=target_company.aliases,
         ):
             continue
         if item.url in seen_urls:
             continue
-        if db.query(Article).filter(Article.url == item.url).first() is not None:
+        if (
+            db.query(Article)
+            .filter(Article.url == item.url, Article.target_company_id == target_company.id)
+            .first()
+            is not None
+        ):
             continue
         seen_urls.add(item.url)
         article = Article(

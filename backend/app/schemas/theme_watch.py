@@ -3,7 +3,11 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.schemas.common_validators import validate_source_allowlist, validate_term_list
+from app.schemas.common_validators import (
+    validate_news_sources,
+    validate_source_allowlist,
+    validate_term_list,
+)
 
 
 def _normalize_country(value: str | None) -> str | None:
@@ -38,7 +42,13 @@ class ThemeWatchCreate(BaseModel):
     query_terms: list[str] = Field(min_length=1, max_length=20)
     exclude_terms: list[str] = Field(default_factory=list, max_length=20)
     industry: str | None = Field(default=None, max_length=255)
-    google_news_source_allowlist: list[str] = Field(default_factory=list, max_length=50)
+    # None = inherit the workspace allowlist; [] = explicitly unrestricted; non-empty
+    # replaces it (docs/google-news-quality-planning.html §7.6).
+    google_news_source_allowlist: list[str] | None = Field(default=None, max_length=50)
+    google_news_source_denylist: list[str] = Field(default_factory=list, max_length=50)
+    exclude_terms: list[str] = Field(default_factory=list)
+    # None = inherit workspace_settings.theme_news_sources (§11.3).
+    news_sources: list[str] | None = None
     # None/"" = inherit the workspace-wide Google News edition (see ThemeWatch model).
     google_news_country: str | None = Field(default=None, max_length=8)
     google_news_language: str | None = Field(default=None, max_length=8)
@@ -53,15 +63,20 @@ class ThemeWatchCreate(BaseModel):
     def _query_terms_valid(cls, value: list[str]) -> list[str]:
         return validate_term_list(value)
 
+    @field_validator("google_news_source_allowlist", "google_news_source_denylist")
+    @classmethod
+    def _allowlist_valid(cls, value: list[str] | None) -> list[str] | None:
+        return value if value is None else validate_source_allowlist(value)
+
     @field_validator("exclude_terms")
     @classmethod
-    def _exclude_terms_valid(cls, value: list[str]) -> list[str]:
-        return validate_term_list(value)
+    def _exclusions_valid(cls, value: list[str] | None) -> list[str] | None:
+        return value if value is None else validate_term_list(value)
 
-    @field_validator("google_news_source_allowlist")
+    @field_validator("news_sources")
     @classmethod
-    def _allowlist_valid(cls, value: list[str]) -> list[str]:
-        return validate_source_allowlist(value)
+    def _news_sources_valid(cls, value: list[str] | None) -> list[str] | None:
+        return validate_news_sources(value)
 
     @field_validator("google_news_country")
     @classmethod
@@ -81,6 +96,9 @@ class ThemeWatchUpdate(BaseModel):
     industry: str | None = Field(default=None, max_length=255)
     is_active: bool | None = None
     google_news_source_allowlist: list[str] | None = Field(default=None, max_length=50)
+    google_news_source_denylist: list[str] | None = Field(default=None, max_length=50)
+    exclude_terms: list[str] | None = None
+    news_sources: list[str] | None = None
     google_news_country: str | None = Field(default=None, max_length=8)
     google_news_language: str | None = Field(default=None, max_length=8)
 
@@ -89,15 +107,20 @@ class ThemeWatchUpdate(BaseModel):
     def _query_terms_valid(cls, value: list[str] | None) -> list[str] | None:
         return value if value is None else validate_term_list(value)
 
-    @field_validator("exclude_terms")
-    @classmethod
-    def _exclude_terms_valid(cls, value: list[str] | None) -> list[str] | None:
-        return value if value is None else validate_term_list(value)
-
-    @field_validator("google_news_source_allowlist")
+    @field_validator("google_news_source_allowlist", "google_news_source_denylist")
     @classmethod
     def _allowlist_valid(cls, value: list[str] | None) -> list[str] | None:
         return value if value is None else validate_source_allowlist(value)
+
+    @field_validator("exclude_terms")
+    @classmethod
+    def _exclusions_valid(cls, value: list[str] | None) -> list[str] | None:
+        return value if value is None else validate_term_list(value)
+
+    @field_validator("news_sources")
+    @classmethod
+    def _news_sources_valid(cls, value: list[str] | None) -> list[str] | None:
+        return validate_news_sources(value)
 
     @field_validator("google_news_country")
     @classmethod
@@ -117,7 +140,10 @@ class ThemeWatchResponse(BaseModel):
     exclude_terms: list[str] = []
     industry: str | None
     is_active: bool
-    google_news_source_allowlist: list[str]
+    google_news_source_allowlist: list[str] | None
+    google_news_source_denylist: list[str] = []
+    exclude_terms: list[str] = []
+    news_sources: list[str] | None = None
     # None = inheriting the workspace-wide Google News edition; the frontend renders that
     # as an explicit "workspace default" choice rather than a blank field.
     google_news_country: str | None = None
@@ -161,7 +187,10 @@ class ThemeQueryPreviewRequest(BaseModel):
 
     query_terms: list[str] = Field(min_length=1, max_length=20)
     exclude_terms: list[str] = Field(default_factory=list, max_length=20)
-    google_news_source_allowlist: list[str] = Field(default_factory=list, max_length=50)
+    # None inherits the workspace allowlist, [] means explicitly unrestricted — the same
+    # three states a saved topic has, so the preview can't disagree with the real fetch.
+    google_news_source_allowlist: list[str] | None = Field(default=None, max_length=50)
+    google_news_source_denylist: list[str] = Field(default_factory=list, max_length=50)
     google_news_country: str | None = Field(default=None, max_length=8)
     google_news_language: str | None = Field(default=None, max_length=8)
 
@@ -175,10 +204,10 @@ class ThemeQueryPreviewRequest(BaseModel):
     def _exclude_terms_valid(cls, value: list[str]) -> list[str]:
         return validate_term_list(value)
 
-    @field_validator("google_news_source_allowlist")
+    @field_validator("google_news_source_allowlist", "google_news_source_denylist")
     @classmethod
-    def _allowlist_valid(cls, value: list[str]) -> list[str]:
-        return validate_source_allowlist(value)
+    def _allowlist_valid(cls, value: list[str] | None) -> list[str] | None:
+        return value if value is None else validate_source_allowlist(value)
 
     @field_validator("google_news_country")
     @classmethod

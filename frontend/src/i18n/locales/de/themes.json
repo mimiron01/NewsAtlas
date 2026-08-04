@@ -19,7 +19,17 @@
     "language": "Sprache (optional)",
     "inherits": "Workspace-Standard ({{value}})",
     "inheritsGeneric": "Workspace-Standard",
-    "editionHint": "Google News liefert je Land/Sprache unterschiedliche Ergebnisse. Für ein Thema über den deutschen Markt setzen Sie DE und de. Leer lassen, um den Workspace-Standard zu übernehmen."
+    "editionHint": "Google News liefert je Land/Sprache unterschiedliche Ergebnisse. Für ein Thema über den deutschen Markt setzen Sie DE und de. Leer lassen, um den Workspace-Standard zu übernehmen.",
+    "excludeTerms": "Nie zutreffend (optional)",
+    "excludeTermsPlaceholder": "z. B. Formel 1 — jeweils mit Enter bestätigen",
+    "excludeTermsHint": "Wörter, die anzeigen, dass ein Artikel nicht zum Thema gehört. Die Suche eines Themas ist breit — das ist meist der wirksamste Weg, sie einzugrenzen.",
+    "sourceDenylist": "Gesperrte Quellen (optional)",
+    "sourceDenylistPlaceholder": "Domain zum Sperren eingeben und Enter drücken",
+    "sourceDenylistHint": "Ergänzt die workspaceweite Sperrliste — Einträge daraus lassen sich hier nicht entfernen.",
+    "newsSources": "Nachrichtenquellen für dieses Thema",
+    "newsSourcesInherit": "Workspace-Standard verwenden",
+    "newsSourcesCustom": "Quellen auswählen",
+    "newsSourcesHint": "Eine Quelle muss zusätzlich unter Einstellungen → Nachrichtenquellen aktiviert sein. Kostenpflichtige Quellen liefern Themen echten Artikeltext statt nur Überschriften, aber die Suche eines Themas ist breit — die Kosten im Blick behalten."
   },
   "preview": {
     "loading": "Aktuelle Ergebnisse werden geprüft…",

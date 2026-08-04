@@ -55,6 +55,15 @@ export interface WorkspaceSettings {
   google_news_rss_language: string;
   google_news_rss_max_requests_per_minute: number;
   google_news_source_allowlist: string[];
+  google_news_source_denylist: string[];
+  google_news_time_operator_enabled: boolean;
+  google_news_query_strategy: string;
+  google_news_resolve_urls_enabled: boolean;
+  google_news_fetch_snippets_enabled: boolean;
+  max_enrichment_fetches_per_run: number;
+  max_enrichment_seconds_per_run: number;
+  theme_news_sources: string[];
+  max_theme_requests_per_run_per_source: number;
 
   newsdata_enabled: boolean;
   newsdata_api_key_configured: boolean;
@@ -93,6 +102,15 @@ export interface WorkspaceSettingsUpdatePayload {
   google_news_rss_language: string;
   google_news_rss_max_requests_per_minute: number;
   google_news_source_allowlist: string[];
+  google_news_source_denylist: string[];
+  google_news_time_operator_enabled: boolean;
+  google_news_query_strategy: string;
+  google_news_resolve_urls_enabled: boolean;
+  google_news_fetch_snippets_enabled: boolean;
+  max_enrichment_fetches_per_run: number;
+  max_enrichment_seconds_per_run: number;
+  theme_news_sources: string[];
+  max_theme_requests_per_run_per_source: number;
 
   newsdata_enabled: boolean;
   // Omit to leave the current key unchanged; "" clears the in-app override.
@@ -117,6 +135,12 @@ export const ARTICLE_SOURCE_LABELS: Record<ArticleSource, string> = {
 
 export interface NewsSourceUsageEntry {
   call_type: string;
+  // Phase 0 diagnostics: the query actually sent, how many entries came back before any
+  // client-side filtering, and where the difference went. Null on rows logged before the
+  // instrumentation existed.
+  query_text: string | null;
+  articles_raw: number;
+  drop_counts: Record<string, number> | null;
   // Mutually exclusive: a call is made on behalf of one company or one topic. Both null
   // for a historical row logged before topic attribution existed.
   target_company_name: string | null;
@@ -172,10 +196,23 @@ export interface TargetCompanyBulkDeleteResult {
 export interface TargetCompany {
   id: string;
   name: string;
+  // Derived from aliases + context_terms server-side; kept for display and CSV export.
   keywords: string[];
+  // Other names for this company. Only these establish identity — an article matching
+  // only a context term is never attributed to the company.
+  aliases: string[];
+  // Topic narrowers. They tighten the search but say nothing about identity.
+  context_terms: string[];
+  exclude_terms: string[];
   industry: string | null;
   is_active: boolean;
-  google_news_source_allowlist: string[];
+  // null = inheriting the workspace allowlist; [] = explicitly unrestricted; non-empty
+  // replaces the workspace list. All three states are distinct and reachable.
+  google_news_source_allowlist: string[] | null;
+  google_news_source_denylist: string[];
+  google_news_country: string | null;
+  google_news_language: string | null;
+  google_news_require_name_in_title: boolean;
   created_by: string | null;
   is_muted: boolean | null;
   follower_count: number;
@@ -364,7 +401,11 @@ export interface ThemeWatch {
   exclude_terms: string[];
   industry: string | null;
   is_active: boolean;
-  google_news_source_allowlist: string[];
+  // null = inheriting the workspace allowlist (see TargetCompany).
+  google_news_source_allowlist: string[] | null;
+  google_news_source_denylist: string[];
+  // null = inheriting workspace_settings.theme_news_sources.
+  news_sources: string[] | null;
   // null = inherit the workspace-wide Google News edition. A topic about a national
   // market ("Startups DE") needs its own edition, since the workspace default can only
   // ever match one market.
@@ -465,4 +506,38 @@ export interface ThemeMatch {
   extracted_company_name: string | null;
   matched_target_company_id: string | null;
   matched_target_company_name: string | null;
+}
+
+
+export interface QueryPreviewEntry {
+  title: string;
+  source_name: string;
+  url: string;
+  published_at: string | null;
+  // "kept", or the pipeline stage that would have discarded it.
+  outcome: string;
+}
+
+export interface QueryPreviewResponse {
+  query_text: string;
+  word_count: number;
+  max_words: number;
+  // True when the word budget forced terms out — the thing Google itself does silently.
+  truncated: boolean;
+  country: string;
+  language: string;
+  entries_raw: number;
+  drop_counts: Record<string, number>;
+  entries: QueryPreviewEntry[];
+}
+
+export interface DomainPrecisionStat {
+  source_name: string;
+  articles: number;
+  signals_kept: number;
+  dismissed: number;
+  triaged_out: number;
+  duplicates: number;
+  waste_ratio: number;
+  denylist_suggested: boolean;
 }

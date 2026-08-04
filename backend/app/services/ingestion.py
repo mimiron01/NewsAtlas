@@ -15,10 +15,21 @@ from app.models.theme_match import ThemeMatch
 from app.models.theme_watch import ThemeWatch
 from app.schemas.ingestion import IngestionRunResult
 from app.services.ai_client import AIClient, AIClientError, MistralUsage, cosine_similarity, vector_norm
+from app.services.article_enrichment import EnrichmentBudget, enrich_articles
+from app.services.article_scoring import collapse_near_duplicate_titles, rank_candidates, score_candidate
 from app.services.feedback import refresh_feedback_note, refresh_theme_feedback_note
 from app.services.google_news_rss_client import GoogleNewsRSSClient
-from app.services.news_client import NewsClient, NewsClientError
-from app.services.news_query import article_mentions_company, build_theme_query
+from app.services.news_client import FetchOutcome, NewsClient, NewsClientError
+from app.services.news_query import (
+    article_matches_theme_terms,
+    article_mentions_company,
+    build_google_news_query,
+    build_theme_query,
+    google_when_operator,
+    identity_terms,
+    resolve_allowlist,
+    resolve_denylist,
+)
 from app.services.news_rate_limiter import HeadroomStatus, check_headroom, wait_for_minute_headroom
 from app.services.news_usage import log_rate_limited
 from app.services.news_usage import log_usage as log_news_usage
@@ -163,6 +174,14 @@ def run_ingestion(
     lookback_hours = max(workspace_settings.ingestion_interval_hours * 2, MIN_LOOKBACK_HOURS)
     since = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
 
+    # One budget for the whole run, shared by companies and themes: the ceiling exists to
+    # bound how long an ingestion run can spend waiting on other people's web servers, and
+    # that's a property of the run, not of any one company.
+    enrichment_budget = EnrichmentBudget(
+        max_fetches=workspace_settings.max_enrichment_fetches_per_run,
+        max_seconds=workspace_settings.max_enrichment_seconds_per_run,
+    )
+
     # A theme-scoped run never touches companies, so the company loop below iterates an
     # empty list rather than being wrapped in a conditional — keeps the counter/progress
     # bookkeeping that follows on exactly one code path.
@@ -205,6 +224,7 @@ def run_ingestion(
             target_company=target_company,
             since=since,
             progress=progress,
+            enrichment_budget=enrichment_budget,
         )
         articles_fetched += outcome.articles_fetched
         articles_new += outcome.articles_new
@@ -234,53 +254,60 @@ def run_ingestion(
     theme_matches_created = 0
     themes_processed = 0
     if not cancelled and theme_watches:
-        google_news_client_for_themes = next(
-            (client for source, client in providers if source == ArticleSource.GOOGLE_NEWS_RSS),
-            None,
+        # One shared budget for the whole run rather than per theme: the point is to stop
+        # a themes-heavy workspace draining a paid provider's daily quota, and a per-theme
+        # cap scales with the number of themes, which is exactly the wrong direction.
+        request_budget = (
+            {source: workspace_settings.max_theme_requests_per_run_per_source for source, _ in providers}
+            if workspace_settings.max_theme_requests_per_run_per_source > 0
+            else None
         )
-        if google_news_client_for_themes is None:
-            # Google News RSS is the only theme provider (see
-            # docs/theme-search-planning.html §1), so a workspace with it disabled fetches
-            # nothing at all for its themes. This used to be a silent no-op: the run
-            # completed "successfully", themes_processed stayed 0, and nothing anywhere
-            # told the user why their topic never produced a single match. Recording it as
-            # a run error puts it in the Logs view, the feed's run summary, and the
-            # Themes page instead.
-            _record_error(
-                errors,
-                progress,
-                f"{len(theme_watches)} active theme(s) were skipped: Google News RSS is "
-                "disabled for this workspace, and it is the only news source themes can "
-                "use. Enable it under Settings > News sources.",
-            )
-        else:
-            for idx, theme_watch in enumerate(theme_watches, start=1):
-                if progress.should_cancel():
-                    cancelled = True
-                    break
+        for idx, theme_watch in enumerate(theme_watches, start=1):
+            if progress.should_cancel():
+                cancelled = True
+                break
 
-                theme_outcome = _ingest_theme_watch(
-                    db,
-                    ai_client=ai_client,
-                    workspace_settings=workspace_settings,
-                    google_news_client=google_news_client_for_themes,
-                    theme_watch=theme_watch,
-                    since=since,
-                    progress=progress,
+            theme_providers = _providers_for_theme(providers, workspace_settings, theme_watch)
+            if not theme_providers:
+                # This used to be a silent no-op: the run completed "successfully",
+                # themes_processed stayed 0, and nothing anywhere told the user why their
+                # topic never produced a single match. Recording it as a run error puts it
+                # in the Logs view, the feed's run summary, and the Themes page instead.
+                _record_error(
+                    errors,
+                    progress,
+                    f"[theme:{theme_watch.name}] skipped: none of the news sources this "
+                    "topic may use are enabled for the workspace. Check Settings > News "
+                    "sources and the topic's own source selection.",
                 )
-                theme_matches_created += theme_outcome.matches_created
-                duplicates_skipped += theme_outcome.duplicates_skipped
-                triaged_out += theme_outcome.triaged_out
-                errors.extend(theme_outcome.errors)
                 themes_processed = idx
-                # Same unconditional-update rule as the company loop above: whichever
-                # early-exit path _ingest_theme_watch took internally, the theme counter
-                # must not stall or the progress bar freezes mid-run.
                 progress.update(themes_processed=idx)
+                continue
 
-                if theme_outcome.cancelled:
-                    cancelled = True
-                    break
+            theme_outcome = _ingest_theme_watch(
+                db,
+                ai_client=ai_client,
+                workspace_settings=workspace_settings,
+                providers=theme_providers,
+                theme_watch=theme_watch,
+                since=since,
+                progress=progress,
+                request_budget=request_budget,
+                enrichment_budget=enrichment_budget,
+            )
+            theme_matches_created += theme_outcome.matches_created
+            duplicates_skipped += theme_outcome.duplicates_skipped
+            triaged_out += theme_outcome.triaged_out
+            errors.extend(theme_outcome.errors)
+            themes_processed = idx
+            # Same unconditional-update rule as the company loop above: whichever
+            # early-exit path _ingest_theme_watch took internally, the theme counter
+            # must not stall or the progress bar freezes mid-run.
+            progress.update(themes_processed=idx)
+
+            if theme_outcome.cancelled:
+                cancelled = True
+                break
 
         progress.update(current_theme_name=None, current_step=None)
 
@@ -301,6 +328,23 @@ def run_ingestion(
     )
 
 
+def _providers_for_theme(
+    providers: list[tuple[ArticleSource, object]], workspace_settings, theme_watch: ThemeWatch
+) -> list[tuple[ArticleSource, object]]:
+    """Which of the run's active providers this theme may use.
+
+    A provider must be BOTH selected for the theme (its own list, or the workspace default
+    when it hasn't set one) AND enabled workspace-wide — the enable toggles stay the master
+    switch, so a stale selection can never resurrect a source an admin turned off
+    (docs/google-news-quality-planning.html §11.3).
+    """
+    selected = theme_watch.news_sources
+    if selected is None:
+        selected = workspace_settings.theme_news_sources or []
+    selected_values = {value for value in selected}
+    return [(source, client) for source, client in providers if source.value in selected_values]
+
+
 def _ingest_target_company(
     db: Session,
     *,
@@ -310,6 +354,7 @@ def _ingest_target_company(
     target_company: TargetCompany,
     since: datetime,
     progress: IngestionProgress,
+    enrichment_budget: EnrichmentBudget | None = None,
 ) -> _CompanyIngestOutcome:
     outcome = _CompanyIngestOutcome()
     progress.update(
@@ -319,7 +364,23 @@ def _ingest_target_company(
         articles_processed_this_company=0,
     )
 
+    # Resolved once: the scorer needs the same effective allowlist the query was built
+    # with, so a company that overrides the workspace list is scored against its own
+    # trusted domains rather than the workspace's.
+    effective_allowlist = resolve_allowlist(
+        target_company.google_news_source_allowlist,
+        workspace_settings.google_news_source_allowlist,
+    )
+
     fetched_items: list[tuple[ArticleSource, object]] = []
+    pending_logs: list[tuple[ArticleSource, FetchOutcome]] = []
+    # Post-fetch drops, attributed back to the source that produced the candidate so each
+    # provider's usage row explains its own funnel (see §5.1). Keyed by source, then stage.
+    stage_drops: dict[ArticleSource, dict[str, int]] = {}
+
+    def _drop(source: ArticleSource, stage: str) -> None:
+        stage_drops.setdefault(source, {})
+        stage_drops[source][stage] = stage_drops[source].get(stage, 0) + 1
 
     for source, client in providers:
         per_minute_limit, per_day_limit = _rate_limit_config(workspace_settings, source)
@@ -346,46 +407,44 @@ def _ingest_target_company(
             continue
 
         try:
-            fetched, requests_used = _fetch_from_source(
-                source, client, workspace_settings, target_company, since
-            )
+            result = _fetch_from_source(source, client, workspace_settings, target_company, since)
         except NewsClientError as exc:
             _record_error(
                 outcome.errors, progress, f"[{target_company.name}] {source.value} fetch failed: {exc}"
             )
             continue
 
+        fetched = result.articles
         outcome.by_source[source.value] = outcome.by_source.get(source.value, 0) + len(fetched)
         outcome.articles_fetched += len(fetched)
-        log_news_usage(
-            db,
-            source=source,
-            call_type="latest",
-            target_company_id=target_company.id,
-            requests_used=requests_used,
-            articles_returned=len(fetched),
-        )
+        # Held until the whole company's funnel is known: the stages after this one
+        # (grounding, dedupe, cap) discard candidates too, and a drop breakdown that stops
+        # at the fetch boundary answers none of the questions it exists to answer.
+        pending_logs.append((source, result))
         fetched_items.extend((source, article) for article in fetched)
 
     if not fetched_items:
+        _flush_usage_logs(db, pending_logs, target_company_id=target_company.id)
         return outcome
 
     # Grounding guard: a provider's own search relevance is frequently loose/fuzzy, so
     # matching the query doesn't guarantee the article actually mentions the company —
     # drop anything that doesn't, before it's ever stored as this company's Article (see
     # docs/ingestion-reliability-planning.html §5).
-    grounded_items = [
-        (source, fetched)
-        for source, fetched in fetched_items
+    grounded_items = []
+    for source, fetched in fetched_items:
         if article_mentions_company(
             title=fetched.title,
             description=fetched.description,
             full_content=getattr(fetched, "full_content", None),
             name=target_company.name,
-            keywords=target_company.keywords,
-        )
-    ]
+            aliases=target_company.aliases,
+        ):
+            grounded_items.append((source, fetched))
+        else:
+            _drop(source, "not_grounded")
     if not grounded_items:
+        _flush_usage_logs(db, pending_logs, target_company_id=target_company.id, stage_drops=stage_drops)
         return outcome
 
     # Cross-source + already-ingested URL dedupe, kept on raw fetched items (not yet
@@ -402,9 +461,19 @@ def _ingest_target_company(
         # first, free cross-source dedupe pass — NewsAPI.org and NewsData.io both tend
         # to return the same canonical publisher URL for the same story.
         if fetched.url in seen_urls:
+            _drop(source, "url_duplicate")
             continue
-        existing = db.query(Article).filter(Article.url == fetched.url).first()
+        # Company-scoped, not global: the same story can legitimately name two tracked
+        # companies, and each deserves its own signal with its own outreach angle. A
+        # global check silently gave it to whichever company the loop reached first (see
+        # docs/google-news-quality-planning.html §8.3, finding F12).
+        existing = (
+            db.query(Article)
+            .filter(Article.url == fetched.url, Article.target_company_id == target_company.id)
+            .first()
+        )
         if existing is not None:
+            _drop(source, "url_duplicate")
             continue
         # The other half of the cross-path URL dedupe required by
         # docs/theme-search-planning.html §6. The theme path has always checked Article.url
@@ -413,26 +482,57 @@ def _ingest_target_company(
         # as a theme match and once as a company signal — purely depending on which loop
         # happened to fetch it first.
         if db.query(ThemeMatch).filter(ThemeMatch.url == fetched.url).first() is not None:
+            _drop(source, "url_duplicate")
             continue
         seen_urls.add(fetched.url)
         deduped_items.append((source, fetched))
 
     if not deduped_items:
+        _flush_usage_logs(db, pending_logs, target_company_id=target_company.id, stage_drops=stage_drops)
         return outcome
 
-    # Cap to the N newest (by published_at) genuinely-new articles for this company —
-    # bounds the expensive embedding/triage/summarization work below regardless of how
-    # many raw results the sources returned. 0 disables the cap (unlimited), matching
-    # the "0 = off" convention used elsewhere on workspace_settings (e.g.
-    # newsdata_backfill_days). Articles with no parseable published_at sort last, not
-    # first, so an unparsable date never displaces a genuinely newer article.
+    # Collapse syndicated near-identical headlines before anything is embedded — Google
+    # News in particular returns the same wire story from a dozen outlets, and paying for
+    # an embedding per copy to discover they're duplicates is avoidable (see §8.2).
+    deduped_items, title_duplicates = collapse_near_duplicate_titles(
+        deduped_items,
+        key=lambda item: item[1].title,
+        score=lambda item: score_candidate(
+            item[1],
+            identity_terms=identity_terms(target_company),
+            context_terms=target_company.context_terms,
+            allowlist=effective_allowlist,
+            since=since,
+        ),
+    )
+    for source, _dropped in title_duplicates:
+        _drop(source, "title_duplicate")
+
+    # Cap the genuinely-new candidates for this company — bounds the expensive
+    # embedding/triage/summarization work below regardless of how many raw results the
+    # sources returned. 0 disables the cap (unlimited), matching the "0 = off" convention
+    # used elsewhere on workspace_settings (e.g. newsdata_backfill_days).
+    #
+    # Selection is by composite score, not by recency: on a syndication-heavy,
+    # relevance-ranked feed the newest item is systematically an aggregator repost rather
+    # than the original wire story, so "newest N" spent the entire AI budget on the worst
+    # candidates (finding F5). score_candidate() breaks ties on published_at, so this
+    # still degrades to the old behaviour when nothing else distinguishes two articles.
     cap = workspace_settings.max_articles_per_company_per_run
     if cap > 0 and len(deduped_items) > cap:
-        deduped_items.sort(
-            key=lambda item: item[1].published_at or datetime.min.replace(tzinfo=timezone.utc),
-            reverse=True,
+        deduped_items = rank_candidates(
+            deduped_items,
+            article_of=lambda item: item[1],
+            identity_terms=identity_terms(target_company),
+            context_terms=target_company.context_terms,
+            allowlist=effective_allowlist,
+            since=since,
         )
+        for source, _dropped in deduped_items[cap:]:
+            _drop(source, "over_cap")
         deduped_items = deduped_items[:cap]
+
+    _flush_usage_logs(db, pending_logs, target_company_id=target_company.id, stage_drops=stage_drops)
 
     new_articles: list[Article] = []
     for source, fetched in deduped_items:
@@ -450,6 +550,11 @@ def _ingest_target_company(
         )
         db.add(article)
         new_articles.append(article)
+
+    # After the cap, before the first AI call: enrichment turns headline-only Google News
+    # rows into rows with real publisher text, which is exactly what triage and
+    # summarization are about to judge. No-op unless an admin enabled it.
+    enrich_articles(new_articles, workspace_settings, budget=enrichment_budget)
 
     # A single commit (session default expire_on_commit=True) is enough — any later
     # attribute access lazily re-fetches from the DB as needed, so an eager
@@ -492,43 +597,228 @@ def _rate_limit_config(workspace_settings, source: ArticleSource) -> tuple[int |
     return None, None
 
 
+def _effective_edition(entity, workspace_settings) -> tuple[str, str]:
+    """(country, language) for an entity, with NULL on the entity meaning "inherit the
+    workspace edition" — the convention ThemeWatch established and TargetCompany now
+    shares (docs/google-news-quality-planning.html §6.3)."""
+    country = getattr(entity, "google_news_country", None) or workspace_settings.google_news_rss_country
+    language = getattr(entity, "google_news_language", None) or workspace_settings.google_news_rss_language
+    return country, language
+
+
+def _when_operator(workspace_settings, since: datetime) -> str | None:
+    return google_when_operator(since) if workspace_settings.google_news_time_operator_enabled else None
+
+
 def _fetch_from_source(
     source: ArticleSource,
     client,
     workspace_settings,
     target_company: TargetCompany,
     since: datetime,
-) -> tuple[list, int]:
-    """Normalizes each provider's fetch_articles() call to a uniform (articles,
-    requests_used) return, since only NewsDataClient reports a per-call credit cost —
-    the others are treated as costing exactly one request per call."""
+) -> FetchOutcome:
+    """Normalizes every provider's fetch_articles() call to a uniform FetchOutcome, since
+    the three disagree on both return shape and per-call cost (only NewsDataClient reports
+    a real credit cost; the others cost exactly one request per call)."""
+    _, language = _effective_edition(target_company, workspace_settings)
+
     if source == ArticleSource.NEWSDATA:
-        return client.fetch_articles(
+        articles, requests_used = client.fetch_articles(
             name=target_company.name,
             keywords=target_company.keywords,
             since=since,
             full_content=workspace_settings.newsdata_full_content_enabled,
             use_native_dedupe=workspace_settings.newsdata_use_native_dedupe,
+            language=language,
         )
+        return FetchOutcome(
+            articles=articles, requests_used=requests_used, articles_raw=len(articles)
+        )
+
     if source == ArticleSource.GOOGLE_NEWS_RSS:
-        # Union, not override: the workspace-wide defaults always apply, and a
-        # company's own list only ever adds more trusted sources (see
-        # docs/v1-release-roadmap.html §2.3 and the "Open questions" section there).
-        sources = list(
-            dict.fromkeys(
-                [*(workspace_settings.google_news_source_allowlist or []),
-                 *(target_company.google_news_source_allowlist or [])]
-            )
-        )
-        articles = client.fetch_articles(
+        country, _ = _effective_edition(target_company, workspace_settings)
+        query, truncated = build_google_news_query(
             name=target_company.name,
-            keywords=target_company.keywords,
-            since=since,
-            sources=sources,
+            aliases=target_company.aliases,
+            context_terms=target_company.context_terms,
+            exclude_terms=target_company.exclude_terms,
+            allow_sites=resolve_allowlist(
+                target_company.google_news_source_allowlist,
+                workspace_settings.google_news_source_allowlist,
+            ),
+            deny_sites=resolve_denylist(
+                target_company.google_news_source_denylist,
+                workspace_settings.google_news_source_denylist,
+            ),
+            when=_when_operator(workspace_settings, since),
+            require_name_in_title=target_company.google_news_require_name_in_title,
         )
-        return articles, 1
-    articles = client.fetch_articles(name=target_company.name, keywords=target_company.keywords, since=since)
-    return articles, 1
+        outcome = client.fetch_articles(
+            since=since, query_override=query, country=country, language=language
+        )
+        if truncated:
+            # Surfaced in the usage log rather than raised: the query still ran and still
+            # returned results, but the user needs to know some of what they configured
+            # never reached Google (finding F8).
+            outcome.drop_counts["query_truncated"] = 1
+
+        # The identity-only second pass: a company's context terms narrow the query, which
+        # is the point, but it also means a genuine story that doesn't happen to use them
+        # is invisible. Merged by URL, so the extra request costs nothing downstream.
+        if workspace_settings.google_news_query_strategy == "split" and target_company.context_terms:
+            identity_query, _ = build_google_news_query(
+                name=target_company.name,
+                aliases=target_company.aliases,
+                exclude_terms=target_company.exclude_terms,
+                allow_sites=resolve_allowlist(
+                    target_company.google_news_source_allowlist,
+                    workspace_settings.google_news_source_allowlist,
+                ),
+                deny_sites=resolve_denylist(
+                    target_company.google_news_source_denylist,
+                    workspace_settings.google_news_source_denylist,
+                ),
+                when=_when_operator(workspace_settings, since),
+                require_name_in_title=target_company.google_news_require_name_in_title,
+            )
+            second = client.fetch_articles(
+                since=since, query_override=identity_query, country=country, language=language
+            )
+            outcome = _merge_outcomes(outcome, second)
+        return outcome
+
+    articles = client.fetch_articles(
+        name=target_company.name,
+        keywords=target_company.keywords,
+        since=since,
+        language=language,
+    )
+    return FetchOutcome(articles=articles, requests_used=1, articles_raw=len(articles))
+
+
+def _merge_outcomes(first: FetchOutcome, second: FetchOutcome) -> FetchOutcome:
+    """Merges two fetches of the same source for the same entity, de-duplicating by URL
+    and summing their cost and diagnostics."""
+    seen = {article.url for article in first.articles}
+    merged = list(first.articles)
+    for article in second.articles:
+        if article.url not in seen:
+            seen.add(article.url)
+            merged.append(article)
+
+    drop_counts = dict(first.drop_counts)
+    for stage, count in second.drop_counts.items():
+        drop_counts[stage] = drop_counts.get(stage, 0) + count
+
+    return FetchOutcome(
+        articles=merged,
+        requests_used=first.requests_used + second.requests_used,
+        query_text=" | ".join(filter(None, [first.query_text, second.query_text])) or None,
+        articles_raw=first.articles_raw + second.articles_raw,
+        drop_counts=drop_counts,
+    )
+
+
+def _flush_usage_logs(
+    db: Session,
+    pending_logs: list[tuple[ArticleSource, FetchOutcome]],
+    *,
+    target_company_id=None,
+    theme_watch_id=None,
+    stage_drops: dict[ArticleSource, dict[str, int]] | None = None,
+) -> None:
+    """Writes one usage row per provider call, merging the drops the client observed with
+    the drops the pipeline observed afterwards. Deferred to the end of an entity's fetch
+    so a single row describes that provider's whole funnel, not just its fetch boundary."""
+    stage_drops = stage_drops or {}
+    for source, result in pending_logs:
+        drop_counts = dict(result.drop_counts)
+        for stage, count in stage_drops.get(source, {}).items():
+            drop_counts[stage] = drop_counts.get(stage, 0) + count
+        log_news_usage(
+            db,
+            source=source,
+            call_type="latest",
+            target_company_id=target_company_id,
+            theme_watch_id=theme_watch_id,
+            requests_used=result.requests_used,
+            articles_returned=len(result.articles),
+            query_text=result.query_text,
+            articles_raw=result.articles_raw,
+            drop_counts=drop_counts,
+        )
+
+
+def _fetch_theme_from_source(
+    source: ArticleSource,
+    client,
+    workspace_settings,
+    theme_watch: ThemeWatch,
+    since: datetime,
+    effective_allowlist: list[str],
+) -> FetchOutcome:
+    """Theme-side counterpart to _fetch_from_source. Themes have no company name to anchor
+    a query to, so every provider is driven through its query_override path with the
+    theme's own terms (docs/google-news-quality-planning.html §11.5)."""
+    deny_sites = resolve_denylist(
+        theme_watch.google_news_source_denylist, workspace_settings.google_news_source_denylist
+    )
+    country, language = _effective_edition(theme_watch, workspace_settings)
+
+    if source == ArticleSource.GOOGLE_NEWS_RSS:
+        query, truncated = build_theme_query(
+            theme_watch.query_terms,
+            exclude_terms=theme_watch.exclude_terms,
+            allow_sites=effective_allowlist,
+            deny_sites=deny_sites,
+            when=_when_operator(workspace_settings, since),
+        )
+        outcome = client.fetch_articles(
+            since=since,
+            query_override=query,
+            # None falls back to the client's workspace-wide edition inside
+            # fetch_articles — NULL on the theme means "inherit", not "no edition".
+            country=theme_watch.google_news_country,
+            language=theme_watch.google_news_language,
+        )
+        if truncated:
+            outcome.drop_counts["query_truncated"] = 1
+        return outcome
+
+    # NewsAPI.org and NewsData.io have no site:/-site: equivalent inside the query string
+    # (they take domain filters as separate request parameters, which this codebase
+    # doesn't yet pass), so their query carries only the terms and exclusions.
+    query, _ = build_theme_query(
+        theme_watch.query_terms, exclude_terms=theme_watch.exclude_terms
+    )
+
+    if source == ArticleSource.NEWSDATA:
+        articles, requests_used = client.fetch_articles(
+            name="",
+            keywords=theme_watch.query_terms,
+            since=since,
+            full_content=workspace_settings.newsdata_full_content_enabled,
+            use_native_dedupe=workspace_settings.newsdata_use_native_dedupe,
+            language=language,
+            query_override=query,
+        )
+        return FetchOutcome(
+            articles=articles,
+            requests_used=requests_used,
+            query_text=query,
+            articles_raw=len(articles),
+        )
+
+    articles = client.fetch_articles(
+        name="",
+        keywords=theme_watch.query_terms,
+        since=since,
+        language=language,
+        query_override=query,
+    )
+    return FetchOutcome(
+        articles=articles, requests_used=1, query_text=query, articles_raw=len(articles)
+    )
 
 
 def _ingest_theme_watch(
@@ -536,13 +826,16 @@ def _ingest_theme_watch(
     *,
     ai_client: AIClient,
     workspace_settings,
-    google_news_client: GoogleNewsRSSClient,
+    providers: list[tuple[ArticleSource, object]],
     theme_watch: ThemeWatch,
     since: datetime,
     progress: IngestionProgress,
+    request_budget: dict[ArticleSource, int] | None = None,
+    enrichment_budget: EnrichmentBudget | None = None,
 ) -> _ThemeIngestOutcome:
-    """Mirrors _ingest_target_company, sized down to the single-provider (Google News
-    RSS only) theme path — see docs/theme-search-planning.html §5."""
+    """Mirrors _ingest_target_company for the theme path (docs/theme-search-planning.html
+    §5), across whichever providers this theme is allowed to use
+    (docs/google-news-quality-planning.html §11)."""
     # Recomputed per-theme, mirroring the once-per-run workspace-wide
     # refresh_feedback_note call above — see docs/topics-ux-improvements-planning.html
     # §3.1. Free (SQL only), so doing it on every run is cheap.
@@ -558,116 +851,168 @@ def _ingest_theme_watch(
         articles_processed_this_company=0,
     )
 
-    per_minute_limit, _ = _rate_limit_config(workspace_settings, ArticleSource.GOOGLE_NEWS_RSS)
-    rate_status = check_headroom(
-        db, ArticleSource.GOOGLE_NEWS_RSS, per_minute_limit=per_minute_limit, per_day_limit=None
+    effective_allowlist = resolve_allowlist(
+        theme_watch.google_news_source_allowlist, workspace_settings.google_news_source_allowlist
     )
-    if rate_status is HeadroomStatus.MINUTE_LIMITED:
-        progress.update(current_step="waiting")
-        if wait_for_minute_headroom(
-            db,
-            ArticleSource.GOOGLE_NEWS_RSS,
-            per_minute_limit=per_minute_limit,
-            should_cancel=progress.should_cancel,
+    fetched_items: list[tuple[ArticleSource, object]] = []
+    pending_logs: list[tuple[ArticleSource, FetchOutcome]] = []
+    stage_drops: dict[ArticleSource, dict[str, int]] = {}
+
+    def _drop(source: ArticleSource, stage: str) -> None:
+        stage_drops.setdefault(source, {})
+        stage_drops[source][stage] = stage_drops[source].get(stage, 0) + 1
+
+    for source, client in providers:
+        if request_budget is not None and request_budget.get(source, 0) <= 0:
+            _record_error(
+                outcome.errors,
+                progress,
+                f"[theme:{theme_watch.name}] skipped {source.value}: this run's theme "
+                "request budget for that source is exhausted "
+                "(Settings > News sources > max theme requests per run).",
+            )
+            continue
+
+        per_minute_limit, per_day_limit = _rate_limit_config(workspace_settings, source)
+        rate_status = check_headroom(
+            db, source, per_minute_limit=per_minute_limit, per_day_limit=per_day_limit
+        )
+        if rate_status is HeadroomStatus.MINUTE_LIMITED:
+            progress.update(current_step="waiting")
+            if wait_for_minute_headroom(
+                db, source, per_minute_limit=per_minute_limit, should_cancel=progress.should_cancel
+            ):
+                rate_status = HeadroomStatus.OK
+            progress.update(current_step="fetching")
+            if progress.should_cancel():
+                outcome.cancelled = True
+                return outcome
+        if rate_status is not HeadroomStatus.OK:
+            log_rate_limited(
+                db, source=source, target_company_id=None, theme_watch_id=theme_watch.id
+            )
+            # Recorded as an error, not skipped silently — otherwise a rate-limited theme is
+            # indistinguishable from a theme that simply found no news.
+            _record_error(
+                outcome.errors,
+                progress,
+                f"[theme:{theme_watch.name}] skipped {source.value}: rate limit reached.",
+            )
+            continue
+
+        try:
+            result = _fetch_theme_from_source(
+                source, client, workspace_settings, theme_watch, since, effective_allowlist
+            )
+        except NewsClientError as exc:
+            _record_error(
+                outcome.errors, progress, f"[theme:{theme_watch.name}] {source.value} fetch failed: {exc}"
+            )
+            continue
+
+        if request_budget is not None:
+            request_budget[source] = request_budget.get(source, 0) - result.requests_used
+        pending_logs.append((source, result))
+        fetched_items.extend((source, item) for item in result.articles)
+
+    if not fetched_items:
+        _flush_usage_logs(db, pending_logs, theme_watch_id=theme_watch.id, stage_drops=stage_drops)
+        return outcome
+
+    # The theme-path analogue of the company path's grounding guard. A theme has no single
+    # identity to check, but its query terms are its relevance signal, so an article
+    # containing none of them was matched by provider fuzz — rejecting it here costs
+    # nothing, where letting it reach triage costs a token spend per article (§11.4).
+    grounded_items = []
+    for source, item in fetched_items:
+        if article_matches_theme_terms(
+            title=item.title,
+            description=item.description,
+            full_content=getattr(item, "full_content", None),
+            query_terms=theme_watch.query_terms,
         ):
-            rate_status = HeadroomStatus.OK
-        progress.update(current_step="fetching")
-        if progress.should_cancel():
-            outcome.cancelled = True
-            return outcome
-    if rate_status is not HeadroomStatus.OK:
-        log_rate_limited(
-            db, source=ArticleSource.GOOGLE_NEWS_RSS, target_company_id=None,
-            theme_watch_id=theme_watch.id,
-        )
-        # Recorded as an error, not skipped silently — otherwise a rate-limited theme is
-        # indistinguishable from a theme that simply found no news.
-        _record_error(
-            outcome.errors,
-            progress,
-            f"[theme:{theme_watch.name}] skipped: Google News RSS rate limit reached "
-            f"({per_minute_limit}/min).",
-        )
-        return outcome
+            grounded_items.append((source, item))
+        else:
+            _drop(source, "not_grounded")
 
-    # Union, not override — same convention as the company path (v1 roadmap §2.3).
-    sources = list(
-        dict.fromkeys(
-            [*(workspace_settings.google_news_source_allowlist or []),
-             *(theme_watch.google_news_source_allowlist or [])]
-        )
-    )
-    query = build_theme_query(theme_watch.query_terms, sources, theme_watch.exclude_terms)
-    try:
-        fetched = google_news_client.fetch_articles(
-            since=since,
-            query_override=query,
-            # None falls back to the client's workspace-wide edition inside
-            # fetch_articles — NULL on the theme means "inherit", not "no edition".
-            country=theme_watch.google_news_country,
-            language=theme_watch.google_news_language,
-        )
-    except NewsClientError as exc:
-        _record_error(
-            outcome.errors, progress, f"[theme:{theme_watch.name}] google_news_rss fetch failed: {exc}"
-        )
-        return outcome
-
-    log_news_usage(
-        db,
-        source=ArticleSource.GOOGLE_NEWS_RSS,
-        call_type="latest",
-        target_company_id=None,
-        theme_watch_id=theme_watch.id,
-        requests_used=1,
-        articles_returned=len(fetched),
-    )
-
-    if not fetched:
+    if not grounded_items:
+        _flush_usage_logs(db, pending_logs, theme_watch_id=theme_watch.id, stage_drops=stage_drops)
         return outcome
 
     # Cross-path dedup (mandatory floor — see docs/theme-search-planning.html §6):
     # never create a ThemeMatch for a URL already covered via some company's Article,
     # and never create two ThemeMatch rows for the same URL (this theme or another).
-    # No grounding-guard equivalent of article_mentions_company is needed here — a
-    # theme's query terms ARE the relevance signal, verified by triage below, not a
-    # single company identity to check (see §5).
+    # Both checks stay global, unlike the company path's now company-scoped one: a theme
+    # match exists to surface a story nobody is tracking yet, so a story already covered
+    # by any company is by definition not that.
     seen_urls: set[str] = set()
     deduped: list = []
-    for item in fetched:
+    for source, item in grounded_items:
         if item.url in seen_urls:
+            _drop(source, "url_duplicate")
             continue
         if db.query(Article).filter(Article.url == item.url).first() is not None:
+            _drop(source, "url_duplicate")
             continue
         if db.query(ThemeMatch).filter(ThemeMatch.url == item.url).first() is not None:
+            _drop(source, "url_duplicate")
             continue
         seen_urls.add(item.url)
-        deduped.append(item)
+        deduped.append((source, item))
 
     if not deduped:
+        _flush_usage_logs(db, pending_logs, theme_watch_id=theme_watch.id, stage_drops=stage_drops)
         return outcome
+
+    deduped, title_duplicates = collapse_near_duplicate_titles(
+        deduped,
+        key=lambda item: item[1].title,
+        score=lambda item: score_candidate(
+            item[1],
+            identity_terms=theme_watch.query_terms,
+            allowlist=effective_allowlist,
+            since=since,
+        ),
+    )
+    for source, _dropped in title_duplicates:
+        _drop(source, "title_duplicate")
 
     cap = workspace_settings.max_articles_per_theme_per_run
     if cap > 0 and len(deduped) > cap:
-        deduped.sort(
-            key=lambda item: item.published_at or datetime.min.replace(tzinfo=timezone.utc),
-            reverse=True,
+        deduped = rank_candidates(
+            deduped,
+            article_of=lambda item: item[1],
+            # A theme's query terms are the closest thing it has to identity terms, so
+            # they play that role in scoring too.
+            identity_terms=theme_watch.query_terms,
+            allowlist=effective_allowlist,
+            since=since,
         )
+        for source, _dropped in deduped[cap:]:
+            _drop(source, "over_cap")
         deduped = deduped[:cap]
 
+    _flush_usage_logs(db, pending_logs, theme_watch_id=theme_watch.id, stage_drops=stage_drops)
+
     new_matches: list[ThemeMatch] = []
-    for item in deduped:
+    for source, item in deduped:
         match = ThemeMatch(
             theme_watch_id=theme_watch.id,
-            source=ArticleSource.GOOGLE_NEWS_RSS,
+            source=source,
             source_name=item.source_name,
             title=item.title,
             url=item.url,
             description=item.description,
             published_at=item.published_at,
+            full_content=getattr(item, "full_content", None),
         )
         db.add(match)
         new_matches.append(match)
+
+    # Same treatment the company path gets, and it matters more here: a theme match has no
+    # company identity to fall back on, so the headline is quite literally all the model
+    # would otherwise have to judge relevance from.
+    enrich_articles(new_matches, workspace_settings, budget=enrichment_budget)
     db.commit()
     progress.update(current_step="summarizing", articles_total_this_company=len(new_matches))
 
@@ -1096,9 +1441,10 @@ def _skip_article(
 
 
 def _theme_grounding_text(match: ThemeMatch) -> str:
-    """Same truncation convention as _grounding_text — ThemeMatch has no full_content
-    field (Google News RSS never provides one), so this is just the description."""
-    text = match.description or ""
+    """Same rule as _grounding_text: prefer real body text when a provider or enrichment
+    supplied one, fall back to the description otherwise. ThemeMatch had no full_content
+    field at all while Google News RSS was the only theme provider."""
+    text = match.full_content or match.description or ""
     if len(text) > FULL_TEXT_TRUNCATE:
         text = text[:FULL_TEXT_TRUNCATE].rsplit(" ", 1)[0] + "..."
     return text

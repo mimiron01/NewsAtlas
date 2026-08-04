@@ -100,14 +100,18 @@ def import_target_companies(
             continue
 
         try:
-            validated = TargetCompanyCreate(name=name, industry=industry, keywords=[])
+            validated = TargetCompanyCreate(name=name, industry=industry)
         except ValidationError as exc:
             errors.append(TargetCompanyImportError(row=idx, reason=exc.errors()[0]["msg"]))
             continue
 
+        # A CSV import carries no term information beyond the name, so every term list
+        # starts empty and `keywords` derives to empty too — same as before the split.
         company = TargetCompany(
             name=validated.name,
-            keywords=validated.keywords,
+            keywords=[],
+            aliases=[],
+            context_terms=[],
             industry=validated.industry,
             created_by=created_by,
         )

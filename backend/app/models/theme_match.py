@@ -2,7 +2,19 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ARRAY, JSON, DateTime, Enum, Float, ForeignKey, Integer, String, Text, func
+from sqlalchemy import (
+    ARRAY,
+    JSON,
+    Boolean,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -23,8 +35,9 @@ class ThemeMatch(Base, UUIDPrimaryKeyMixin):
     theme_watch_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("theme_watches.id", ondelete="CASCADE"), nullable=False
     )
-    # Always GOOGLE_NEWS_RSS in v1 (see docs/theme-search-planning.html §1) — kept as its
-    # own column rather than hardcoded so that decision is reversible without a migration.
+    # Google News RSS only until docs/google-news-quality-planning.html §11 lifted the
+    # single-provider rule — which is exactly why this was kept as a column rather than
+    # hardcoded, so the reversal needed no migration here.
     source: Mapped[ArticleSource] = mapped_column(
         Enum(
             ArticleSource,
@@ -39,6 +52,15 @@ class ThemeMatch(Base, UUIDPrimaryKeyMixin):
     title: Mapped[str] = mapped_column(Text, nullable=False)
     url: Mapped[str] = mapped_column(Text, unique=True, index=True, nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Populated when NewsData.io's full-content option returns a body, or when snippet
+    # enrichment fetched one. Mirrors Article.full_content — themes had no equivalent while
+    # Google News RSS was their only provider, which is why every theme match was
+    # permanently headline-only (docs/google-news-quality-planning.html finding F17).
+    full_content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # The publisher URL behind a Google News redirect link, once resolved. See
+    # Article.canonical_url — same role, same fallback behaviour.
+    canonical_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    content_enriched: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -94,7 +116,8 @@ class ThemeMatch(Base, UUIDPrimaryKeyMixin):
 
     @property
     def headline_only(self) -> bool:
-        """Always true in v1 (source is always GOOGLE_NEWS_RSS) — kept as a property, not
-        a column, for parity with Article.is_headline_only if a second theme provider is
-        ever added."""
-        return self.source == ArticleSource.GOOGLE_NEWS_RSS
+        """Same computed expression as Article.is_headline_only: true only for an
+        unenriched Google News RSS row, whose description is a mechanical repeat of the
+        title. Once a second provider serves this theme, or enrichment fetches a real
+        snippet, this stops being constantly true."""
+        return self.source == ArticleSource.GOOGLE_NEWS_RSS and not self.content_enriched

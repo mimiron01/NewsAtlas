@@ -51,12 +51,14 @@ class FakeNewsClient:
     def __init__(self, articles_by_company: dict[str, list[NewsArticle]]):
         self.articles_by_company = articles_by_company
 
-    def fetch_articles(self, *, name, keywords, since):
+    def fetch_articles(self, *, name, keywords, since, language="en", query_override=None):
         return self.articles_by_company.get(name, [])
 
 
 def _company(db_session, name: str) -> TargetCompany:
-    tc = TargetCompany(name=name, keywords=[name.split()[0]], is_active=True)
+    tc = TargetCompany(
+        name=name, aliases=[name.split()[0]], keywords=[name.split()[0]], is_active=True
+    )
     db_session.add(tc)
     db_session.commit()
     db_session.refresh(tc)
