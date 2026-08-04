@@ -78,6 +78,9 @@ class WorkspaceSettingsResponse(BaseModel):
     # --- Theme watch cost controls (see docs/theme-search-planning.html §9) ---
     max_articles_per_theme_per_run: int
     max_active_theme_watches: int
+    # Enforced floor on a theme match's LLM relevance_score (1-5); matches below it are
+    # skipped rather than shown (see WorkspaceSettings.theme_match_min_relevance_score).
+    theme_match_min_relevance_score: int
 
     model_config = {"from_attributes": True}
 
@@ -135,6 +138,9 @@ class WorkspaceSettingsUpdate(BaseModel):
     # Not a "0 = off" toggle like the field above — this is a hard ceiling on how many
     # active theme watches a workspace can have at once, so it starts at 1.
     max_active_theme_watches: int = Field(ge=1, le=1000)
+    # 1 = enforce nothing (every triaged-in match is shown, today's behaviour); the
+    # prompt's own scale tops out at 5.
+    theme_match_min_relevance_score: int = Field(default=3, ge=1, le=5)
 
     @field_validator("google_news_query_strategy")
     @classmethod

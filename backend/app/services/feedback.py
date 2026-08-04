@@ -70,6 +70,15 @@ def refresh_theme_feedback_note(db: Session, theme_watch: ThemeWatch) -> None:
     extracted_company_name is used as a rough proxy for "what kind of content keeps
     getting dismissed" instead — a deliberately simple heuristic (see that section's
     acceptance criteria), not an attempt at semantic clustering.
+
+    Deliberately grouped WITHOUT filtering out NULL extracted_company_name (an earlier
+    version did): a NULL name means the article was topical/industry news with no single
+    company at its center — exactly the "generic noise, not a company-specific signal"
+    shape users report as the problem with topic templates. Excluding it meant the one
+    dismiss-pattern learning loop that exists was structurally blind to the single
+    dismissal pattern most relevant to that complaint. Grouping by a nullable column
+    naturally produces a NULL group for that bucket, aggregated the same way as any named
+    company.
     """
     since = datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS)
 
@@ -85,7 +94,6 @@ def refresh_theme_feedback_note(db: Session, theme_watch: ThemeWatch) -> None:
             ThemeMatch.status.in_(
                 [SignalStatus.DISMISSED, SignalStatus.REVIEWED, SignalStatus.ARCHIVED]
             ),
-            ThemeMatch.extracted_company_name.isnot(None),
         )
         .group_by(ThemeMatch.extracted_company_name)
         .all()
@@ -94,16 +102,28 @@ def refresh_theme_feedback_note(db: Session, theme_watch: ThemeWatch) -> None:
     low_value_names = sorted(
         name
         for name, total, dismissed in rows
-        if total >= MIN_SAMPLE_SIZE and (dismissed / total) >= DISMISS_RATE_THRESHOLD
+        if name is not None and total >= MIN_SAMPLE_SIZE and (dismissed / total) >= DISMISS_RATE_THRESHOLD
+    )
+    generic_row = next((row for row in rows if row[0] is None), None)
+    generic_is_low_value = generic_row is not None and (
+        generic_row[1] >= MIN_SAMPLE_SIZE and (generic_row[2] / generic_row[1]) >= DISMISS_RATE_THRESHOLD
     )
 
-    note = (
-        f"Users have frequently dismissed matches mentioning these companies as "
-        f"low-value for this topic: {', '.join(low_value_names)}. Only surface them "
-        f"with relevance_score >= 4."
-        if low_value_names
-        else ""
-    )
+    note_parts = []
+    if low_value_names:
+        note_parts.append(
+            f"Users have frequently dismissed matches mentioning these companies as "
+            f"low-value for this topic: {', '.join(low_value_names)}. Only surface them "
+            f"with relevance_score >= 4."
+        )
+    if generic_is_low_value:
+        note_parts.append(
+            "Users have frequently dismissed general/topical articles with no specific "
+            "company mentioned as low-value for this topic. Be stricter when no company "
+            "can be identified: only give relevance_score >= 4 to company-less articles "
+            "with a clear, concrete business angle, not general industry commentary."
+        )
+    note = " ".join(note_parts)
 
     if note != theme_watch.ai_feedback_note:
         theme_watch.ai_feedback_note = note

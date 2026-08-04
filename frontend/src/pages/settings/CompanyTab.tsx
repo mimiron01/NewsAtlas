@@ -168,6 +168,20 @@ export default function CompanyTab() {
             <span className="field-hint">{t("company.maxActiveThemeWatchesHint")}</span>
           </label>
         </div>
+
+        <label>
+          {t("company.themeMatchMinRelevanceScore")}
+          <input
+            type="number"
+            min={1}
+            max={5}
+            value={settings.theme_match_min_relevance_score}
+            onChange={(e) =>
+              setSettings({ ...settings, theme_match_min_relevance_score: Number(e.target.value) })
+            }
+          />
+          <span className="field-hint">{t("company.themeMatchMinRelevanceScoreHint")}</span>
+        </label>
       </div>
 
       <button type="submit" disabled={isSaving}>

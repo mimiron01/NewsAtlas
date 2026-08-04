@@ -1169,6 +1169,21 @@ def _process_new_theme_matches(
             if existing_company is not None:
                 match.matched_target_company_id = existing_company.id
 
+        # Enforced relevance floor (workspace_settings.theme_match_min_relevance_score):
+        # until this existed, every match that survived triage was shown regardless of
+        # score, even a 1/5 "tangentially related, no outreach angle" one — the score was
+        # only ever used for sort order. This is the direct fix for topic templates
+        # surfacing generic industry noise instead of company-specific signals. Folded
+        # into the same triaged_out counter as the binary triage skip above (it's the
+        # same kind of event — the AI judged this not worth surfacing — just decided by
+        # score instead of a yes/no call); the row itself keeps a distinct skip_reason so
+        # it stays separately queryable.
+        if result.relevance_score < workspace_settings.theme_match_min_relevance_score:
+            _skip_theme_match(db, match, "low_relevance")
+            triaged_out += 1
+            progress.update(articles_processed_this_company=position + 1)
+            continue
+
         db.commit()
         matches_created += 1
         progress.update(articles_processed_this_company=position + 1)

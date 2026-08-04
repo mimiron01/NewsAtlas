@@ -76,6 +76,36 @@ def test_update_settings_rejects_unsupported_main_language(client):
     assert resp.status_code == 422
 
 
+def test_theme_match_min_relevance_score_defaults_to_three(client):
+    headers = admin_headers(client)
+    resp = client.get("/settings", headers=headers)
+    assert resp.json()["theme_match_min_relevance_score"] == 3
+
+
+def test_update_settings_changes_theme_match_min_relevance_score(client):
+    headers = admin_headers(client)
+    resp = client.put(
+        "/settings",
+        json=_full_update_payload(theme_match_min_relevance_score=1),
+        headers=headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["theme_match_min_relevance_score"] == 1
+
+    resp = client.get("/settings", headers=headers)
+    assert resp.json()["theme_match_min_relevance_score"] == 1
+
+
+def test_update_settings_rejects_out_of_range_theme_match_min_relevance_score(client):
+    headers = admin_headers(client)
+    resp = client.put(
+        "/settings",
+        json=_full_update_payload(theme_match_min_relevance_score=6),
+        headers=headers,
+    )
+    assert resp.status_code == 422
+
+
 def test_update_settings_changes_mistral_model_choices(client):
     headers = admin_headers(client)
     resp = client.put(
