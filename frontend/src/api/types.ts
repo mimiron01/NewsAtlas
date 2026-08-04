@@ -77,6 +77,7 @@ export interface WorkspaceSettings {
 
   max_articles_per_theme_per_run: number;
   max_active_theme_watches: number;
+  theme_match_min_relevance_score: number;
 }
 
 export interface WorkspaceSettingsUpdatePayload {
@@ -123,6 +124,7 @@ export interface WorkspaceSettingsUpdatePayload {
 
   max_articles_per_theme_per_run: number;
   max_active_theme_watches: number;
+  theme_match_min_relevance_score: number;
 }
 
 export type ArticleSource = "newsapi" | "google_news_rss" | "newsdata";

@@ -29,6 +29,15 @@ class WorkspaceSettings(Base, UUIDPrimaryKeyMixin):
     # /theme-watches — uncapped concurrent themes is a bigger cost blast radius than
     # uncapped companies ever was, since each one fans out into more candidate articles.
     max_active_theme_watches: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
+    # Enforced floor on ThemeArticleResult.relevance_score (1-5, see
+    # _THEME_SYSTEM_PROMPT in services/ai_client.py). Before this existed, every match
+    # that survived triage was persisted and shown regardless of score — the score only
+    # ever affected sort order (services/digest.py, api/dashboard.py). Matches below the
+    # floor are skipped the same way triaged_out/duplicate matches are (see
+    # _skip_theme_match in services/ingestion.py) rather than silently never created, so
+    # the funnel stays visible. Default 3 matches the prompt's own midpoint between
+    # "tangentially related background news" (1) and "a clear, immediate buying trigger" (5).
+    theme_match_min_relevance_score: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

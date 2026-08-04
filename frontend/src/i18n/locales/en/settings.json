@@ -39,7 +39,9 @@
     "maxArticlesPerTheme": "Max articles per theme per fetch (0 = no limit)",
     "maxArticlesPerThemeHint": "Same cap as above, applied per theme watch instead of per company.",
     "maxActiveThemeWatches": "Max active theme watches",
-    "maxActiveThemeWatchesHint": "Hard ceiling on how many theme watches can be active workspace-wide at once. Pause or delete one to free up room for another."
+    "maxActiveThemeWatchesHint": "Hard ceiling on how many theme watches can be active workspace-wide at once. Pause or delete one to free up room for another.",
+    "themeMatchMinRelevanceScore": "Minimum relevance score for topic matches (1–5)",
+    "themeMatchMinRelevanceScoreHint": "Topic matches the AI scores below this are hidden from the feed instead of shown — the fix for topic templates surfacing generic industry news instead of company-specific signals. 5 = strict, only clear buying triggers tied to your offering; 1 = show everything that passes the basic relevance check."
   },
   "targets": {
     "title": "My companies",

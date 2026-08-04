@@ -70,6 +70,7 @@ def _to_response(settings: WorkspaceSettings) -> WorkspaceSettingsResponse:
         newsdata_max_requests_per_minute=settings.newsdata_max_requests_per_minute,
         max_articles_per_theme_per_run=settings.max_articles_per_theme_per_run,
         max_active_theme_watches=settings.max_active_theme_watches,
+        theme_match_min_relevance_score=settings.theme_match_min_relevance_score,
     )
 
 
@@ -149,6 +150,7 @@ def update_settings(
     settings.newsdata_max_requests_per_minute = payload.newsdata_max_requests_per_minute
     settings.max_articles_per_theme_per_run = payload.max_articles_per_theme_per_run
     settings.max_active_theme_watches = payload.max_active_theme_watches
+    settings.theme_match_min_relevance_score = payload.theme_match_min_relevance_score
 
     if payload.mistral_api_key is not None:
         # Stored encrypted (see app/core/crypto.py) — the "" clear-override sentinel

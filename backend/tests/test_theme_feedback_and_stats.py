@@ -77,12 +77,38 @@ def test_no_note_when_dismiss_rate_below_threshold(db_session):
     assert theme.ai_feedback_note == ""
 
 
-def test_null_extracted_company_name_excluded_from_grouping(db_session):
+def test_note_generated_when_generic_company_less_matches_frequently_dismissed(db_session):
+    # A NULL extracted_company_name means the article was topical/industry news with no
+    # single company at its center — exactly the "generic noise, not a company-specific
+    # signal" shape users report. This must feed the same learning loop as a named
+    # low-value company, not be silently excluded from it.
     theme = _make_theme(db_session)
     for _ in range(MIN_SAMPLE_SIZE):
         _make_match(db_session, theme, extracted_company_name=None, status=SignalStatus.DISMISSED)
     refresh_theme_feedback_note(db_session, theme)
+    assert theme.ai_feedback_note != ""
+    assert "no specific company" in theme.ai_feedback_note.lower()
+
+
+def test_no_generic_note_when_company_less_dismiss_rate_below_threshold(db_session):
+    theme = _make_theme(db_session)
+    for _ in range(2):
+        _make_match(db_session, theme, extracted_company_name=None, status=SignalStatus.DISMISSED)
+    for _ in range(8):
+        _make_match(db_session, theme, extracted_company_name=None, status=SignalStatus.REVIEWED)
+    refresh_theme_feedback_note(db_session, theme)
     assert theme.ai_feedback_note == ""
+
+
+def test_note_combines_named_company_and_generic_dismissal_patterns(db_session):
+    theme = _make_theme(db_session)
+    for _ in range(MIN_SAMPLE_SIZE):
+        _make_match(db_session, theme, extracted_company_name="Acme", status=SignalStatus.DISMISSED)
+    for _ in range(MIN_SAMPLE_SIZE):
+        _make_match(db_session, theme, extracted_company_name=None, status=SignalStatus.DISMISSED)
+    refresh_theme_feedback_note(db_session, theme)
+    assert "Acme" in theme.ai_feedback_note
+    assert "no specific company" in theme.ai_feedback_note.lower()
 
 
 def test_note_scoped_to_own_theme_only(db_session):

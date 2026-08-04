@@ -40,5 +40,6 @@ export function buildSettingsPayload(settings: WorkspaceSettings): WorkspaceSett
     newsdata_max_requests_per_minute: settings.newsdata_max_requests_per_minute,
     max_articles_per_theme_per_run: settings.max_articles_per_theme_per_run,
     max_active_theme_watches: settings.max_active_theme_watches,
+    theme_match_min_relevance_score: settings.theme_match_min_relevance_score,
   };
 }

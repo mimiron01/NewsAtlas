@@ -71,11 +71,13 @@ class FakeThemeAIClient:
         not_relevant_titles: set[str] | None = None,
         embeddings_by_title: dict[str, list[float]] | None = None,
         fail_summarize_titles: set[str] | None = None,
+        relevance_score_by_title: dict[str, int] | None = None,
     ):
         self.extracted_company_by_title = extracted_company_by_title or {}
         self.not_relevant_titles = not_relevant_titles or set()
         self.embeddings_by_title = embeddings_by_title or {}
         self.fail_summarize_titles = fail_summarize_titles or set()
+        self.relevance_score_by_title = relevance_score_by_title or {}
         self.triage_calls: list[str] = []
         self.summarize_calls: list[str] = []
 
@@ -116,7 +118,7 @@ class FakeThemeAIClient:
                 extracted_company_name=self.extracted_company_by_title.get(article_title),
                 summary=f"Summary of {article_title}",
                 business_relevance="Relevant because reasons",
-                relevance_score=4,
+                relevance_score=self.relevance_score_by_title.get(article_title, 4),
                 signal_type="funding",
                 confidence="high",
                 entities={},
@@ -205,6 +207,71 @@ def test_theme_ingestion_skips_triaged_out_article(db_session):
     match = db_session.query(ThemeMatch).one()
     assert match.skip_reason == "triaged_out"
     assert ai.summarize_calls == []
+
+
+def test_theme_ingestion_skips_match_below_relevance_floor(db_session):
+    _make_theme(db_session, name="Automotive")
+    _enable_sources(db_session, google_news_rss_enabled=True)
+    google = FakeGoogleClient(
+        articles=[_article("EV battery industry sees broad growth this quarter", "https://example.com/broad-growth")]
+    )
+    ai = FakeThemeAIClient(
+        relevance_score_by_title={"EV battery industry sees broad growth this quarter": 2}
+    )
+
+    result = run_ingestion(db_session, ai_client=ai, google_news_client=google)
+
+    # Default workspace_settings.theme_match_min_relevance_score is 3, so a score-2
+    # match (tangential background news, no outreach angle) must not be surfaced —
+    # but it did run through full summarization, unlike a triaged_out article.
+    assert result.theme_matches_created == 0
+    assert result.triaged_out == 1
+    match = db_session.query(ThemeMatch).one()
+    assert match.skip_reason == "low_relevance"
+    assert match.relevance_score == 2
+    assert match.summary == "Summary of EV battery industry sees broad growth this quarter"
+    assert ai.summarize_calls == ["EV battery industry sees broad growth this quarter"]
+
+
+def test_theme_ingestion_keeps_match_at_relevance_floor(db_session):
+    _make_theme(db_session, name="Automotive")
+    _enable_sources(db_session, google_news_rss_enabled=True)
+    google = FakeGoogleClient(
+        articles=[_article("Acme Corp secures EV battery supply deal", "https://example.com/acme-deal")]
+    )
+    ai = FakeThemeAIClient(relevance_score_by_title={"Acme Corp secures EV battery supply deal": 3})
+
+    result = run_ingestion(db_session, ai_client=ai, google_news_client=google)
+
+    # Exactly at the default floor (3) — must be kept, not skipped.
+    assert result.theme_matches_created == 1
+    match = db_session.query(ThemeMatch).one()
+    assert match.skip_reason is None
+    assert match.relevance_score == 3
+
+
+def test_theme_ingestion_respects_custom_relevance_floor(db_session):
+    from app.services.workspace_settings import get_or_create_workspace_settings
+
+    settings = get_or_create_workspace_settings(db_session)
+    settings.theme_match_min_relevance_score = 1
+    db_session.commit()
+
+    _make_theme(db_session, name="Automotive")
+    _enable_sources(db_session, google_news_rss_enabled=True)
+    google = FakeGoogleClient(
+        articles=[_article("EV battery industry sees broad growth this quarter", "https://example.com/broad-growth")]
+    )
+    ai = FakeThemeAIClient(
+        relevance_score_by_title={"EV battery industry sees broad growth this quarter": 2}
+    )
+
+    result = run_ingestion(db_session, ai_client=ai, google_news_client=google)
+
+    # A workspace that lowers the floor to 1 sees the same score-2 match kept.
+    assert result.theme_matches_created == 1
+    match = db_session.query(ThemeMatch).one()
+    assert match.skip_reason is None
 
 
 def test_theme_ingestion_dedupes_semantic_duplicate_within_theme(db_session):

@@ -39,7 +39,9 @@
     "maxArticlesPerTheme": "Max. Artikel pro Thema pro Abruf (0 = kein Limit)",
     "maxArticlesPerThemeHint": "Gleiches Limit wie oben, aber pro Theme Watch statt pro Unternehmen.",
     "maxActiveThemeWatches": "Max. aktive Theme Watches",
-    "maxActiveThemeWatchesHint": "Feste Obergrenze, wie viele Theme Watches workspace-weit gleichzeitig aktiv sein können. Pausieren oder löschen Sie einen, um Platz für einen weiteren zu schaffen."
+    "maxActiveThemeWatchesHint": "Feste Obergrenze, wie viele Theme Watches workspace-weit gleichzeitig aktiv sein können. Pausieren oder löschen Sie einen, um Platz für einen weiteren zu schaffen.",
+    "themeMatchMinRelevanceScore": "Mindest-Relevanzwert für Themen-Treffer (1–5)",
+    "themeMatchMinRelevanceScoreHint": "Themen-Treffer, die die KI niedriger bewertet, werden ausgeblendet statt angezeigt — das behebt, dass Themenvorlagen allgemeine Branchen-News statt firmenspezifischer Signale liefern. 5 = streng, nur eindeutige Kaufsignale mit Bezug zu Ihrem Angebot; 1 = alles anzeigen, was die Basisprüfung besteht."
   },
   "targets": {
     "title": "Meine Unternehmen",
