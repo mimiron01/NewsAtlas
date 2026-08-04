@@ -14,6 +14,12 @@
     "sourceAllowlist": "Trusted sources for this topic (optional)",
     "sourceAllowlistPlaceholder": "Type a domain (e.g. techcrunch.com) and press Enter",
     "sourceAllowlistHint": "Adds to (never replaces) the workspace-wide trusted-source list for Google News RSS.",
+    "allowlistInherit": "Use the workspace default",
+    "allowlistAll": "Search everything",
+    "allowlistCustom": "Only these sources",
+    "allowlistInheritHint": "Follows the trusted sources set under Settings → News sources.",
+    "allowlistAllHint": "Ignores the workspace default and searches all of Google News for this topic.",
+    "allowlistCustomHint": "Replaces the workspace default. Only these domains are searched for this topic.",
     "addButton": "Add topic",
     "country": "Country (optional)",
     "language": "Language (optional)",
@@ -29,7 +35,12 @@
     "newsSources": "News sources for this topic",
     "newsSourcesInherit": "Use the workspace default",
     "newsSourcesCustom": "Choose sources",
-    "newsSourcesHint": "A source must also be enabled under Settings → News sources to be used. Paid sources give topics real article text instead of only headlines, but a topic's search is broad — watch the cost."
+    "newsSourcesHint": "A source must also be enabled under Settings → News sources to be used. Paid sources give topics real article text instead of only headlines, but a topic's search is broad — watch the cost.",
+    "sections": {
+      "criteria": "Search criteria",
+      "sources": "Sources",
+      "region": "Region & language"
+    }
   },
   "preview": {
     "loading": "Checking recent results…",

@@ -19,24 +19,32 @@ import TagInput from "./TagInput";
 export default function SourceAllowlistField({
   value,
   onChange,
+  subject = "company",
 }: {
   value: string[] | null;
   onChange: (value: string[] | null) => void;
+  // This field is shared between the target-company form and the topic form; the copy
+  // talks about "this company" vs. "this topic" accordingly instead of always saying
+  // "company" regardless of where it's rendered.
+  subject?: "company" | "topic";
 }) {
-  const { t } = useTranslation("settings");
+  const { t } = useTranslation(["settings", "themes"]);
+  const ns = subject === "topic" ? "themes" : "settings";
+  const prefix = subject === "topic" ? "addTheme" : "targets";
+  const tf = (key: string) => t(`${ns}:${prefix}.${key}`);
   const mode = value === null ? "inherit" : value.length === 0 ? "all" : "custom";
 
   const hint =
     mode === "inherit"
-      ? t("targets.allowlistInheritHint")
+      ? tf("allowlistInheritHint")
       : mode === "all"
-        ? t("targets.allowlistAllHint")
-        : t("targets.allowlistCustomHint");
+        ? tf("allowlistAllHint")
+        : tf("allowlistCustomHint");
 
   return (
     <div className="source-allowlist-field">
       <span className="field-label">
-        {t("targets.sourceAllowlist")} <HelpTooltip content={hint} />
+        {tf("sourceAllowlist")} <HelpTooltip content={hint} />
       </span>
       <div className="field-row">
         <label className="checkbox-label">
@@ -45,11 +53,11 @@ export default function SourceAllowlistField({
             checked={mode === "inherit"}
             onChange={() => onChange(null)}
           />
-          {t("targets.allowlistInherit")}
+          {tf("allowlistInherit")}
         </label>
         <label className="checkbox-label">
           <input type="radio" checked={mode === "all"} onChange={() => onChange([])} />
-          {t("targets.allowlistAll")}
+          {tf("allowlistAll")}
         </label>
         <label className="checkbox-label">
           <input
@@ -60,14 +68,14 @@ export default function SourceAllowlistField({
             // and let the tag input carry the meaning.
             onChange={() => onChange(value && value.length > 0 ? value : [])}
           />
-          {t("targets.allowlistCustom")}
+          {tf("allowlistCustom")}
         </label>
       </div>
       {mode !== "inherit" && (
         <TagInput
           tags={value ?? []}
           onChange={(tags) => onChange(tags)}
-          placeholder={t("targets.sourceAllowlistPlaceholder")}
+          placeholder={tf("sourceAllowlistPlaceholder")}
         />
       )}
     </div>

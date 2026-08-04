@@ -14,6 +14,12 @@
     "sourceAllowlist": "Vertrauenswürdige Quellen für dieses Thema (optional)",
     "sourceAllowlistPlaceholder": "Domain eingeben (z. B. techcrunch.com) und Enter drücken",
     "sourceAllowlistHint": "Ergänzt die workspace-weite Liste vertrauenswürdiger Quellen für Google News RSS (ersetzt sie nicht).",
+    "allowlistInherit": "Workspace-Standard verwenden",
+    "allowlistAll": "Alles durchsuchen",
+    "allowlistCustom": "Nur diese Quellen",
+    "allowlistInheritHint": "Folgt den vertrauenswürdigen Quellen aus Einstellungen → Nachrichtenquellen.",
+    "allowlistAllHint": "Ignoriert den Workspace-Standard und durchsucht für dieses Thema ganz Google News.",
+    "allowlistCustomHint": "Ersetzt den Workspace-Standard. Für dieses Thema werden nur diese Domains durchsucht.",
     "addButton": "Thema hinzufügen",
     "country": "Land (optional)",
     "language": "Sprache (optional)",
@@ -29,7 +35,12 @@
     "newsSources": "Nachrichtenquellen für dieses Thema",
     "newsSourcesInherit": "Workspace-Standard verwenden",
     "newsSourcesCustom": "Quellen auswählen",
-    "newsSourcesHint": "Eine Quelle muss zusätzlich unter Einstellungen → Nachrichtenquellen aktiviert sein. Kostenpflichtige Quellen liefern Themen echten Artikeltext statt nur Überschriften, aber die Suche eines Themas ist breit — die Kosten im Blick behalten."
+    "newsSourcesHint": "Eine Quelle muss zusätzlich unter Einstellungen → Nachrichtenquellen aktiviert sein. Kostenpflichtige Quellen liefern Themen echten Artikeltext statt nur Überschriften, aber die Suche eines Themas ist breit — die Kosten im Blick behalten.",
+    "sections": {
+      "criteria": "Suchkriterien",
+      "sources": "Quellen",
+      "region": "Region & Sprache"
+    }
   },
   "preview": {
     "loading": "Aktuelle Ergebnisse werden geprüft…",
