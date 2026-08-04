@@ -19,7 +19,7 @@
   "loadFailed": "Failed to load dashboard",
   "favoriteUpdateFailed": "Failed to update favorite",
   "todoUpdateFailed": "Failed to update todo",
-  "topThemeMatches": "Top topic matches",
+  "topThemeMatches": "Top topic signals",
   "viewAllThemeMatches": "View all topic matches →",
   "noThemeMatchesYet": "No topic matches yet. Fetch new signals, or start a fetch for a single topic on the Topics page."
 }

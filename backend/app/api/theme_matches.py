@@ -7,6 +7,7 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.signal import SignalStatus
 from app.models.theme_match import ThemeMatch
+from app.models.theme_match_favorite import ThemeMatchFavorite
 from app.models.theme_watch import ThemeWatch
 from app.models.user import User, UserRole
 from app.schemas.target_company import TargetCompanyResponse
@@ -32,7 +33,7 @@ def list_theme_matches(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[ThemeMatchResponse]:
-    query = base_theme_match_query(db)
+    query = base_theme_match_query(db, current_user)
     if scope == "all":
         if current_user.role != UserRole.ADMIN:
             raise HTTPException(
@@ -72,11 +73,11 @@ def update_theme_match_status(
     row = accessible_theme_match_row(db, match_id, current_user, scope)
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Theme match not found")
-    match, theme, matched_company = row
+    match, theme, matched_company, is_favorited = row
     match.status = payload.status
     db.commit()
     db.refresh(match)
-    return theme_match_row_to_response(match, theme, matched_company)
+    return theme_match_row_to_response(match, theme, matched_company, is_favorited)
 
 
 @router.post("/{match_id}/track-company", response_model=TargetCompanyResponse)
@@ -116,3 +117,41 @@ def track_company_from_match(
     db.refresh(company)
     db.refresh(follow)
     return company_to_response(db, company, follow)
+
+
+@router.post("/{match_id}/favorite", response_model=ThemeMatchResponse)
+def favorite_theme_match(
+    match_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ThemeMatchResponse:
+    get_accessible_theme_match(db, match_id, current_user)
+    existing = (
+        db.query(ThemeMatchFavorite)
+        .filter(
+            ThemeMatchFavorite.theme_match_id == match_id,
+            ThemeMatchFavorite.user_id == current_user.id,
+        )
+        .first()
+    )
+    if existing is None:
+        db.add(ThemeMatchFavorite(theme_match_id=match_id, user_id=current_user.id))
+        db.commit()
+    row = accessible_theme_match_row(db, match_id, current_user)
+    return theme_match_row_to_response(*row)
+
+
+@router.delete("/{match_id}/favorite", response_model=ThemeMatchResponse)
+def unfavorite_theme_match(
+    match_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ThemeMatchResponse:
+    get_accessible_theme_match(db, match_id, current_user)
+    db.query(ThemeMatchFavorite).filter(
+        ThemeMatchFavorite.theme_match_id == match_id,
+        ThemeMatchFavorite.user_id == current_user.id,
+    ).delete()
+    db.commit()
+    row = accessible_theme_match_row(db, match_id, current_user)
+    return theme_match_row_to_response(*row)

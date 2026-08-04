@@ -38,8 +38,10 @@ def list_topic_templates(
 ) -> list[TopicTemplateResponse]:
     """Any authenticated user — the gallery is meant to be the default first view for a
     workspace with no topics yet (see docs/topics-ux-improvements-planning.html §4.2),
-    not an admin-only surface."""
-    return list_active_templates(db)
+    not an admin-only surface. Restricted to the workspace's main_language so a German
+    workspace sees the German-market template set rather than the English one."""
+    workspace_settings = get_or_create_workspace_settings(db)
+    return list_active_templates(db, language=workspace_settings.main_language)
 
 
 @router.post("/{template_id}/apply", response_model=ThemeWatchResponse, status_code=status.HTTP_201_CREATED)

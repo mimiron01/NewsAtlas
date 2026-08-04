@@ -10,6 +10,7 @@ class TopicTemplateResponse(BaseModel):
     name: str
     description: str
     category: str | None
+    language: str | None
     query_terms: list[str]
     exclude_terms: list[str]
     suggested_source_allowlist: list[str]
@@ -27,6 +28,7 @@ class TopicTemplateCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str = Field(default="", max_length=500)
     category: str | None = Field(default=None, max_length=100)
+    language: str | None = Field(default=None, max_length=8)
     query_terms: list[str] = Field(min_length=1, max_length=20)
     exclude_terms: list[str] = Field(default_factory=list, max_length=20)
     suggested_source_allowlist: list[str] = Field(default_factory=list, max_length=50)
@@ -52,6 +54,7 @@ class TopicTemplateUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=500)
     category: str | None = Field(default=None, max_length=100)
+    language: str | None = Field(default=None, max_length=8)
     query_terms: list[str] | None = Field(default=None, min_length=1, max_length=20)
     exclude_terms: list[str] | None = Field(default=None, max_length=20)
     suggested_source_allowlist: list[str] | None = Field(default=None, max_length=50)

@@ -2,6 +2,7 @@
   "loading": "Loading...",
   "add": "Add",
   "delete": "Delete",
+  "help": "Show help",
   "setupChecklist": {
     "title": "Get started",
     "companyProfile": {

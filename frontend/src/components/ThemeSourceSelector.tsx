@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 
 import { ARTICLE_SOURCE_LABELS } from "../api/types";
 import type { ArticleSource } from "../api/types";
+import HelpTooltip from "./HelpTooltip";
 
 const SOURCES: ArticleSource[] = ["google_news_rss", "newsapi", "newsdata"];
 
@@ -24,7 +25,9 @@ export default function ThemeSourceSelector({
 
   return (
     <div className="source-allowlist-field">
-      <span className="field-label">{t("addTheme.newsSources")}</span>
+      <span className="field-label">
+        {t("addTheme.newsSources")} <HelpTooltip content={t("addTheme.newsSourcesHint")} />
+      </span>
       <div className="field-row">
         <label className="checkbox-label">
           <input type="radio" checked={value === null} onChange={() => onChange(null)} />
@@ -59,7 +62,6 @@ export default function ThemeSourceSelector({
           ))}
         </div>
       )}
-      <span className="field-hint">{t("addTheme.newsSourcesHint")}</span>
     </div>
   );
 }

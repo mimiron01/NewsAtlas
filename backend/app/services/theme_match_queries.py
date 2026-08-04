@@ -6,13 +6,14 @@ from sqlalchemy.orm import Query as SAQuery, Session
 from app.models.target_company import TargetCompany
 from app.models.theme_follow import ThemeFollow
 from app.models.theme_match import ThemeMatch
+from app.models.theme_match_favorite import ThemeMatchFavorite
 from app.models.theme_watch import ThemeWatch
 from app.models.user import User, UserRole
 from app.schemas.theme_match import ThemeMatchResponse
 
-# Mirrors signal_queries.py's scope_to_follows/base_signal_query/signal_row_to_response —
-# no favorite/open-todo annotation here (out of scope for v1, see
-# docs/theme-search-planning.html §2.3 scope note).
+# Mirrors signal_queries.py's scope_to_follows/base_signal_query/signal_row_to_response,
+# including the per-user favorite annotation (see SignalFavorite/ThemeMatchFavorite). No
+# open-todo annotation — that concept doesn't have a theme-match equivalent.
 
 
 def scope_to_theme_follows(query: SAQuery, db: Session, user: User, *, include_muted: bool) -> SAQuery:
@@ -22,18 +23,32 @@ def scope_to_theme_follows(query: SAQuery, db: Session, user: User, *, include_m
     return query.filter(ThemeWatch.id.in_(follows.scalar_subquery()))
 
 
-def base_theme_match_query(db: Session) -> SAQuery:
+def base_theme_match_query(db: Session, current_user: User) -> SAQuery:
     """Joins ThemeWatch (required) and TargetCompany (optional outer join, since
-    matched_target_company_id is nullable — most matches have no linked company)."""
+    matched_target_company_id is nullable — most matches have no linked company), and
+    annotates each row with the current user's favorite flag via a correlated subquery,
+    same shape as base_signal_query."""
+    favorited_expr = (
+        db.query(ThemeMatchFavorite.id)
+        .filter(
+            ThemeMatchFavorite.theme_match_id == ThemeMatch.id,
+            ThemeMatchFavorite.user_id == current_user.id,
+        )
+        .correlate(ThemeMatch)
+        .exists()
+    )
     return (
-        db.query(ThemeMatch, ThemeWatch, TargetCompany)
+        db.query(ThemeMatch, ThemeWatch, TargetCompany, favorited_expr)
         .join(ThemeWatch, ThemeMatch.theme_watch_id == ThemeWatch.id)
         .outerjoin(TargetCompany, ThemeMatch.matched_target_company_id == TargetCompany.id)
     )
 
 
 def theme_match_row_to_response(
-    match: ThemeMatch, theme: ThemeWatch, matched_company: TargetCompany | None
+    match: ThemeMatch,
+    theme: ThemeWatch,
+    matched_company: TargetCompany | None,
+    is_favorited: bool = False,
 ) -> ThemeMatchResponse:
     return ThemeMatchResponse(
         id=match.id,
@@ -57,13 +72,14 @@ def theme_match_row_to_response(
         extracted_company_name=match.extracted_company_name,
         matched_target_company_id=matched_company.id if matched_company is not None else None,
         matched_target_company_name=matched_company.name if matched_company is not None else None,
+        is_favorited=bool(is_favorited),
     )
 
 
 def accessible_theme_match_row(
     db: Session, match_id: uuid.UUID, current_user: User, scope: str | None = None
 ):
-    query = base_theme_match_query(db).filter(ThemeMatch.id == match_id)
+    query = base_theme_match_query(db, current_user).filter(ThemeMatch.id == match_id)
     if scope == "all":
         if current_user.role != UserRole.ADMIN:
             raise HTTPException(

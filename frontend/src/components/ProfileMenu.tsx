@@ -3,7 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import type { User } from "../api/types";
-import { ChevronUpDownIcon, GearIcon, LogoutIcon } from "./icons/NavIcons";
+import type { Theme } from "../hooks/useTheme";
+import LanguageSwitcher from "./LanguageSwitcher";
+import { ChevronUpDownIcon, GearIcon, LogoutIcon, MoonIcon, SunIcon } from "./icons/NavIcons";
 
 function initialsFor(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -16,10 +18,14 @@ export default function ProfileMenu({
   user,
   isAdmin,
   onLogout,
+  theme,
+  cycleTheme,
 }: {
   user: User;
   isAdmin: boolean;
   onLogout: () => void;
+  theme: Theme;
+  cycleTheme: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -71,6 +77,12 @@ export default function ProfileMenu({
           <div className="profile-info">
             <strong>{user.name}</strong>
             <span>{user.email}</span>
+          </div>
+          <button type="button" role="menuitem" onClick={cycleTheme}>
+            {theme === "dark" ? <MoonIcon /> : <SunIcon />} {t(`theme.${theme}`)}
+          </button>
+          <div className="profile-popover-language">
+            <LanguageSwitcher />
           </div>
           {isAdmin && (
             <button type="button" role="menuitem" onClick={goToSettings}>

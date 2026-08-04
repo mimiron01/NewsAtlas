@@ -281,7 +281,7 @@ def get_suggested_topics(
         # what's missing instead (see §2.3 acceptance criteria).
         return []
 
-    templates = list_active_templates(db)
+    templates = list_active_templates(db, language=workspace_settings.main_language)
     existing_names = [theme.name for theme in db.query(ThemeWatch).all()]
 
     ai_client = AIClient(
@@ -307,6 +307,7 @@ def get_suggested_topics(
                 for t in templates
             ],
             existing_topic_names=existing_names,
+            output_language=workspace_settings.main_language,
         )
     except AIClientError as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc))
