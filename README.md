@@ -10,7 +10,12 @@ See [`docs/planning.html`](docs/planning.html) for the full architecture and
 roadmap, [`docs/security-review.html`](docs/security-review.html) for the
 security posture and remediation history,
 [`docs/ui-ux-review.html`](docs/ui-ux-review.html) for a usability/UX review
-of the current frontend with a prioritized improvement roadmap,
+of the current frontend with a prioritized improvement roadmap (all findings
+implemented),
+[`docs/ui-ux-review-v2.html`](docs/ui-ux-review-v2.html) for a follow-up
+UI/UX review applying Don Norman's *Design of Everyday Things* principles and
+the "Laws of UX" to the frontend as it stands today, with a prioritized
+roadmap of proposed (not yet implemented) improvements,
 [`docs/mistral-ai-roadmap.html`](docs/mistral-ai-roadmap.html) for an analysis
 of the current Mistral AI integration and a phased roadmap for deepening it, and
 [`docs/news-source-expansion-planning.html`](docs/news-source-expansion-planning.html)

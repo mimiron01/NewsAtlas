@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NewsAtlas — UI/UX Review v2: A Norman &amp; Laws-of-UX Lens</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6270;
+    --accent: #2757c7;
+    --accent-bg: #eef2fc;
+    --border: #e2e5ea;
+    --code-bg: #f5f6f8;
+    --critical: #b3261e;
+    --critical-bg: #fdecec;
+    --high: #a15c00;
+    --high-bg: #fdf4e3;
+    --medium: #8a6d00;
+    --medium-bg: #fdf8e3;
+    --low: #2757c7;
+    --low-bg: #eef2fc;
+    --ok: #1a7f4e;
+    --ok-bg: #e9f9f1;
+    --principle: #6b3fa0;
+    --principle-bg: #f3ecfa;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.05rem; margin-top: 0; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  .meta {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 12px 0 32px;
+    padding: 12px 16px;
+    background: var(--accent-bg);
+    border-radius: 8px;
+  }
+  .meta strong { color: var(--fg); }
+  nav.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin: 24px 0 40px;
+  }
+  nav.toc h2 { margin-top: 0; border: none; font-size: 1.05rem; padding-bottom: 4px; }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.9rem; }
+  nav.toc a:hover { text-decoration: underline; }
+
+  table { border-collapse: collapse; width: 100%; margin: 16px 0; font-size: 0.88rem; }
+  th, td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; vertical-align: top; }
+  th { background: var(--code-bg); font-weight: 600; }
+  .summary-table td:first-child { white-space: nowrap; }
+
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+  .badge-critical { background: var(--critical-bg); color: var(--critical); }
+  .badge-high { background: var(--high-bg); color: var(--high); }
+  .badge-medium { background: var(--medium-bg); color: var(--medium); }
+  .badge-low { background: var(--low-bg); color: var(--low); }
+  .badge-ok { background: var(--ok-bg); color: var(--ok); }
+  .badge-principle { background: var(--principle-bg); color: var(--principle); font-weight: 600; text-transform: none; letter-spacing: 0; }
+
+  .finding {
+    border: 1px solid var(--border);
+    border-left-width: 5px;
+    border-radius: 0 10px 10px 0;
+    padding: 18px 22px;
+    margin: 20px 0;
+  }
+  .finding.critical { border-left-color: var(--critical); }
+  .finding.high { border-left-color: var(--high); }
+  .finding.medium { border-left-color: var(--medium); }
+  .finding.low { border-left-color: var(--low); }
+  .finding-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+  }
+  .finding-header h3 { margin: 0; }
+  .finding .location {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin: 4px 0 12px;
+  }
+  .finding h4 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+    margin: 16px 0 4px;
+  }
+
+  .positive {
+    border-left: 4px solid var(--ok);
+    background: var(--ok-bg);
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+  .positive .principle-tag { font-size: 0.72rem; font-weight: 700; color: var(--ok); text-transform: uppercase; letter-spacing: 0.02em; display: block; margin-bottom: 4px; }
+
+  .direction {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-bg);
+    padding: 4px 20px 14px;
+    margin: 14px 0 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.9rem;
+  }
+  .direction h4 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--accent);
+    margin: 14px 0 4px;
+  }
+  .direction ol, .direction ul { margin: 6px 0 6px 20px; padding: 0; }
+  .direction li { margin-bottom: 6px; }
+
+  .principle-box {
+    border: 1px dashed var(--principle);
+    background: var(--principle-bg);
+    border-radius: 8px;
+    padding: 10px 16px;
+    margin: 10px 0 16px;
+    font-size: 0.88rem;
+  }
+  .principle-box strong { color: var(--principle); }
+
+  .update-banner {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-bg);
+    padding: 14px 18px;
+    margin: 20px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.92rem;
+  }
+
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  footer ul { padding-left: 20px; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<h1>NewsAtlas — UI/UX Review v2</h1>
+<p class="subtitle">A second pass through the frontend, this time reading it through Don Norman's <em>The Design of
+Everyday Things</em> and the "Laws of UX" (lawsofux.com) rather than Nielsen's heuristics — looking for gaps a
+different lens surfaces once the obvious ones are already fixed.</p>
+
+<div class="meta">
+  <div><strong>Scope:</strong> React/TypeScript SPA in <code>frontend/</code> — every page, every shared component, <code>styles.css</code>, and the i18n resource files (en/de)</div>
+  <div><strong>Reviewed at:</strong> commit <code>3984a7c</code></div>
+  <div><strong>Method:</strong> manual source read of every page/component, cross-checked against the app's own routes, translation strings, and CSS — no dynamic/browser testing performed</div>
+  <div><strong>Not in scope:</strong> backend API design, data model, deployment/security posture, and the email digest (see <code>docs/security-review.html</code> and F9 of v1)</div>
+</div>
+
+<div class="update-banner">
+  <strong>Relation to <a href="ui-ux-review.html">docs/ui-ux-review.html</a> (v1).</strong>
+  The first review used Nielsen's 10 usability heuristics and found 13 issues (F1–F13), all of which were
+  implemented in that same pass: responsive layout, confirm-before-delete, inline/bulk triage, onboarding
+  checklist, toasts/skeletons, search/sort, icons/motion, focus states, dark mode, page titles. This review does
+  not re-litigate those — reading the current code, all thirteen are genuinely in place. Since then the product
+  has grown substantially (topic/theme tracking, a dashboard, todos, favorites, CSV import, admin roles,
+  full German localization, per-source usage diagnostics), which is both new surface area and a chance to look
+  at the whole thing again with a different analytical toolkit. Findings below are new; where v1 and this review
+  land on the same screen, it's from a different angle.
+</div>
+
+<p>
+  NewsAtlas has clearly had real design attention already — the positives section below is longer than a typical
+  first-pass review's, and several patterns here (the tri-state source-allowlist field, the duplicate-topic
+  conflict resolution, the optimistic-UI-with-undo toast on dismiss) are genuinely well-executed applications of
+  Norman's principles without anyone necessarily having named them that way. The gaps found this time are
+  correspondingly narrower: not "there is no confirmation before delete" but "the confirmation is one fast
+  double-click away from not working"; not "there is no dark mode" but "seven same-sized badges compete for
+  attention on one signal." That's a sign of a maturing product, and the findings are prioritized accordingly.
+</p>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#summary">Summary of findings</a></li>
+    <li><a href="#norman">Norman's six design principles, applied</a></li>
+    <li><a href="#laws">Laws of UX spot-check</a></li>
+    <li><a href="#f1">F1. Hick's Law — action overload in dense list rows</a></li>
+    <li><a href="#f2">F2. A confirm-before-delete that a fast double-click defeats</a></li>
+    <li><a href="#f3">F3. Missing signifiers for persistent on/off state</a></li>
+    <li><a href="#f4">F4. Weak mapping: free text for a closed set of values</a></li>
+    <li><a href="#f5">F5. Miller's Law: dense forms with no progressive disclosure</a></li>
+    <li><a href="#f6">F6. Critical guidance trapped in hover-only tooltips</a></li>
+    <li><a href="#f7">F7. Von Restorff Effect: badge overload flattens hierarchy</a></li>
+    <li><a href="#f8">F8. No account-recovery path — a broken conceptual model</a></li>
+    <li><a href="#f9">F9. Goal-Gradient Effect: hard caps surface only as failure</a></li>
+    <li><a href="#f10">F10. Peak-End Rule: "you're caught up" reads as "you haven't started"</a></li>
+    <li><a href="#f11">F11. Blank screen during startup, no visibility of system status</a></li>
+    <li><a href="#positives">What's already working well</a></li>
+    <li><a href="#roadmap">Prioritized roadmap</a></li>
+    <li><a href="#sources">Sources</a></li>
+  </ol>
+</nav>
+
+<h2 id="summary">Summary of findings</h2>
+<table class="summary-table">
+  <tr><th>#</th><th>Impact</th><th>Principle</th><th>Finding</th></tr>
+  <tr><td>F1</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-principle">Hick's Law</span></td><td>Up to 6 same-weight text buttons per row on the two busiest admin screens (topics, target companies)</td></tr>
+  <tr><td>F2</td><td><span class="badge badge-high">High</span></td><td><span class="badge badge-principle">Fitts's Law</span></td><td>Delete confirmation re-appears in the exact screen position of the original button — a fast double-click deletes anyway</td></tr>
+  <tr><td>F3</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-principle">Signifiers</span></td><td>Mute/pause/digest-include are persistent on/off state rendered as plain action buttons, not switches</td></tr>
+  <tr><td>F4</td><td><span class="badge badge-low">Low</span></td><td><span class="badge badge-principle">Mapping</span></td><td>Country/language edition fields are free text for what is really a small fixed set of codes</td></tr>
+  <tr><td>F5</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-principle">Miller's Law</span></td><td>Add-topic form and the Google News RSS settings block expose 8–12 fields at once with no advanced/collapsed tier</td></tr>
+  <tr><td>F6</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-principle">Visibility</span></td><td>Disabled-button reasons and delete-confirmation copy live only in native <code>title</code> tooltips, invisible on touch</td></tr>
+  <tr><td>F7</td><td><span class="badge badge-medium">Medium</span></td><td><span class="badge badge-principle">Von Restorff</span></td><td>Up to 7 identically-styled badges on one signal — nothing is visually primary</td></tr>
+  <tr><td>F8</td><td><span class="badge badge-high">High</span></td><td><span class="badge badge-principle">Conceptual model</span></td><td>No "forgot password" path anywhere in the login flow</td></tr>
+  <tr><td>F9</td><td><span class="badge badge-low">Low</span></td><td><span class="badge badge-principle">Goal-Gradient</span></td><td>The active-topic ceiling is invisible until a save fails against it</td></tr>
+  <tr><td>F10</td><td><span class="badge badge-low">Low</span></td><td><span class="badge badge-principle">Peak-End Rule</span></td><td>Clearing your triage queue shows the same copy as never having started</td></tr>
+  <tr><td>F11</td><td><span class="badge badge-low">Low</span></td><td><span class="badge badge-principle">Visibility</span></td><td>App renders nothing at all while i18n resources initialize on first load</td></tr>
+</table>
+
+<h2 id="norman">Norman's six design principles, applied</h2>
+<p>
+  <em>The Design of Everyday Things</em> organizes good design around six concepts: <strong>affordances</strong>
+  (what actions an object makes possible), <strong>signifiers</strong> (the perceivable signals that communicate
+  those affordances), <strong>constraints</strong> (limits that narrow the possible actions to the sensible
+  ones), <strong>mapping</strong> (the relationship between a control and its effect), <strong>feedback</strong>
+  (continuous information about the result of an action), and the <strong>conceptual model</strong> (the mental
+  picture the design gives the user of how the system works). Scored against the current frontend:
+</p>
+<table>
+  <tr><th>Principle</th><th>Rating</th><th>Notes</th></tr>
+  <tr><td>Affordances</td><td><span class="badge badge-ok">Good</span></td><td>Buttons look clickable, links look like links, disabled controls are visually dimmed and inert — nothing pretends to be interactive when it isn't, or vice versa.</td></tr>
+  <tr><td>Signifiers</td><td><span class="badge badge-medium">Partial</span></td><td>Icon+label nav items and the favorite star (filled vs. outline, <code>aria-pressed</code>) signify state well. Persistent toggles like mute/pause/digest-include don't (F3).</td></tr>
+  <tr><td>Constraints</td><td><span class="badge badge-ok">Good</span></td><td><code>SourceAllowlistField</code>'s inherit/all/custom radio group is a genuinely good example: it exposes the real three-state model as three mutually exclusive, always-visible options rather than one ambiguous checkbox + text field.</td></tr>
+  <tr><td>Mapping</td><td><span class="badge badge-medium">Partial</span></td><td>Most controls map cleanly (a checkbox toggles a boolean setting, a select picks from a real enum). Country/language edition fields don't (F4).</td></tr>
+  <tr><td>Feedback</td><td><span class="badge badge-ok">Good</span></td><td>Optimistic updates, toasts (including an actual <em>Undo</em> action on dismiss), and a granular ingestion-progress bar with per-company/per-article text are all strong, continuous feedback loops — this is the area v1's F5/F10 clearly paid off in.</td></tr>
+  <tr><td>Conceptual model</td><td><span class="badge badge-medium">Partial</span></td><td>The 409 duplicate-topic conflict is a model example of surfacing the system's real state and offering a way forward (F below, positives). Login's model of "how do I get back in if I forget my password" is simply absent (F8).</td></tr>
+</table>
+
+<h2 id="laws">Laws of UX spot-check</h2>
+<p>Beyond Norman's principles, a few of the named "Laws of UX" (Jon Yablonski, lawsofux.com) map directly onto specific screens:</p>
+<table>
+  <tr><th>Law</th><th>Where it shows up</th><th>Verdict</th></tr>
+  <tr><td>Hick's Law <span class="field-hint">— decision time grows with the number of choices offered</span></td><td>Topic and target-company row actions (F1)</td><td><span class="badge badge-medium">Needs work</span></td></tr>
+  <tr><td>Fitts's Law <span class="field-hint">— target size and position determine how fast/safely it's reached</span></td><td>Delete-confirm button reoccupying the trigger's position (F2)</td><td><span class="badge badge-high">Needs work</span></td></tr>
+  <tr><td>Miller's Law <span class="field-hint">— working memory holds about 7±2 items at once</span></td><td>Add-topic form field count (F5)</td><td><span class="badge badge-medium">Needs work</span></td></tr>
+  <tr><td>Von Restorff Effect <span class="field-hint">— a distinctive item is the one that gets noticed/remembered</span></td><td>Signal badge rows (F7)</td><td><span class="badge badge-medium">Needs work</span></td></tr>
+  <tr><td>Goal-Gradient Effect <span class="field-hint">— motivation rises with visible proximity to a goal</span></td><td>Active-topic ceiling (F9)</td><td><span class="badge badge-low">Minor gap</span></td></tr>
+  <tr><td>Peak-End Rule <span class="field-hint">— an experience is judged by its peak and its ending, not its average</span></td><td>Empty-triage-queue copy (F10)</td><td><span class="badge badge-low">Minor gap</span></td></tr>
+  <tr><td>Jakob's Law <span class="field-hint">— users expect a new product to work like the familiar ones they already know</span></td><td>Checkbox + bulk-action-bar pattern on Signals and Topics</td><td><span class="badge badge-ok">Strong</span></td></tr>
+  <tr><td>Aesthetic-Usability Effect <span class="field-hint">— a more attractive design is perceived (and forgiven) as more usable</span></td><td>Card/badge/icon system, light+dark themes</td><td><span class="badge badge-ok">Strong</span></td></tr>
+  <tr><td>Postel's Law <span class="field-hint">— be liberal in what you accept from users, conservative in what you produce</span></td><td>Query-preview panels that show what will be <em>dropped</em>, not just what's kept; tag inputs that trim/dedupe on the fly</td><td><span class="badge badge-ok">Strong</span></td></tr>
+  <tr><td>Doherty Threshold <span class="field-hint">— keep response under ~400ms so the user stays in flow</span></td><td>Not evaluated — no dynamic/network testing performed in this pass; the 1.5s ingestion-status poll is for a long-running background job, not a direct-manipulation control, so it isn't the same category of concern.</td><td><span class="badge badge-low">Not scored</span></td></tr>
+</table>
+
+<h2 id="f1">F1. Hick's Law — action overload in dense list rows <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <div class="principle-box"><strong>Hick's Law:</strong> the time it takes to decide grows (logarithmically) with the number of choices on offer. Six visually identical buttons force the same scan-and-decide cost onto every row, every time.</div>
+  <p class="location"><code>frontend/src/pages/ThemesPage.tsx:910-965</code> (Run · Edit · Mute/Unmute · Include/Exclude from digest · Pause/Resume · Delete — up to 6 buttons per topic) and <code>frontend/src/pages/SettingsTargets.tsx:441-505</code> (Backfill · Edit · Mute/Unmute · Pause/Resume · Delete — up to 5 per company)</p>
+  <h4>Issue</h4>
+  <p>
+    Both list screens render every possible action for every row, all the time, all styled identically
+    (plain or <code>secondary</code> text buttons of equal size and weight). A workspace at the default
+    active-topic cap of 10 puts up to 60 individually-styled buttons on screen simultaneously on the Topics
+    page alone. None of the six is visually more important than another — "Delete" and "Mute" carry the same
+    visual weight as "Edit" — so a user re-derives which button they want from scratch on every row instead of
+    recognizing a stable, small set of primary actions. This is the same problem F1 (of this review) and F3 (of
+    v1) were solving on the signals feed a layer up — but it's been re-introduced here as new features (topics,
+    per-row digest toggle, backfill) were added, each contributing one more always-visible button.
+  </p>
+  <div class="direction">
+    <h4>Suggested direction</h4>
+    <p>Reduce the number of simultaneously visible controls by promoting the 1–2 actions a user reaches for
+    most (Run, Edit) and moving the rest behind a single "⋯" overflow menu — a pattern the app doesn't use yet
+    anywhere, but one both Nielsen's <em>recognition over recall</em> and Hick's Law point toward for a row with
+    this many possible actions.</p>
+    <ol>
+      <li>Keep <code>ThemeRunButton</code> and "Edit" inline (the two most frequent actions); move Mute,
+      digest include/exclude, Pause/Resume, and Delete into a small popover menu triggered by a
+      "⋯" icon button, reusing the same open/close-on-outside-click pattern already implemented in
+      <code>ProfileMenu.tsx</code> and <code>HelpTooltip.tsx</code> rather than inventing a new one.</li>
+      <li>Keep Delete's confirm step inside the menu rather than the row, which also resolves part of F2 below
+      by moving the second click away from the first click's screen position.</li>
+      <li>Apply the same treatment to the target-companies table's action column.</li>
+    </ol>
+  </div>
+</div>
+
+<h2 id="f2">F2. A confirm-before-delete that a fast double-click defeats <span class="badge badge-high">High</span></h2>
+<div class="finding high">
+  <div class="principle-box"><strong>Fitts's Law:</strong> a target that is closer and appears faster is reached faster — including by an unintended second click. A confirm step only works as a safety net if the second click has to be a <em>deliberate</em>, separate action, not the accidental continuation of the first.</div>
+  <p class="location"><code>frontend/src/pages/SettingsTargets.tsx:481-504</code> and <code>frontend/src/pages/ThemesPage.tsx:940-963</code> — <code>confirmingId</code> state swaps the button label in place</p>
+  <h4>Issue</h4>
+  <p>
+    Clicking "Delete" (or "Unfollow") re-renders that exact button, in the exact same row position, as
+    "Confirm delete." A double-click — a completely ordinary motor pattern, and the default way many users
+    dismiss anything unfamiliar that just appeared — lands its second click on "Confirm delete" before the
+    label has even been read, because nothing about the position, timing, or size of the target changed
+    between the two clicks. The confirmation step (added specifically to prevent accidental data loss, per v1
+    F2) is real in the code but not reliably real in practice for exactly the fast, careless interaction it
+    exists to guard against. This is worse in the two screens this review is looking at (Topics, Target
+    Companies) than it was when v1 first added the pattern, because both now sit inside a row of 5-6 buttons
+    (F1), so a slightly-mis-aimed click elsewhere in that row is also more likely to land on Delete in the
+    first place.
+  </p>
+  <div class="direction">
+    <h4>Suggested direction</h4>
+    <p>Break the spatial and temporal identity between the two clicks, using whichever of these fits the
+    row-simplification in F1:</p>
+    <ol>
+      <li><em>If F1's overflow menu ships:</em> the problem mostly resolves itself — closing and reopening a
+      menu, then clicking a differently-positioned confirm item inside it, isn't the same reflexive gesture as
+      a double-click on one spot.</li>
+      <li><em>Independent of F1:</em> disable the "Confirm delete" button for ~400-500ms after it appears
+      (long enough to break a double-click, short enough not to feel laggy — see the Doherty Threshold), or
+      render it in a visually distinct location (e.g. sliding the row into a confirmation state with the
+      button in a new position) rather than as a same-slot label swap.</li>
+      <li>Either way, this is the kind of change worth a quick manual double-click test on the built app before
+      calling it done — the current implementation "looks" fixed reading the JSX in isolation, which is exactly
+      why it's easy to miss without exercising the actual click sequence.</li>
+    </ol>
+  </div>
+</div>
+
+<h2 id="f3">F3. Missing signifiers for persistent on/off state <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <div class="principle-box"><strong>Signifiers</strong> are what make an affordance perceivable — the visual signal that tells you not just that something can be clicked, but what state it's in and what clicking it will do. A button that reads "Mute" and a button that reads "Unmute" are two different signifiers for two different moments, but both look identical to every other button in the row.</div>
+  <p class="location"><code>frontend/src/pages/ThemesPage.tsx:924-934</code> (mute/unmute, digest include/exclude), <code>frontend/src/pages/SettingsTargets.tsx:465-471</code> (mute/unmute), <code>frontend/src/pages/ThemesPage.tsx:935-939</code> and <code>SettingsTargets.tsx:472-480</code> (pause/resume)</p>
+  <h4>Issue</h4>
+  <p>
+    Mute/pause/digest-inclusion are all durable, binary states of a topic or company — closer to a light
+    switch than a doorbell. But they're rendered exactly like one-shot actions ("Edit", "Delete"): a text
+    button whose label happens to change based on state. The digest button goes slightly further by adding
+    <code>className="secondary"</code> when <code>include_in_digest</code> is true (<code>ThemesPage.tsx:929</code>),
+    but that's a subtle style difference easy to miss at a glance, and it isn't applied to the mute or
+    pause/resume buttons at all — so those two convey their current state purely through which word is
+    currently printed on them. A user scanning a list of 10 topics to find which ones are currently muted has
+    to read every button's label individually; a real toggle would let that same scan happen at a glance,
+    which is the entire reason switches look different from buttons in every mainstream design system.
+  </p>
+  <div class="direction">
+    <h4>Suggested direction</h4>
+    <ol>
+      <li>Introduce a small reusable toggle-switch component (no library needed — a styled
+      <code>&lt;button role="switch" aria-checked&gt;</code> with an on/off thumb, following the same
+      hand-rolled-component convention already used throughout this codebase) and use it for mute, pause, and
+      digest-inclusion in place of the current label-swapping buttons.</li>
+      <li>Keep "Edit" and "Delete" as buttons — they're genuinely actions, not states, so they shouldn't
+      change shape; the point is to make the two categories look different from each other, not to convert
+      everything to switches.</li>
+    </ol>
+  </div>
+</div>
+
+<h2 id="f4">F4. Weak mapping: free text for a closed set of values <span class="badge badge-low">Low</span></h2>
+<div class="finding low">
+  <div class="principle-box"><strong>Mapping</strong> is the relationship between a control and its effect. A free-text field maps to "any string the user types," but the actual valid domain here (Google News edition/language codes) is small and fixed — the control offers far more freedom than the data model can use, and a typo fails silently rather than being structurally impossible.</div>
+  <p class="location"><code>frontend/src/pages/ThemesPage.tsx:691-709,850-869</code> and <code>frontend/src/pages/settings/SourcesTab.tsx:216-236</code> — plain <code>&lt;input&gt;</code> for <code>google_news_country</code>/<code>google_news_language</code></p>
+  <h4>Issue</h4>
+  <p>
+    Country and language are entered as free text (uppercased/lowercased on change, but not validated against
+    a real list), with the workspace default shown only as placeholder text. Google News RSS supports a known,
+    finite set of edition codes; a plain text input can't distinguish a valid code from a typo ("DE" vs "ED")
+    until a live query preview or an actual fetch quietly returns nothing. The app already has the query-preview
+    infrastructure (<code>useThemeQueryPreview</code>, <code>ThemeQueryPreviewPanel</code>) to catch this after
+    the fact, but preventing the mistake at the control level — the way <code>SourceAllowlistField</code> and
+    <code>ThemeSourceSelector</code> already do for their own closed sets, via radio/checkbox groups instead of
+    text — would be more in line with how the rest of the form is built.
+  </p>
+  <div class="direction">
+    <h4>Suggested direction</h4>
+    <ol>
+      <li>Replace the free-text country/language inputs with a <code>&lt;select&gt;</code> (or a searchable
+      combobox if the valid list is long) populated from the actual set of codes the backend's Google News
+      integration accepts, with "Inherit workspace default (…)" as the first option in place of the current
+      placeholder-only hint.</li>
+      <li>If the valid set genuinely isn't enumerable server-side today, that's worth fixing at the API layer
+      first — a UI-level allowlist would otherwise drift from what the backend actually accepts.</li>
+    </ol>
+  </div>
+</div>
+
+<h2 id="f5">F5. Miller's Law: dense forms with no progressive disclosure <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <div class="principle-box"><strong>Miller's Law:</strong> working memory holds about seven items, plus or minus two, at once. A form that shows everything it's capable of, all the time, asks the user to hold the whole thing in mind even when nine-tenths of it is "leave this at its default."</div>
+  <p class="location"><code>frontend/src/pages/ThemesPage.tsx:614-733</code> (add-topic form, ~11 distinct fields across 3 sections) and <code>frontend/src/pages/settings/SourcesTab.tsx:215-357</code> (Google News RSS block, ~12 fields once enabled)</p>
+  <h4>Issue</h4>
+  <p>
+    Credit where it's due: the add-topic form already groups its fields under three named
+    <code>.form-section</code> headings ("Criteria", "Sources", "Region") rather than one undifferentiated
+    stack — that's real progressive structure, just not progressive <em>disclosure</em>. Every field in every
+    section is visible and interactive the moment the form opens, including the ones almost nobody needs to
+    touch on a given topic (source denylist, edition/language overrides, source allowlist). Query terms and
+    exclude terms are the two fields that matter for 90% of topics; the other ~7 are there for the remaining
+    10%, but they cost the same visual/cognitive attention either way. The Google News RSS settings block has
+    the same shape at a larger scale: once the source is enabled, country, language, rate limit, allowlist,
+    denylist, a time-operator checkbox, a query-strategy select, a resolve-URLs checkbox, and (conditionally) a
+    fetch-snippets checkbox with two more numeric fields all render at once — a genuinely rare combination for
+    one admin to tune in a single sitting.
+  </p>
+  <div class="direction">
+    <h4>Suggested direction</h4>
+    <p>The app already uses <code>&lt;details&gt;</code>/<code>&lt;summary&gt;</code> for exactly this purpose
+    elsewhere (<code>CompanyTab.tsx</code>'s "show example" and <code>SourcesTab.tsx</code>'s "recent activity"
+    table) — extend that same pattern rather than introducing a new one:</p>
+    <ol>
+      <li>On the add-topic form, keep Name, Query terms, and Exclude terms visible by default; collapse
+      Sources and Region behind a single "Advanced options" <code>&lt;details&gt;</code>, open automatically
+      when editing a topic that already has non-default values set (so nothing an existing topic relies on
+      becomes hidden by surprise).</li>
+      <li>On the Google News RSS block, keep the enable checkbox, country/language, and allowlist/denylist
+      visible (they're the fields most topics/companies actually touch); move the time-operator, query-strategy,
+      resolve-URLs, and snippet-enrichment controls into their own collapsed "Advanced" section.</li>
+    </ol>
+  </div>
+</div>
+
+<h2 id="f6">F6. Critical guidance trapped in hover-only tooltips <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <div class="principle-box"><strong>Visibility of system status</strong> (and, concretely, the native <code>title</code> attribute never fires on touch — there is no hover state to trigger it). Explaining <em>why</em> a disabled control is disabled is only useful if the explanation is reachable on the device the user is actually holding.</div>
+  <p class="location"><code>frontend/src/components/ThemeRunButton.tsx:48</code> (why a per-topic "Run" is blocked), <code>frontend/src/pages/SettingsTargets.tsx:499</code> and <code>frontend/src/pages/ThemesPage.tsx:958</code> (delete/unfollow confirmation copy)</p>
+  <h4>Issue</h4>
+  <p>
+    v1's F1 gave the app a genuine responsive layout with a mobile nav drawer, which is exactly the kind of
+    investment that makes this finding worth flagging: the app now clearly intends to be used on a phone, but
+    a few pieces of explanatory copy still only reach a mouse. <code>ThemeRunButton</code> disables itself for
+    four different reasons (source disabled, topic paused, a run already in progress, still in cooldown) and
+    explains which one via <code>title={blockedReason}</code> — invisible with no cursor to hover. The
+    delete/unfollow row similarly explains its consequences (whether this company/topic has other followers,
+    whether the current user is an admin) only via <code>title</code> on the initial "Delete" button, before
+    the confirm step appears. A touch user sees a button that's disabled or destructive with no accessible
+    explanation for either.
+  </p>
+  <div class="direction">
+    <h4>Suggested direction</h4>
+    <ol>
+      <li>For <code>ThemeRunButton</code>, render <code>blockedReason</code> as visible <code>field-hint</code>
+      text directly under the button when it's disabled, rather than (or in addition to) the <code>title</code>
+      — it's short, and the button is already the kind of isolated control where a line of muted text
+      underneath reads cleanly.</li>
+      <li>For the delete/unfollow confirmation copy, this is already solved once the confirm step is showing
+      (<code>SettingsTargets.tsx:506</code> renders <code>confirmCopy</code> as a visible <code>&lt;p&gt;</code>,
+      correctly) — the gap is only the <em>pre-confirm</em> hint on the initial button. Given F1's proposed
+      overflow menu, the simplest fix is to always show the confirm-step copy immediately rather than gating it
+      behind a first click at all, since the menu already adds one extra deliberate step before Delete is
+      reachable.</li>
+    </ol>
+  </div>
+</div>
+
+<h2 id="f7">F7. Von Restorff Effect: badge overload flattens hierarchy <span class="badge badge-medium">Medium</span></h2>
+<div class="finding medium">
+  <div class="principle-box"><strong>Von Restorff Effect (the Isolation Effect):</strong> in a set of similar items, the one that looks different is the one that gets noticed and remembered. Badges exist to make a piece of state jump out — that only works if not everything around it is also a badge.</div>
+  <p class="location"><code>frontend/src/pages/SignalDetail.tsx:162-186</code> (<code>.signal-detail-badges</code>: favorite, status, score, signal type, confidence, source, limited-detail — up to 7 elements) and <code>frontend/src/components/SignalRow.tsx:33-45</code> (status, score, source, limited-detail, todo-pill — up to 5 per row)</p>
+  <h4>Issue</h4>
+  <p>
+    Every one of these renders as the same shape: a small rounded pill, <code>0.68rem</code>, bold, with a
+    background/foreground pair from a fixed palette (<code>styles.css:505-541</code>). Status, relevance score,
+    signal type, confidence, source, and "limited detail" are not equally important to a salesperson scanning
+    the feed — status (is this new?) and relevance score (is this worth my time?) are the two things that
+    actually drive the triage decision, but visually they carry exactly as much weight as "source: Google
+    News" or "limited detail," which are closer to metadata. With up to 7 pills wrapping across two lines on
+    a signal's detail page, nothing is the one thing your eye lands on first — which is the opposite of what a
+    badge is normally for.
+  </p>
+  <div class="direction">
+    <h4>Suggested direction</h4>
+    <ol>
+      <li>Establish two tiers: keep status and relevance score as solid, colored pills (the current
+      <code>.status-badge</code>/<code>.score-badge</code> treatment they already have); demote signal type,
+      confidence, source, and limited-detail to a plain inline text row (small, muted, no pill background) —
+      still present and scannable, but visually secondary rather than competing for the same attention.</li>
+      <li>This is a CSS-only change (new modifier classes, no new markup) so it's low-risk to try, and it can be
+      done incrementally — start with <code>SignalDetail.tsx</code>, where the problem is most visible, then
+      apply the same tier split to <code>SignalRow.tsx</code> once the split feels right there.</li>
+    </ol>
+  </div>
+</div>
+
+<h2 id="f8">F8. No account-recovery path — a broken conceptual model <span class="badge badge-high">High</span></h2>
+<div class="finding high">
+  <div class="principle-box"><strong>Conceptual model:</strong> good design gives the user a correct mental picture of how to get what they need from the system. A login form with only "sign in" and "sign up" tells a locked-out user, implicitly and incorrectly, that those are their only two options.</div>
+  <p class="location"><code>frontend/src/pages/Login.tsx</code> — entire component; no forgot-password link, route, or fallback copy anywhere in the auth flow</p>
+  <h4>Issue</h4>
+  <p>
+    There is no "Forgot password?" link on the login form, no password-reset route in <code>App.tsx</code>, and
+    no copy anywhere suggesting what to do if a password is lost (e.g. "ask a workspace admin to help you back
+    in"). For a self-hosted B2B tool with invite-code signup and no visible admin contact info in the product
+    itself, a locked-out user's actual options — ask whoever manages the deployment, or lose access entirely —
+    are both invisible from inside the app. This is a real, not hypothetical, dead end: password managers fail,
+    people change laptops, and a 10-character-minimum password (<code>Login.tsx:74</code>) is exactly memorable
+    enough to be forgotten and exactly complex enough not to be guessed back.
+  </p>
+  <div class="direction">
+    <h4>Suggested direction</h4>
+    <p>The right-sized fix depends on what the backend can support, but the UI-facing minimum is to stop the
+    conceptual model gap, not necessarily to ship full self-service reset in this pass:</p>
+    <ol>
+      <li><em>Minimum:</em> add a line of static copy under the password field or the sign-in button — "Forgot
+      your password? Ask a workspace admin to help you back in" — so the app at least tells the truth about
+      what's possible today, the same way it already does for the invite-code field.</li>
+      <li><em>Fuller fix:</em> if the backend can support it, a standard email-based reset flow (request →
+      emailed token → new-password form) is the expected default for this category of product (Jakob's Law:
+      users bring the mental model of every other login form they've used) — this would need backend work
+      beyond this frontend-scoped review, so it's flagged here as the direction rather than specified in detail.</li>
+    </ol>
+  </div>
+</div>
+
+<h2 id="f9">F9. Goal-Gradient Effect: hard caps surface only as failure <span class="badge badge-low">Low</span></h2>
+<div class="finding low">
+  <div class="principle-box"><strong>Goal-Gradient Effect:</strong> motivation and effort increase as a visible goal gets closer. A limit that's only ever seen at the moment it's hit can't do that — worse, it turns a plan-ahead moment into a surprise-and-redo moment.</div>
+  <p class="location"><code>frontend/src/pages/ThemesPage.tsx:305-310,381-386</code> (<code>activeCeilingReached</code> error, shown only after a failed create/activate call) vs. <code>ThemesPage.tsx:736</code> (<code>t("themes:trackedThemes", { count: themes.length })</code> — shows a raw count, not count-vs-limit)</p>
+  <h4>Issue</h4>
+  <p>
+    Workspaces have a configurable ceiling on active topics (<code>max_active_theme_watches</code>, default
+    visible/editable in <code>CompanyTab.tsx:157-169</code>). Nothing on the Topics page itself shows progress
+    toward that ceiling — the heading just says "Tracked topics (7)" the same way whether the cap is 10 or
+    1000. The only way to learn the cap exists is to hit it: create or reactivate one topic too many and get
+    an error toast after the fact. This is a small thing, but it's backwards from how limits usually help
+    rather than frustrate — seeing "7 of 10 active" while you still have three to spare lets you plan (which
+    topic matters least, if you're about to add a new one); finding out only via a failed submit does not.
+  </p>
+  <div class="direction">
+    <h4>Suggested direction</h4>
+    <ol>
+      <li>Change the heading to show both numbers once <code>max_active_theme_watches</code> is known (already
+      loaded workspace-wide via <code>/settings/public</code> as <code>publicSettings</code>, or via
+      <code>/settings</code> for admins) — e.g. "Tracked topics (7 of 10 active)".</li>
+      <li>Optionally style it as a small progress bar once within ~1-2 of the cap, reusing the existing
+      <code>.progress-bar</code>/<code>.progress-bar-fill</code> classes already used for ingestion progress
+      — the same visual language, applied to a different kind of "how close am I" question.</li>
+    </ol>
+  </div>
+</div>
+
+<h2 id="f10">F10. Peak-End Rule: "you're caught up" reads as "you haven't started" <span class="badge badge-low">Low</span></h2>
+<div class="finding low">
+  <div class="principle-box"><strong>Peak-End Rule:</strong> people judge an experience mostly by its most intense moment and how it ends, not its average. Finishing your queue for the day is the natural "end" of the daily triage habit this product is built around — it's worth a different feeling than the empty state a brand-new, empty workspace shows.</div>
+  <p class="location"><code>frontend/src/pages/SignalsFeed.tsx:507-511</code> and <code>frontend/src/i18n/locales/en/signals.json:110</code> — <code>feed.noSignalsYet</code>: <em>"No signals yet. Add target companies and click &quot;Fetch new signals&quot; to get started."</em></p>
+  <h4>Issue</h4>
+  <p>
+    This exact copy renders whenever the (filtered) signal list is empty — which includes both a genuinely
+    new, empty workspace <em>and</em> an established workspace where a user has just filtered to
+    <code>status=new</code> and triaged every last one. In the second case the message is not just flat, it's
+    actively wrong: it tells someone who has already added companies and already fetched signals to go add
+    companies and fetch signals. The daily-triage habit this product is designed around (see the README's own
+    framing: "surfaces the result as actionable sales signals... to triage") means this "queue: zero" moment
+    is one a returning user will hit often — arguably more often than the true first-run empty state v1's F4
+    was built to soften.
+  </p>
+  <div class="direction">
+    <h4>Suggested direction</h4>
+    <ol>
+      <li>Distinguish the two cases already reachable from state on the page: if <code>hasSomethingToFetch</code>
+      is true (companies or topics exist) and at least one ingestion run has ever completed, show a distinct
+      "You're all caught up" message instead of the current one — same <code>EmptyStateIllustration</code>,
+      different copy, maybe a subtly different (celebratory rather than instructional) tone.</li>
+      <li>Reserve the current "add companies, click fetch" copy for the case that's actually true today: zero
+      companies/topics and zero signals ever.</li>
+    </ol>
+  </div>
+</div>
+
+<h2 id="f11">F11. Blank screen during startup, no visibility of system status <span class="badge badge-low">Low</span></h2>
+<div class="finding low">
+  <div class="principle-box"><strong>Visibility of system status</strong> (Nielsen, but also the baseline every other law in this review assumes): the one moment the app has literally nothing on screen is the very first paint, before the user has any evidence the app is working at all.</div>
+  <p class="location"><code>frontend/src/main.tsx:13</code> — <code>&lt;Suspense fallback={null}&gt;</code> around the i18next-suspended app tree</p>
+  <h4>Issue</h4>
+  <p>
+    i18next is configured with <code>react: { useSuspense: true }</code>, and the top-level
+    <code>Suspense</code> boundary's fallback is <code>null</code> — so between the initial HTML paint and the
+    moment translation resources finish initializing, the page is a blank white (or, in dark mode, blank near-black)
+    rectangle with no favicon-adjacent spinner, skeleton, or even the static "NewsAtlas" wordmark. Translation
+    resources are bundled locally (not fetched over the network — see <code>i18n/index.ts</code>'s static
+    imports), so in practice this window is very short, which is exactly why it's rated Low rather than
+    Medium; but it's also exactly the kind of gap that gets worse invisibly as the app grows (more locale
+    files, more namespaces) without anyone noticing, since it never throws an error — it just sits blank a
+    little longer each time.
+  </p>
+  <div class="direction">
+    <h4>Suggested direction</h4>
+    <ol>
+      <li>Replace <code>fallback={null}</code> with a minimal static shell — even just the "NewsAtlas" wordmark
+      or the existing <code>Skeleton</code> component — so first paint always shows <em>something</em>
+      recognizable rather than an empty rectangle indistinguishable from a crashed or slow-loading page.</li>
+    </ol>
+  </div>
+</div>
+
+<h2 id="positives">What's already working well</h2>
+<div class="positive">
+  <span class="principle-tag">Feedback (Norman) + Peak-End Rule, done right</span>
+  The dismiss-with-undo toast (<code>SignalsFeed.tsx:232-237</code>, <code>SignalDetail.tsx:56-61</code>) is
+  a genuinely good micro-interaction: it gives immediate feedback, treats a destructive-feeling action as
+  reversible without a blocking confirm dialog, and gives that specific moment (letting go of a signal) a
+  soft landing rather than an abrupt one. This is the pattern the Peak-End findings above (F10) are asking to
+  see extended elsewhere, not introduced from scratch.
+</div>
+<div class="positive">
+  <span class="principle-tag">Conceptual model, done right</span>
+  The duplicate-topic 409 conflict (<code>ThemesPage.tsx:296-315</code>, mirrored in
+  <code>TopicTemplateGallery.tsx</code>) is a textbook example of what Norman means by giving people a way to
+  recover from an error rather than just reporting one: instead of a bare "a topic with this name already
+  exists," it shows the existing topic's terms and offers exactly two clear paths forward (follow the existing
+  one, or pick a different name) — no dead end, no guessing.
+</div>
+<div class="positive">
+  <span class="principle-tag">Constraints (Norman), done right</span>
+  <code>SourceAllowlistField</code>'s inherit/all/custom radio group models a genuinely three-state field
+  (not a boolean-plus-optional-text-field, which is what most apps would have shipped) as three mutually
+  exclusive, always-visible, correctly-labeled options — the UI's structure matches the data model's structure
+  exactly, which is the whole point of good mapping and good constraints working together.
+</div>
+<div class="positive">
+  <span class="principle-tag">Jakob's Law</span>
+  The checkbox-per-row + "select all" + contextual bulk-action bar pattern is now consistently reused across
+  the Signals feed, the Target Companies table, and the Topics list — a shape borrowed from Gmail-style
+  triage tools that this product's target user (a salesperson checking a queue) almost certainly already
+  knows how to operate on sight.
+</div>
+<div class="positive">
+  <span class="principle-tag">Aesthetic-Usability Effect</span>
+  The card/badge/icon/motion system introduced in v1's F7 has been extended consistently as the app has grown
+  — new surfaces (dashboard stat tiles, the topic template gallery, the source-precision panel) all read as
+  the same product rather than bolted-on additions, and both the light and dark palettes were verified against
+  WCAG AA contrast (v1, F8) rather than eyeballed.
+</div>
+<div class="positive">
+  <span class="principle-tag">Internationalization parity</span>
+  Every key in every English locale file has a corresponding German key and vice versa (checked file-by-file
+  across all 8 namespaces) — there is no partially-translated screen anywhere in the app, which is a real
+  discipline to maintain as a product keeps shipping new copy.
+</div>
+
+<h2 id="roadmap">Prioritized roadmap</h2>
+<table>
+  <tr><th>Priority</th><th>Item</th><th>Why first</th><th>Relative effort</th></tr>
+  <tr><td>1</td><td>F8 — add at least a "contact an admin" line to the login flow</td><td>Real lockout risk today; the minimum fix is a few lines of copy</td><td>Small</td></tr>
+  <tr><td>2</td><td>F2 — break the double-click-defeats-confirm pattern</td><td>Undermines a safety feature the product already believes it has</td><td>Small</td></tr>
+  <tr><td>3</td><td>F1 — overflow menu for row actions on Topics and Target Companies</td><td>Also fixes F2's spatial-repetition problem as a side effect; biggest single lever on the busiest screens</td><td>Medium</td></tr>
+  <tr><td>4</td><td>F6 — surface disabled/confirm reasons outside <code>title</code></td><td>Closes a real gap in the mobile support v1 already invested in</td><td>Small</td></tr>
+  <tr><td>5</td><td>F7 — badge hierarchy (primary vs. secondary tier)</td><td>CSS-only, low risk, immediately legible improvement to the most-viewed screens</td><td>Small</td></tr>
+  <tr><td>6</td><td>F3 — real toggle/switch component for mute/pause/digest</td><td>Pairs naturally with F1's menu rework</td><td>Small–Medium</td></tr>
+  <tr><td>7</td><td>F5 — collapse advanced fields on the add-topic form and Google News RSS block</td><td>Reduces first-impression complexity on two of the densest forms</td><td>Medium</td></tr>
+  <tr><td>8</td><td>F10 — distinguish "caught up" from "never started" empty states</td><td>Cheap, and the moment it targets recurs daily for an active user</td><td>Small</td></tr>
+  <tr><td>9</td><td>F9 — show active-topic count vs. cap</td><td>Small, self-contained, prevents a specific class of failed-submit surprise</td><td>Small</td></tr>
+  <tr><td>10</td><td>F4 — constrain country/language fields to valid codes</td><td>Depends on the backend's accepted-values list being enumerable; otherwise backend work first</td><td>Small–Medium</td></tr>
+  <tr><td>11</td><td>F11 — non-blank startup fallback</td><td>Currently a very short window in practice; cheap insurance against it growing</td><td>Small</td></tr>
+</table>
+
+<footer>
+  <p>
+    Prepared as a source-only design review — no dynamic/browser testing was performed, so a few items above
+    (particularly F2's double-click claim and F11's actual perceptible duration) are worth a quick manual
+    check against the running app before or while fixing them. No implementation was done in this pass; see
+    <a href="ui-ux-review.html">v1</a> for the prior round's findings, all of which were implemented and
+    verified.
+  </p>
+  <p id="sources">Definitions of the named laws and principles were cross-checked against their primary sources rather than recalled from memory:</p>
+  <ul>
+    <li>Jon Yablonski, <a href="https://lawsofux.com/" target="_blank" rel="noreferrer">Laws of UX</a> — Hick's Law, Fitts's Law, Miller's Law, Von Restorff Effect, Goal-Gradient Effect, Jakob's Law, Peak-End Rule, Aesthetic-Usability Effect, Doherty Threshold, Postel's Law</li>
+    <li>Don Norman, <em>The Design of Everyday Things</em> (Revised &amp; Expanded Edition) — affordances, signifiers, constraints, mapping, feedback, conceptual models; see <a href="https://jnd.org/books/the-design-of-everyday-things-revised-and-expanded-edition/" target="_blank" rel="noreferrer">jnd.org</a></li>
+  </ul>
+</footer>
+
+</body>
+</html>
