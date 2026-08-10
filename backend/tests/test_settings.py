@@ -6,7 +6,6 @@ def _full_update_payload(**overrides):
         "company_name": "ProAir",
         "offering_description": "HVAC equipment and maintenance services.",
         "digest_send_time": "08:30",
-        "ingestion_interval_hours": 4,
         "max_articles_per_company_per_run": 10,
         "main_language": "en",
         "mistral_model": "mistral-large-latest",
@@ -39,7 +38,6 @@ def test_get_settings_creates_default_row(client):
     assert resp.status_code == 200
     body = resp.json()
     assert body["company_name"] == ""
-    assert body["ingestion_interval_hours"] == 6
     assert body["main_language"] == "en"
     assert body["mistral_model"] == "mistral-large-latest"
     assert body["mistral_triage_enabled"] is True
@@ -53,7 +51,6 @@ def test_update_settings(client):
     body = resp.json()
     assert body["company_name"] == "ProAir"
     assert body["digest_send_time"] == "08:30"
-    assert body["ingestion_interval_hours"] == 4
 
 
 def test_update_settings_changes_main_language(client):

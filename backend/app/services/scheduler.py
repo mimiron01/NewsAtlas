@@ -1,13 +1,17 @@
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.interval import IntervalTrigger
 
 from app.db.session import SessionLocal
 from app.models.ingestion_run import TRIGGER_SCHEDULED
 from app.services.digest import send_daily_digest
 from app.services.ingestion_runs import create_run, execute_ingestion_run, get_running_run
 
-INGESTION_JOB_ID = "news_ingestion"
+# Full signal runs (companies + topics) on a fixed cadence: every 4 hours Monday
+# through Friday, and once in the evening on Saturday/Sunday when there's far less
+# news volume to justify the weekday frequency. Two jobs rather than one cron
+# expression because the weekday and weekend cadences don't share a single pattern.
+INGESTION_JOB_ID_WEEKDAY = "news_ingestion_weekday"
+INGESTION_JOB_ID_WEEKEND = "news_ingestion_weekend"
 DIGEST_JOB_ID = "daily_digest"
 
 _scheduler: BackgroundScheduler | None = None
@@ -40,27 +44,35 @@ def _parse_time(value: str) -> tuple[int, int]:
     return int(hour_str), int(minute_str)
 
 
-def start(interval_hours: int, send_time: str) -> None:
+def start(send_time: str) -> None:
     """Start a fresh scheduler instance. Safe to call after shutdown()."""
     global _scheduler
     _scheduler = BackgroundScheduler()
     _scheduler.add_job(
-        _run_ingestion_job, IntervalTrigger(hours=interval_hours), id=INGESTION_JOB_ID
+        _run_ingestion_job,
+        CronTrigger(day_of_week="mon-fri", hour="0,4,8,12,16,20", minute=0, timezone="UTC"),
+        id=INGESTION_JOB_ID_WEEKDAY,
+    )
+    _scheduler.add_job(
+        _run_ingestion_job,
+        CronTrigger(day_of_week="sat,sun", hour=20, minute=0, timezone="UTC"),
+        id=INGESTION_JOB_ID_WEEKEND,
     )
     hour, minute = _parse_time(send_time)
     _scheduler.add_job(
-        _run_digest_job, CronTrigger(hour=hour, minute=minute), id=DIGEST_JOB_ID
+        _run_digest_job, CronTrigger(hour=hour, minute=minute, timezone="UTC"), id=DIGEST_JOB_ID
     )
     _scheduler.start()
 
 
-def reschedule(interval_hours: int, send_time: str) -> None:
-    """Apply new interval/send-time to the running scheduler, if any. No-op otherwise."""
+def reschedule(send_time: str) -> None:
+    """Apply a new digest send-time to the running scheduler, if any. No-op otherwise.
+    The ingestion cadence is fixed, not configurable, so there's nothing to reschedule
+    for those jobs."""
     if _scheduler is None or not _scheduler.running:
         return
-    _scheduler.reschedule_job(INGESTION_JOB_ID, trigger=IntervalTrigger(hours=interval_hours))
     hour, minute = _parse_time(send_time)
-    _scheduler.reschedule_job(DIGEST_JOB_ID, trigger=CronTrigger(hour=hour, minute=minute))
+    _scheduler.reschedule_job(DIGEST_JOB_ID, trigger=CronTrigger(hour=hour, minute=minute, timezone="UTC"))
 
 
 def shutdown() -> None:

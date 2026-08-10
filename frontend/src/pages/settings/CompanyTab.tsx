@@ -105,18 +105,6 @@ export default function CompanyTab() {
 
         <div className="field-row">
           <label>
-            {t("company.ingestionInterval")}
-            <input
-              type="number"
-              min={1}
-              max={48}
-              value={settings.ingestion_interval_hours}
-              onChange={(e) =>
-                setSettings({ ...settings, ingestion_interval_hours: Number(e.target.value) })
-              }
-            />
-          </label>
-          <label>
             {t("company.digestSendTime")}
             <input
               type="time"

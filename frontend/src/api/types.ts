@@ -35,7 +35,6 @@ export interface WorkspaceSettings {
   company_name: string;
   offering_description: string;
   digest_send_time: string;
-  ingestion_interval_hours: number;
   max_articles_per_company_per_run: number;
   main_language: SupportedLanguage;
   mistral_model: string;
@@ -84,7 +83,6 @@ export interface WorkspaceSettingsUpdatePayload {
   company_name: string;
   offering_description: string;
   digest_send_time: string;
-  ingestion_interval_hours: number;
   max_articles_per_company_per_run: number;
   main_language: SupportedLanguage;
   mistral_model: string;

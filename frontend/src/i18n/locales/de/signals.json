@@ -113,6 +113,10 @@
     "selectedCount_one": "{{count}} ausgewählt",
     "selectedCount_other": "{{count}} ausgewählt",
     "ingestion": {
+      "lastRunAt": "Letzter Lauf: {{time}}",
+      "noIssues": "keine Probleme",
+      "issuesCount_one": "{{count}} Problem",
+      "issuesCount_other": "{{count}} Probleme",
       "failedWithReason": "Abruf fehlgeschlagen: {{reason}}",
       "failed": "Abruf fehlgeschlagen.",
       "finishingUp": "Wird abgeschlossen...",
