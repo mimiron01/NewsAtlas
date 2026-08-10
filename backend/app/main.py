@@ -44,11 +44,6 @@ async def lifespan(_app: FastAPI):
         db = SessionLocal()
         try:
             workspace_settings = db.query(WorkspaceSettings).first()
-            interval_hours = (
-                workspace_settings.ingestion_interval_hours
-                if workspace_settings
-                else app_settings.ingestion_interval_hours
-            )
             send_time = (
                 workspace_settings.digest_send_time
                 if workspace_settings
@@ -56,7 +51,7 @@ async def lifespan(_app: FastAPI):
             )
         finally:
             db.close()
-        scheduler.start(interval_hours, send_time)
+        scheduler.start(send_time)
     yield
     if app_settings.enable_scheduler:
         scheduler.shutdown()

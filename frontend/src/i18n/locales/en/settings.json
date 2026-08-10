@@ -32,7 +32,6 @@
     },
     "mainLanguage": "Main language",
     "mainLanguageHint": "The standard language for the interface and AI-generated signal summaries. Users can still override it for themselves in their own profile.",
-    "ingestionInterval": "Ingestion interval (hours)",
     "digestSendTime": "Daily digest send time",
     "maxArticlesPerCompany": "Max articles per company per fetch (0 = no limit)",
     "maxArticlesPerCompanyHint": "Caps each company to its newest N articles per fetch run before they're summarized — protects against a single busy company (or a broad keyword list) using up the whole run's AI budget.",

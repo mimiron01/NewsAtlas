@@ -67,7 +67,6 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from_address: str = "signals@example.com"
 
-    ingestion_interval_hours: int = 6
     digest_send_time: str = "07:00"
     manual_trigger_cooldown_seconds: int = 60
 

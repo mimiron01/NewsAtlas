@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
-import { ARTICLE_SOURCE_LABELS } from "../api/types";
 import type {
   IngestionRunStatus,
   Signal,
@@ -15,15 +14,16 @@ import type {
 import Skeleton from "../components/Skeleton";
 import SetupChecklist from "../components/SetupChecklist";
 import SignalRow from "../components/SignalRow";
+import IngestionStatusPanel from "../components/IngestionStatusPanel";
 import EmptyStateIllustration from "../components/icons/EmptyStateIllustration";
 import { STATUS_TRANSITION_VALUES } from "../constants/signalStatus";
 import { useToast } from "../context/ToastContext";
+import { useIngestionStatus } from "../hooks/useIngestionStatus";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { usePageTitle } from "../hooks/usePageTitle";
 
 type SortOrder = "newest" | "oldest" | "relevance";
 
-const POLL_INTERVAL_MS = 1500;
 const SIGNAL_STATUSES: SignalStatus[] = ["new", "reviewed", "archived", "dismissed"];
 
 export default function SignalsFeed() {
@@ -46,85 +46,6 @@ export default function SignalsFeed() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [ingestionStatus, setIngestionStatus] = useState<IngestionRunStatus | null>(null);
-  // Tracks whether *this page load* actually watched a run go through "running" — so a
-  // long-finished run from before the page was opened doesn't make it look like a fetch
-  // just happened the moment you land here.
-  const sawRunningRef = useRef(false);
-  const isRunningIngestion = ingestionStatus?.status === "running";
-  // A high fraction of triaged-out articles isn't necessarily a bug, but an admin should
-  // be able to notice and investigate rather than only ever seeing an aggregate count —
-  // computed from the non-duplicate new articles (the ones that actually reached the
-  // triage gate), not the raw fetch count, so a run dominated by duplicates doesn't also
-  // read as a relevance problem.
-  const nonDuplicateNewCount = ingestionStatus
-    ? ingestionStatus.articles_new - ingestionStatus.duplicates_skipped
-    : 0;
-  const triageSkipRate =
-    ingestionStatus && nonDuplicateNewCount > 0 ? ingestionStatus.triaged_out / nonDuplicateNewCount : 0;
-  const showHighSkipRateWarning =
-    isAdmin &&
-    ingestionStatus?.status === "completed" &&
-    nonDuplicateNewCount >= 3 &&
-    triageSkipRate >= 0.7;
-
-  function ingestionStatusText(status: IngestionRunStatus): string {
-    if (status.status === "failed") {
-      return status.fatal_error
-        ? t("feed.ingestion.failedWithReason", { reason: status.fatal_error })
-        : t("feed.ingestion.failed");
-    }
-    if (status.status === "completed") {
-      return t("feed.ingestion.finishingUp");
-    }
-    if (status.status === "cancelled") {
-      return t("feed.ingestion.cancelledProgress", {
-        processed: status.companies_processed,
-        total: status.companies_total,
-      });
-    }
-    if (status.cancel_requested) {
-      return t("feed.ingestion.stopping");
-    }
-    const companyPosition = Math.min(status.companies_processed + 1, Math.max(status.companies_total, 1));
-    const companyProgress =
-      status.companies_total > 0
-        ? t("feed.ingestion.companyProgress", { position: companyPosition, total: status.companies_total })
-        : "";
-    if (status.current_step === "summarizing" && status.articles_total_this_company > 0) {
-      const articlePosition = Math.min(
-        status.articles_processed_this_company + 1,
-        status.articles_total_this_company
-      );
-      return t("feed.ingestion.summarizing", {
-        company: status.current_company_name ?? t("feed.ingestion.defaultCompanyName"),
-        article: articlePosition,
-        total: status.articles_total_this_company,
-        companyProgress,
-      });
-    }
-    if (status.current_step === "waiting") {
-      return t("feed.ingestion.waitingForRateLimit", {
-        company: status.current_theme_name ?? status.current_company_name ?? t("feed.ingestion.defaultCompanyName"),
-        companyProgress,
-      });
-    }
-    // The theme phase runs after every company, and clears current_company_name when it
-    // starts — without this branch the UI kept naming the last company processed while it
-    // was really working through topics.
-    if (status.current_theme_name) {
-      return t("feed.ingestion.fetchingTheme", {
-        theme: status.current_theme_name,
-        position: Math.min(status.themes_processed + 1, Math.max(status.themes_total, 1)),
-        total: Math.max(status.themes_total, 1),
-      });
-    }
-    if (status.current_company_name) {
-      return t("feed.ingestion.fetching", { company: status.current_company_name, companyProgress });
-    }
-    return t("feed.ingestion.starting");
-  }
-
   function loadSignals() {
     setIsLoading(true);
     const params = new URLSearchParams();
@@ -154,35 +75,11 @@ export default function SignalsFeed() {
 
   useEffect(loadSignals, [companyFilter, statusFilter, favoritedOnly]);
 
-  async function pollIngestionStatus() {
-    try {
-      const result = await api.get<IngestionRunStatus | null>("/ingestion/status");
-      if (result?.status === "running") {
-        sawRunningRef.current = true;
-      }
-      setIngestionStatus(result);
-      if (sawRunningRef.current && result && result.status !== "running") {
-        loadSignals();
-      }
-    } catch {
-      // Transient poll failure — the next tick (or the next page load) will pick it back up.
-    }
-  }
-
   // Resumes tracking a run already in flight (e.g. the page was reloaded mid-fetch, or a
   // scheduled run happens to be running) instead of only ever reacting to this browser's
-  // own button click.
-  useEffect(() => {
-    pollIngestionStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!isRunningIngestion) return;
-    const interval = window.setInterval(pollIngestionStatus, POLL_INTERVAL_MS);
-    return () => window.clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRunningIngestion]);
+  // own button click, and refreshes the signal list once a run this page watched settles.
+  const { ingestionStatus, setIngestionStatus, isRunning: isRunningIngestion } =
+    useIngestionStatus(loadSignals);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -207,7 +104,6 @@ export default function SignalsFeed() {
   async function handleRunIngestion() {
     try {
       const result = await api.post<IngestionRunStatus>("/ingestion/run-now");
-      sawRunningRef.current = true;
       setIngestionStatus(result);
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : t("feed.ingestionStartFailed"), "error");
@@ -332,114 +228,7 @@ export default function SignalsFeed() {
         />
       )}
 
-      {isRunningIngestion && ingestionStatus && (
-        <div className="panel-card">
-          <div className="progress-bar">
-            <div className="progress-bar-fill" style={{ width: `${ingestionStatus.progress_percent}%` }} />
-          </div>
-          <div className="ingestion-progress-row">
-            <p className="field-hint">{ingestionStatusText(ingestionStatus)}</p>
-            {isAdmin && (
-              <button
-                type="button"
-                className="danger"
-                onClick={handleCancelIngestion}
-                disabled={ingestionStatus.cancel_requested}
-              >
-                {ingestionStatus.cancel_requested ? t("feed.ingestion.stopping") : t("feed.ingestion.stop")}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {sawRunningRef.current && ingestionStatus && ingestionStatus.status === "failed" && (
-        <div className="panel-card">
-          <p className="error-text">{ingestionStatusText(ingestionStatus)}</p>
-        </div>
-      )}
-
-      {sawRunningRef.current && ingestionStatus && ingestionStatus.status === "cancelled" && (
-        <div className="panel-card">
-          <p className="subtitle">
-            {t("feed.ingestion.cancelledProgress", {
-              processed: ingestionStatus.companies_processed,
-              total: ingestionStatus.companies_total,
-            })}
-            {t("feed.ingestion.articlesFound", { count: ingestionStatus.articles_new })}
-            {t("feed.ingestion.signalsCreatedText", { count: ingestionStatus.signals_created })}.
-          </p>
-        </div>
-      )}
-
-      {sawRunningRef.current && ingestionStatus && ingestionStatus.status === "completed" && (
-        <div className="panel-card">
-          <p className="subtitle">
-            {t("feed.ingestion.companiesChecked", { count: ingestionStatus.companies_total })}
-            {/* Only mentioned once topics are actually part of the run, so a company-only
-                workspace's summary reads exactly as it did before. */}
-            {ingestionStatus.themes_total > 0 &&
-              t("feed.ingestion.themesChecked", { count: ingestionStatus.themes_total })}
-            {t("feed.ingestion.articlesFound", { count: ingestionStatus.articles_new })}
-            {t("feed.ingestion.signalsCreatedText", { count: ingestionStatus.signals_created })}
-            {ingestionStatus.themes_total > 0 &&
-              t("feed.ingestion.themeMatchesCreatedText", {
-                count: ingestionStatus.theme_matches_created,
-              })}
-            {(ingestionStatus.duplicates_skipped > 0 || ingestionStatus.triaged_out > 0) && (
-              <>
-                {" "}
-                {t("feed.ingestion.skippedSuffix", {
-                  duplicates: t("feed.ingestion.duplicatesSkipped", {
-                    count: ingestionStatus.duplicates_skipped,
-                  }),
-                  lowRelevance: t("feed.ingestion.lowRelevanceSkipped", {
-                    count: ingestionStatus.triaged_out,
-                  }),
-                })}
-              </>
-            )}
-            .
-          </p>
-          {showHighSkipRateWarning && (
-            <p className="field-hint error-text">
-              {t("feed.ingestion.highSkipRateWarning", { percent: Math.round(triageSkipRate * 100) })}{" "}
-              <Link to="/skipped">{t("feed.ingestion.reviewSkippedArticles")}</Link>
-            </p>
-          )}
-          {Object.keys(ingestionStatus.by_source).length > 0 && (
-            <p className="field-hint">
-              {t("feed.bySource")}{" "}
-              {Object.entries(ingestionStatus.by_source)
-                .map(([source, count]) => `${ARTICLE_SOURCE_LABELS[source as keyof typeof ARTICLE_SOURCE_LABELS] ?? source}: ${count}`)
-                .join(", ")}
-            </p>
-          )}
-          {Object.keys(ingestionStatus.rate_limited).length > 0 && (
-            <p className="field-hint error-text">
-              {t("feed.rateLimited")}{" "}
-              {Object.entries(ingestionStatus.rate_limited)
-                .map(
-                  ([source, count]) =>
-                    `${ARTICLE_SOURCE_LABELS[source as keyof typeof ARTICLE_SOURCE_LABELS] ?? source}: ${t(
-                      "feed.ingestion.companiesRateLimited",
-                      { count }
-                    )}`
-                )
-                .join(", ")}
-            </p>
-          )}
-          {ingestionStatus.errors.length > 0 && (
-            <ul className="error-list">
-              {ingestionStatus.errors.map((message) => (
-                <li key={message} className="error-text">
-                  {message}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      )}
+      <IngestionStatusPanel status={ingestionStatus} isAdmin={isAdmin} onCancel={handleCancelIngestion} />
 
       <div className="panel-card">
         <div className="field-row">

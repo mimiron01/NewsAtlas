@@ -40,7 +40,12 @@ from app.services.workspace_settings import (
     resolve_newsdata_api_key,
 )
 
-MIN_LOOKBACK_HOURS = 24
+# Scheduled runs fire every 4 hours Mon-Fri and once at 20:00 UTC on Sat/Sun (see
+# services/scheduler.py) — the widest gap between two consecutive runs is 24h
+# (Fri 20:00 -> Sat 20:00, or Sat 20:00 -> Sun 20:00 UTC). Lookback stays fixed rather
+# than tracking the schedule so it also covers a manual run after a missed/delayed
+# scheduled tick, with a margin above that 24h worst case.
+LOOKBACK_HOURS = 30
 RECENT_SIGNALS_FOR_CONTEXT = 2
 RECENT_ARTICLES_FOR_DEDUPE = 50
 SUMMARY_CONTEXT_TRUNCATE = 160
@@ -171,8 +176,7 @@ def run_ingestion(
             )
         )
 
-    lookback_hours = max(workspace_settings.ingestion_interval_hours * 2, MIN_LOOKBACK_HOURS)
-    since = datetime.now(timezone.utc) - timedelta(hours=lookback_hours)
+    since = datetime.now(timezone.utc) - timedelta(hours=LOOKBACK_HOURS)
 
     # One budget for the whole run, shared by companies and themes: the ceiling exists to
     # bound how long an ingestion run can spend waiting on other people's web servers, and

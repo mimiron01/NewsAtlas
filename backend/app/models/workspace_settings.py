@@ -15,7 +15,6 @@ class WorkspaceSettings(Base, UUIDPrimaryKeyMixin):
     company_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     offering_description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     digest_send_time: Mapped[str] = mapped_column(String(5), nullable=False, default="07:00")
-    ingestion_interval_hours: Mapped[int] = mapped_column(Integer, nullable=False, default=6)
     # Caps how many of a company's newest-fetched (by published_at), genuinely-new
     # articles get embedded/triaged/summarized per ingestion run — bounds AI spend from
     # a single busy company or an overly broad keyword list. 0 disables the cap

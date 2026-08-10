@@ -113,6 +113,10 @@
     "selectedCount_one": "{{count}} selected",
     "selectedCount_other": "{{count}} selected",
     "ingestion": {
+      "lastRunAt": "Last run: {{time}}",
+      "noIssues": "no issues",
+      "issuesCount_one": "{{count}} issue",
+      "issuesCount_other": "{{count}} issues",
       "failedWithReason": "Ingestion run failed: {{reason}}",
       "failed": "Ingestion run failed.",
       "finishingUp": "Finishing up...",
