@@ -177,6 +177,11 @@ export default function TopicTemplateGallery({ onApplied, onBack }: TopicTemplat
                     </p>
                   )}
                   <div className="keywords">{suggestion.query_terms.join(", ")}</div>
+                  {suggestion.exclude_terms.length > 0 && (
+                    <p className="field-hint">
+                      {t("templates.excludes", { terms: suggestion.exclude_terms.join(", ") })}
+                    </p>
+                  )}
                   {duplicate?.key === key && (
                     <div className="panel-card warning-banner">
                       <p className="subtitle">
@@ -227,6 +232,11 @@ export default function TopicTemplateGallery({ onApplied, onBack }: TopicTemplat
                       <strong>{tpl.name}</strong>
                       <p className="subtitle">{tpl.description}</p>
                       <div className="keywords">{tpl.query_terms.join(", ")}</div>
+                      {tpl.exclude_terms.length > 0 && (
+                        <p className="field-hint">
+                          {t("templates.excludes", { terms: tpl.exclude_terms.join(", ") })}
+                        </p>
+                      )}
                       {duplicate?.key === key && (
                         <div className="panel-card warning-banner">
                           <p className="subtitle">

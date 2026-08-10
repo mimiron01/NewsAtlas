@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.services.news_query import (
     MAX_QUERY_WORDS,
+    article_excluded_by_theme_terms,
     article_matches_theme_terms,
     article_mentions_company,
     build_google_news_query,
@@ -279,6 +280,44 @@ def test_article_matches_theme_terms_requires_every_token_of_a_term():
         description=None,
         full_content=None,
         query_terms=["EV battery"],
+    )
+
+
+def test_article_excluded_by_theme_terms_catches_provider_missed_exclusion():
+    """The provider is asked to exclude via `-term`, but that's a request it can honor
+    loosely — this is the client-side backstop that catches what leaks through."""
+    assert article_excluded_by_theme_terms(
+        title="EV maker trades at a rich EV/EBITDA multiple",
+        description=None,
+        full_content=None,
+        exclude_terms=["EV/EBITDA"],
+    )
+
+
+def test_article_excluded_by_theme_terms_survives_inflection():
+    assert article_excluded_by_theme_terms(
+        title="Insurers warn of rising car insurance premiums",
+        description=None,
+        full_content=None,
+        exclude_terms=["car insurance"],
+    )
+
+
+def test_article_excluded_by_theme_terms_false_when_no_exclude_term_present():
+    assert not article_excluded_by_theme_terms(
+        title="Acme Corp raises $10M for EV batteries",
+        description=None,
+        full_content=None,
+        exclude_terms=["car insurance", "EV/EBITDA"],
+    )
+
+
+def test_article_excluded_by_theme_terms_requires_every_token_of_a_term():
+    assert not article_excluded_by_theme_terms(
+        title="Enterprise software adoption grows",
+        description=None,
+        full_content=None,
+        exclude_terms=["enterprise value"],
     )
 
 

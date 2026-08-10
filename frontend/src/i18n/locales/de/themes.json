@@ -132,6 +132,7 @@
     "suggestedEmpty": "Fügen Sie in den Einstellungen eine Beschreibung Ihres Unternehmensprofils hinzu, um personalisierte Vorschläge zu erhalten.",
     "suggestedFailed": "Vorschläge konnten nicht geladen werden",
     "basedOn": "Basierend auf: {{name}}",
+    "excludes": "Ausgeschlossen: {{terms}}",
     "applyFailed": "Vorlage konnte nicht angewendet werden",
     "emptyGalleryHint": "oder unten ein eigenes Thema erstellen",
     "loadFailed": "Themenvorlagen konnten nicht geladen werden"

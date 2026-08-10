@@ -127,8 +127,15 @@ class FakeThemeAIClient:
         )
 
 
-def _make_theme(db_session, name="Automotive", query_terms=None, is_active=True) -> ThemeWatch:
-    theme = ThemeWatch(name=name, query_terms=query_terms or ["EV battery"], is_active=is_active)
+def _make_theme(
+    db_session, name="Automotive", query_terms=None, exclude_terms=None, is_active=True
+) -> ThemeWatch:
+    theme = ThemeWatch(
+        name=name,
+        query_terms=query_terms or ["EV battery"],
+        exclude_terms=exclude_terms or [],
+        is_active=is_active,
+    )
     db_session.add(theme)
     db_session.commit()
     db_session.refresh(theme)
@@ -168,6 +175,44 @@ def test_theme_ingestion_keeps_company_less_matches(db_session):
     assert result.theme_matches_created == 1
     match = db_session.query(ThemeMatch).one()
     assert match.extracted_company_name is None
+
+
+def test_theme_ingestion_drops_article_containing_an_excluded_term(db_session):
+    """exclude_terms are sent to the provider as `-term`, but the fake client here
+    ignores query content entirely, so this article slips past the provider unfiltered —
+    exactly the scenario the client-side backstop exists for."""
+    _make_theme(db_session, name="Automotive", exclude_terms=["EV/EBITDA"])
+    _enable_sources(db_session, google_news_rss_enabled=True)
+    google = FakeGoogleClient(
+        articles=[
+            _article(
+                "EV maker trades at a rich EV/EBITDA multiple",
+                "https://example.com/ev-valuation",
+            )
+        ]
+    )
+    ai = FakeThemeAIClient()
+
+    result = run_ingestion(db_session, ai_client=ai, google_news_client=google)
+
+    assert result.theme_matches_created == 0
+    assert db_session.query(ThemeMatch).count() == 0
+    assert ai.triage_calls == []  # dropped before it ever reaches (paid) triage
+
+
+def test_theme_ingestion_keeps_article_when_excluded_term_is_absent(db_session):
+    _make_theme(db_session, name="Automotive", exclude_terms=["EV/EBITDA"])
+    _enable_sources(db_session, google_news_rss_enabled=True)
+    google = FakeGoogleClient(
+        articles=[_article("Acme Corp raises $10M for EV batteries", "https://example.com/acme-ev")]
+    )
+    ai = FakeThemeAIClient(
+        extracted_company_by_title={"Acme Corp raises $10M for EV batteries": "Acme Corp"}
+    )
+
+    result = run_ingestion(db_session, ai_client=ai, google_news_client=google)
+
+    assert result.theme_matches_created == 1
 
 
 def test_theme_ingestion_auto_links_existing_target_company(db_session):
