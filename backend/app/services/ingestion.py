@@ -21,6 +21,7 @@ from app.services.feedback import refresh_feedback_note, refresh_theme_feedback_
 from app.services.google_news_rss_client import GoogleNewsRSSClient
 from app.services.news_client import FetchOutcome, NewsClient, NewsClientError
 from app.services.news_query import (
+    article_excluded_by_theme_terms,
     article_matches_theme_terms,
     article_mentions_company,
     build_google_news_query,
@@ -927,17 +928,29 @@ def _ingest_theme_watch(
     # identity to check, but its query terms are its relevance signal, so an article
     # containing none of them was matched by provider fuzz — rejecting it here costs
     # nothing, where letting it reach triage costs a token spend per article (§11.4).
+    # exclude_terms are already sent to the provider as a `-term` operator (see
+    # _fetch_theme_from_source), but that's a request the provider can honor loosely —
+    # same fuzziness that motivates the query_terms grounding check above. Re-check
+    # locally so an excluded term actually present in the article text can never slip
+    # through as a match just because the provider's own exclusion missed it.
     grounded_items = []
     for source, item in fetched_items:
-        if article_matches_theme_terms(
+        if not article_matches_theme_terms(
             title=item.title,
             description=item.description,
             full_content=getattr(item, "full_content", None),
             query_terms=theme_watch.query_terms,
         ):
-            grounded_items.append((source, item))
-        else:
             _drop(source, "not_grounded")
+        elif theme_watch.exclude_terms and article_excluded_by_theme_terms(
+            title=item.title,
+            description=item.description,
+            full_content=getattr(item, "full_content", None),
+            exclude_terms=theme_watch.exclude_terms,
+        ):
+            _drop(source, "excluded_term_match")
+        else:
+            grounded_items.append((source, item))
 
     if not grounded_items:
         _flush_usage_logs(db, pending_logs, theme_watch_id=theme_watch.id, stage_drops=stage_drops)

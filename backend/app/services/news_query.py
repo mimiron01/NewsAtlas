@@ -297,6 +297,30 @@ def article_matches_theme_terms(
     return False
 
 
+def article_excluded_by_theme_terms(
+    *, title: str, description: str | None, full_content: str | None, exclude_terms: list[str]
+) -> bool:
+    """True if the article's text contains one of the theme's exclude_terms.
+
+    exclude_terms are sent to the provider as a `-term` query operator, but that's a
+    request, not a guarantee: provider relevance/exclusion handling is the same
+    "frequently loose/fuzzy" matching that motivates article_matches_theme_terms above, so
+    an excluded term can still come back in the results. This is the client-side backstop
+    — same per-token, stem-prefix matching as the positive-match check, so "layoffs" still
+    excludes "layoff" and German compounds/cases still collapse the same way, but nothing
+    that actually contains an excluded term is ever stored as a match.
+    """
+    haystack_stems = {
+        _stem(token)
+        for token in _WORD_RE.findall(" ".join(filter(None, [title, description, full_content])).lower())
+    }
+    for term in exclude_terms:
+        term_tokens = _WORD_RE.findall(term.lower())
+        if term_tokens and all(_stem(token) in haystack_stems for token in term_tokens):
+            return True
+    return False
+
+
 def identity_terms(target_company) -> list[str]:
     """A company's name plus its aliases — the terms that establish identity, as opposed
     to context_terms which only establish topicality. Duck-typed so both ORM rows and

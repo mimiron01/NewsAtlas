@@ -132,6 +132,7 @@
     "suggestedEmpty": "Add a company profile description in Settings to get personalized suggestions.",
     "suggestedFailed": "Couldn't load suggestions",
     "basedOn": "Based on: {{name}}",
+    "excludes": "Excludes: {{terms}}",
     "applyFailed": "Failed to apply template",
     "emptyGalleryHint": "or create a custom topic below",
     "loadFailed": "Failed to load topic templates"
