@@ -753,7 +753,7 @@ export default function ThemesPage() {
           </div>
         )}
         {visibleThemes.length > 0 && (
-          <label className="field-hint">
+          <label className="checkbox-label field-hint">
             <input
               type="checkbox"
               checked={selectedIds.size === visibleThemes.length}

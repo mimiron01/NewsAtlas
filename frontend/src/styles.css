@@ -318,13 +318,19 @@ button.danger { background: var(--danger-solid); }
 .target-list { list-style: none; padding: 0; margin: 0; }
 .target-list li {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
+  align-items: flex-start;
+  gap: 10px 16px;
+  padding: 14px 0;
   border-bottom: 1px solid var(--border);
 }
 .target-list li:last-child { border-bottom: none; }
 .target-list li.inactive { opacity: 0.55; }
+/* The info block (name/tags/keywords) and the action buttons compete for the same row;
+   giving the info block a flexible basis lets it wrap its own text instead of squeezing
+   the buttons down to the point their labels wrap mid-word. */
+.target-list li > div:first-child { flex: 1 1 260px; min-width: 220px; }
 .target-list .keywords { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
 .target-list .tag {
   margin-left: 8px;
@@ -334,8 +340,14 @@ button.danger { background: var(--danger-solid); }
   padding: 1px 8px;
   border-radius: 20px;
 }
-.target-list .actions { display: flex; gap: 8px; }
-.target-list .actions button { background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
+.target-list .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 1 auto;
+  justify-content: flex-end;
+}
+.target-list .actions button { background: var(--bg); color: var(--fg); border: 1px solid var(--border); white-space: nowrap; }
 .target-list .actions button.danger { background: var(--danger-soft-bg); color: var(--danger); border-color: transparent; }
 .target-list li.editing { flex-direction: column; align-items: stretch; }
 .target-edit-form { display: flex; flex-direction: column; gap: 10px; width: 100%; }
