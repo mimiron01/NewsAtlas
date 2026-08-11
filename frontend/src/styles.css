@@ -327,9 +327,6 @@ button.danger { background: var(--danger-solid); }
 }
 .target-list li:last-child { border-bottom: none; }
 .target-list li.inactive { opacity: 0.55; }
-/* The info block (name/tags/keywords) and the action buttons compete for the same row;
-   giving the info block a flexible basis lets it wrap its own text instead of squeezing
-   the buttons down to the point their labels wrap mid-word. */
 .target-list li > div:first-child { flex: 1 1 260px; min-width: 220px; }
 .target-list .keywords { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
 .target-list .tag {
@@ -340,15 +337,14 @@ button.danger { background: var(--danger-solid); }
   padding: 1px 8px;
   border-radius: 20px;
 }
-.target-list .actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  flex: 0 1 auto;
-  justify-content: flex-end;
-}
-.target-list .actions button { background: var(--bg); color: var(--fg); border: 1px solid var(--border); white-space: nowrap; }
-.target-list .actions button.danger { background: var(--danger-soft-bg); color: var(--danger); border-color: transparent; }
+/* Only the primary action (run) plus an overflow menu live here now — see
+   .overflow-menu below for the rest (edit/mute/digest/pause/delete), so this row
+   never has to squeeze more than two or three controls into place. */
+.target-list .actions { display: flex; flex-wrap: wrap; gap: 8px; flex: 0 0 auto; align-items: flex-start; }
+/* Child combinator, not descendant — the overflow menu (below) nests its own buttons
+   inside .actions too, and they must not inherit this row-level button skin. */
+.target-list .actions > button { background: var(--bg); color: var(--fg); border: 1px solid var(--border); white-space: nowrap; }
+.target-list .actions > button.danger { background: var(--danger-soft-bg); color: var(--danger); border-color: transparent; }
 .target-list li.editing { flex-direction: column; align-items: stretch; }
 .target-edit-form { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 .target-edit-form .actions { justify-content: flex-end; }
@@ -959,6 +955,50 @@ button.secondary {
   text-overflow: ellipsis;
 }
 .profile-popover-language .language-select select:focus { outline: none; }
+
+.overflow-menu { position: relative; }
+.overflow-menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+.overflow-menu-trigger:hover:not(:disabled) { background: var(--border); transform: none; }
+.overflow-menu-trigger[aria-expanded="true"] { background: var(--border); }
+.overflow-menu-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 30;
+}
+.overflow-menu-popover button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  color: var(--fg);
+  font-weight: 500;
+  font-size: 0.85rem;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+.overflow-menu-popover button:hover:not(:disabled) { background: var(--bg); transform: none; }
+.overflow-menu-popover button.danger { color: var(--danger); }
+.overflow-menu-popover button.danger:hover:not(:disabled) { background: var(--danger-soft-bg); }
+.overflow-menu-popover hr { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
 
 .table-scroll { overflow-x: auto; }
 

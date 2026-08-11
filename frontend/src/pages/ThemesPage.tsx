@@ -16,6 +16,7 @@ import type {
 } from "../api/types";
 import FavoriteButton from "../components/FavoriteButton";
 import HelpTooltip from "../components/HelpTooltip";
+import OverflowMenu from "../components/OverflowMenu";
 import SourceAllowlistField from "../components/SourceAllowlistField";
 import TagInput from "../components/TagInput";
 import ThemeSourceSelector from "../components/ThemeSourceSelector";
@@ -916,27 +917,6 @@ export default function ThemesPage() {
                     isPending={pendingId === theme.id}
                     onRun={runTheme}
                   />
-                  {canEdit(theme) && (
-                    <button type="button" disabled={pendingId === theme.id} onClick={() => startEdit(theme)}>
-                      {t("themes:edit")}
-                    </button>
-                  )}
-                  <button type="button" disabled={pendingId === theme.id} onClick={() => toggleMute(theme)}>
-                    {theme.is_muted ? t("themes:unmute") : t("themes:mute")}
-                  </button>
-                  <button
-                    type="button"
-                    className={theme.include_in_digest ? "secondary" : ""}
-                    disabled={pendingId === theme.id}
-                    onClick={() => toggleDigest(theme)}
-                  >
-                    {theme.include_in_digest ? t("themes:digest.exclude") : t("themes:digest.include")}
-                  </button>
-                  {canEdit(theme) && (
-                    <button type="button" disabled={pendingId === theme.id} onClick={() => toggleActive(theme)}>
-                      {theme.is_active ? t("themes:pause") : t("themes:resume")}
-                    </button>
-                  )}
                   {confirmingId === theme.id ? (
                     <>
                       <button
@@ -952,14 +932,37 @@ export default function ThemesPage() {
                       </button>
                     </>
                   ) : (
-                    <button
-                      type="button"
-                      className="danger"
-                      title={confirmCopy(theme)}
-                      onClick={() => setConfirmingId(theme.id)}
+                    <OverflowMenu
+                      label={t("themes:rowActionsLabel", { name: theme.name })}
+                      disabled={pendingId === theme.id}
                     >
-                      {removeLabel()}
-                    </button>
+                      {canEdit(theme) && (
+                        <button type="button" role="menuitem" onClick={() => startEdit(theme)}>
+                          {t("themes:edit")}
+                        </button>
+                      )}
+                      <button type="button" role="menuitem" onClick={() => toggleMute(theme)}>
+                        {theme.is_muted ? t("themes:unmute") : t("themes:mute")}
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => toggleDigest(theme)}>
+                        {theme.include_in_digest ? t("themes:digest.exclude") : t("themes:digest.include")}
+                      </button>
+                      {canEdit(theme) && (
+                        <button type="button" role="menuitem" onClick={() => toggleActive(theme)}>
+                          {theme.is_active ? t("themes:pause") : t("themes:resume")}
+                        </button>
+                      )}
+                      <hr />
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="danger"
+                        title={confirmCopy(theme)}
+                        onClick={() => setConfirmingId(theme.id)}
+                      >
+                        {removeLabel()}
+                      </button>
+                    </OverflowMenu>
                   )}
                 </div>
                 {confirmingId === theme.id && <p className="subtitle">{confirmCopy(theme)}</p>}

@@ -51,6 +51,7 @@
     "failed": "Couldn't load a preview for this query."
   },
   "trackedThemes": "Tracked topics ({{count}})",
+  "rowActionsLabel": "More actions for \"{{name}}\"",
   "noThemesYet": "No topics yet.",
   "muted": "Muted",
   "paused": "Paused",
