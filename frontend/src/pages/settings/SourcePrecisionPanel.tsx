@@ -44,6 +44,7 @@ export default function SourcePrecisionPanel({
     <section className="settings-section">
       <h3>{t("sources.precision.title")}</h3>
       <p className="field-hint">{t("sources.precision.hint")}</p>
+      <div className="table-scroll">
       <table className="news-usage-table">
         <thead>
           <tr>
@@ -85,6 +86,7 @@ export default function SourcePrecisionPanel({
           })}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }

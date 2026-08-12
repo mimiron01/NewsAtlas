@@ -384,8 +384,10 @@ button.danger { background: var(--danger-solid); }
   border-radius: 20px;
 }
 .company-table .actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.company-table .actions button { background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
-.company-table .actions button.danger { background: var(--danger-soft-bg); color: var(--danger); border-color: transparent; }
+/* Child combinator, not descendant — mirrors .target-list .actions > button. Keeps a
+   future nested menu's buttons from silently inheriting this row-level button skin. */
+.company-table .actions > button { background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
+.company-table .actions > button.danger { background: var(--danger-soft-bg); color: var(--danger); border-color: transparent; }
 .company-table tr.editing td { padding: 16px 8px; }
 
 .bulk-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -477,14 +479,14 @@ button.danger { background: var(--danger-solid); }
   transition: background-color 150ms ease;
 }
 .signal-row-link:hover { background: var(--bg); }
-.signal-row-main { display: flex; gap: 12px; align-items: flex-start; }
+.signal-row-main { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
 .signal-row-actions {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding-top: 2px;
 }
-.signal-row-actions button { font-size: 0.78rem; padding: 5px 10px; white-space: nowrap; }
+.signal-row-actions > button { font-size: 0.78rem; padding: 5px 10px; white-space: nowrap; }
 .signal-title { font-weight: 600; margin: 2px 0; }
 
 @media (max-width: 640px) {
@@ -699,7 +701,7 @@ button.danger { background: var(--danger-solid); }
 .template-card .keywords { font-size: 0.8rem; color: var(--muted); }
 .template-card button { align-self: flex-start; margin-top: 4px; }
 
-.status-actions { display: flex; gap: 8px; margin-top: 20px; }
+.status-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
 .status-actions button.secondary,
 button.secondary {
   background: var(--bg);

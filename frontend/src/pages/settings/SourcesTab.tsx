@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../../api/client";
 import { ARTICLE_SOURCE_LABELS } from "../../api/types";
 import type { ArticleSource, NewsSourceUsageStat, WorkspaceSettings } from "../../api/types";
+import ConfirmButton from "../../components/ConfirmButton";
 import Skeleton from "../../components/Skeleton";
 import TagInput from "../../components/TagInput";
 import { useToast } from "../../context/ToastContext";
@@ -456,14 +457,14 @@ export default function SourcesTab() {
               </label>
               <p className="field-hint">{newsdataApiKeyStatusText(settings, t)}</p>
               {settings.newsdata_api_key_source === "workspace" && (
-                <button
-                  type="button"
+                <ConfirmButton
+                  label={isClearingNewsdataKey ? t("clearing") : t("clearOverride")}
+                  confirmLabel={t("confirmAction", { action: t("clearOverride").toLowerCase() })}
+                  cancelLabel={t("targets.cancel")}
                   className="secondary"
-                  onClick={handleClearNewsdataApiKeyOverride}
                   disabled={isClearingNewsdataKey}
-                >
-                  {isClearingNewsdataKey ? t("clearing") : t("clearOverride")}
-                </button>
+                  onConfirm={handleClearNewsdataApiKeyOverride}
+                />
               )}
             </>
           )}

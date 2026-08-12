@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { useAuth } from "../context/AuthContext";
 import { useIsAdmin } from "../hooks/useIsAdmin";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useTheme } from "../hooks/useTheme";
 import { HomeIcon, MenuIcon, SignalsIcon, TargetsIcon, ThemeIcon } from "./icons/NavIcons";
 import ProfileMenu from "./ProfileMenu";
@@ -15,6 +16,12 @@ export default function ProtectedLayout() {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const location = useLocation();
   const { t } = useTranslation(["nav", "common"]);
+  // Below 720px the nav collapses via CSS (max-height: 0); above it, the links are
+  // always visible regardless of isNavOpen. Only remove collapsed links from tab order
+  // on the width where they're actually collapsed — inert unconditionally on !isNavOpen
+  // would make the desktop nav permanently unfocusable, since isNavOpen only ever
+  // toggles from the mobile hamburger.
+  const isMobileNav = useMediaQuery("(max-width: 720px)");
 
   useEffect(() => {
     setIsNavOpen(false);
@@ -42,7 +49,10 @@ export default function ProtectedLayout() {
           >
             <MenuIcon />
           </button>
-          <nav className={`navbar-links ${isNavOpen ? "open" : ""}`}>
+          <nav
+            className={`navbar-links ${isNavOpen ? "open" : ""}`}
+            inert={isMobileNav && !isNavOpen ? true : undefined}
+          >
             <NavLink to="/" end>
               <HomeIcon /> {t("nav:links.dashboard")}
             </NavLink>

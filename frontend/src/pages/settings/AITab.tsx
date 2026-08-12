@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { ApiError, api } from "../../api/client";
 import type { WorkspaceSettings } from "../../api/types";
+import ConfirmButton from "../../components/ConfirmButton";
 import Skeleton from "../../components/Skeleton";
 import { useToast } from "../../context/ToastContext";
 import { useSettingsContext } from "./SettingsLayout";
@@ -168,14 +169,14 @@ export default function AITab() {
         </label>
         <p className="subtitle">{apiKeyStatusText(settings, t)}</p>
         {settings.mistral_api_key_source === "workspace" && (
-          <button
-            type="button"
+          <ConfirmButton
+            label={isClearingKey ? t("clearing") : t("clearOverride")}
+            confirmLabel={t("confirmAction", { action: t("clearOverride").toLowerCase() })}
+            cancelLabel={t("targets.cancel")}
             className="secondary"
-            onClick={handleClearApiKeyOverride}
             disabled={isClearingKey}
-          >
-            {isClearingKey ? t("clearing") : t("clearOverride")}
-          </button>
+            onConfirm={handleClearApiKeyOverride}
+          />
         )}
       </div>
 

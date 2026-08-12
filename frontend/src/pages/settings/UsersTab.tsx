@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../../api/client";
 import type { AdminUser, TargetCompany } from "../../api/types";
+import ConfirmButton from "../../components/ConfirmButton";
 import TagInput from "../../components/TagInput";
 import { useAuth } from "../../context/AuthContext";
 import { useToast } from "../../context/ToastContext";
@@ -88,14 +89,17 @@ export default function UsersTab() {
                   <div className="keywords">{targetUser.email}</div>
                 </div>
                 <div className="actions">
-                  <button
-                    type="button"
+                  <ConfirmButton
+                    label={targetUser.role === "admin" ? t("users.demote") : t("users.promote")}
+                    confirmLabel={t("confirmAction", {
+                      action: (targetUser.role === "admin" ? t("users.demote") : t("users.promote")).toLowerCase(),
+                    })}
+                    cancelLabel={t("targets.cancel")}
+                    confirmClassName=""
                     disabled={pendingUserId === targetUser.id}
-                    onClick={() => toggleRole(targetUser)}
+                    onConfirm={() => toggleRole(targetUser)}
                     title={isSelf && targetUser.role === "admin" ? t("users.lastAdminHint") : undefined}
-                  >
-                    {targetUser.role === "admin" ? t("users.demote") : t("users.promote")}
-                  </button>
+                  />
                 </div>
               </li>
             );

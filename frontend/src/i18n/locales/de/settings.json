@@ -15,6 +15,7 @@
   "save": "Einstellungen speichern",
   "clearing": "Wird entfernt...",
   "clearOverride": "In-App-Override entfernen",
+  "confirmAction": "{{action}} bestätigen",
   "company": {
     "title": "Unternehmensprofil",
     "subtitle": "Diese Beschreibung wird dem KI-Modell zur Verfügung gestellt, damit es erklären kann, warum jedes News-Signal für Ihr Unternehmen relevant ist, und passende Kontakt-Textbausteine entwerfen kann.",
@@ -70,6 +71,13 @@
     "unfollow": "Nicht mehr folgen",
     "confirmAction": "{{action}} bestätigen",
     "cancel": "Abbrechen",
+    "rowActionsLabel": "Weitere Aktionen für „{{name}}“",
+    "toolbar": {
+      "searchPlaceholder": "Unternehmen durchsuchen…",
+      "sortLabel": "Sortieren",
+      "sortName": "Name",
+      "sortCreated": "Neueste"
+    },
     "addedToast": "Zielunternehmen hinzugefügt.",
     "updatedToast": "„{{name}}“ aktualisiert.",
     "deletedToast": "„{{name}}“ gelöscht.",

@@ -8,6 +8,7 @@ import type {
   TargetCompanyBulkDeleteResult,
   WorkspaceSettings,
 } from "../api/types";
+import OverflowMenu from "../components/OverflowMenu";
 import SourceAllowlistField from "../components/SourceAllowlistField";
 import TagInput from "../components/TagInput";
 import TargetCompanyCsvImport from "../components/TargetCompanyCsvImport";
@@ -45,6 +46,10 @@ export default function SettingsTargets() {
   const [editExclusionTerms, setEditExclusionTerms] = useState<string[]>([]);
   const [editIndustry, setEditIndustry] = useState("");
   const [editSourceAllowlist, setEditSourceAllowlist] = useState<string[] | null>(null);
+  // List-level search/sort (parity with ThemesPage's toolbar) — client-side, same
+  // reasoning as there: the list is small and there's no server-side paging for it.
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"name" | "created">("name");
 
   function canEdit(company: TargetCompany): boolean {
     return isAdmin || (user !== null && company.created_by === user.id);
@@ -204,7 +209,9 @@ export default function SettingsTargets() {
   }
 
   function toggleSelectAll() {
-    setSelectedIds((prev) => (prev.size === companies.length ? new Set() : new Set(companies.map((c) => c.id))));
+    setSelectedIds((prev) =>
+      prev.size === visibleCompanies.length ? new Set() : new Set(visibleCompanies.map((c) => c.id))
+    );
   }
 
   async function handleBulkDelete() {
@@ -256,6 +263,23 @@ export default function SettingsTargets() {
     }
     return t("targets.confirmUnfollowShared", { name: company.name });
   }
+
+  const visibleCompanies = companies
+    .filter((company) => {
+      const q = searchQuery.trim().toLowerCase();
+      if (!q) return true;
+      return (
+        company.name.toLowerCase().includes(q) ||
+        (company.industry ?? "").toLowerCase().includes(q) ||
+        company.keywords.some((keyword) => keyword.toLowerCase().includes(q))
+      );
+    })
+    .sort((a, b) => {
+      if (sortBy === "name") return a.name.localeCompare(b.name);
+      // "created": no created_at on TargetCompany — approximate with list order (the API
+      // already returns newest-first), so this is a no-op stable sort.
+      return 0;
+    });
 
   return (
     <div>
@@ -337,6 +361,22 @@ export default function SettingsTargets() {
         )}
         {companies.length === 0 && <p className="subtitle">{t("targets.noCompaniesYet")}</p>}
         {companies.length > 0 && (
+          <div className="field-row">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t("targets.toolbar.searchPlaceholder")}
+            />
+            <label>
+              {t("targets.toolbar.sortLabel")}
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
+                <option value="name">{t("targets.toolbar.sortName")}</option>
+                <option value="created">{t("targets.toolbar.sortCreated")}</option>
+              </select>
+            </label>
+          </div>
+        )}
+        {visibleCompanies.length > 0 && (
           <div className="company-table-wrap">
             <table className="company-table">
               <thead>
@@ -344,7 +384,7 @@ export default function SettingsTargets() {
                   <th className="checkbox-cell">
                     <input
                       type="checkbox"
-                      checked={selectedIds.size === companies.length}
+                      checked={selectedIds.size === visibleCompanies.length}
                       onChange={toggleSelectAll}
                       aria-label={t("targets.selectAll")}
                     />
@@ -355,7 +395,7 @@ export default function SettingsTargets() {
                 </tr>
               </thead>
               <tbody>
-                {companies.map((company) =>
+                {visibleCompanies.map((company) =>
                   editingId === company.id ? (
                     <tr key={company.id} className="editing">
                       <td colSpan={4}>
@@ -440,19 +480,6 @@ export default function SettingsTargets() {
                       <td>{company.is_active ? t("targets.statusActive") : t("targets.statusPaused")}</td>
                       <td>
                         <div className="actions">
-                          {isAdmin &&
-                            backfillEnabled &&
-                            company.backfilled_at === null &&
-                            company.id !== justCreatedId && (
-                              <button
-                                type="button"
-                                disabled={pendingId === company.id}
-                                onClick={() => triggerBackfill(company)}
-                                title={t("targets.backfillTitle")}
-                              >
-                                {t("targets.backfillHistory")}
-                              </button>
-                            )}
                           {canEdit(company) && (
                             <button
                               type="button"
@@ -460,22 +487,6 @@ export default function SettingsTargets() {
                               onClick={() => startEdit(company)}
                             >
                               {t("targets.edit")}
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            disabled={pendingId === company.id}
-                            onClick={() => toggleMute(company)}
-                          >
-                            {company.is_muted ? t("targets.unmute") : t("targets.mute")}
-                          </button>
-                          {canEdit(company) && (
-                            <button
-                              type="button"
-                              disabled={pendingId === company.id}
-                              onClick={() => toggleActive(company)}
-                            >
-                              {company.is_active ? t("targets.pause") : t("targets.resume")}
                             </button>
                           )}
                           {confirmingId === company.id ? (
@@ -493,14 +504,42 @@ export default function SettingsTargets() {
                               </button>
                             </>
                           ) : (
-                            <button
-                              type="button"
-                              className="danger"
-                              title={confirmCopy(company)}
-                              onClick={() => setConfirmingId(company.id)}
+                            <OverflowMenu
+                              label={t("targets.rowActionsLabel", { name: company.name })}
+                              disabled={pendingId === company.id}
                             >
-                              {removeLabel()}
-                            </button>
+                              {isAdmin &&
+                                backfillEnabled &&
+                                company.backfilled_at === null &&
+                                company.id !== justCreatedId && (
+                                  <button
+                                    type="button"
+                                    role="menuitem"
+                                    onClick={() => triggerBackfill(company)}
+                                    title={t("targets.backfillTitle")}
+                                  >
+                                    {t("targets.backfillHistory")}
+                                  </button>
+                                )}
+                              <button type="button" role="menuitem" onClick={() => toggleMute(company)}>
+                                {company.is_muted ? t("targets.unmute") : t("targets.mute")}
+                              </button>
+                              {canEdit(company) && (
+                                <button type="button" role="menuitem" onClick={() => toggleActive(company)}>
+                                  {company.is_active ? t("targets.pause") : t("targets.resume")}
+                                </button>
+                              )}
+                              <hr />
+                              <button
+                                type="button"
+                                role="menuitem"
+                                className="danger"
+                                title={confirmCopy(company)}
+                                onClick={() => setConfirmingId(company.id)}
+                              >
+                                {removeLabel()}
+                              </button>
+                            </OverflowMenu>
                           )}
                         </div>
                         {confirmingId === company.id && <p className="subtitle">{confirmCopy(company)}</p>}

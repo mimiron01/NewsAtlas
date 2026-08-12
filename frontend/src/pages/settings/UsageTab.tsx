@@ -61,6 +61,7 @@ export default function UsageTab() {
         {summary.by_call_type.length === 0 ? (
           <p className="subtitle">{t("usage.noCallsYet")}</p>
         ) : (
+          <div className="table-scroll">
           <table className="usage-table">
             <thead>
               <tr>
@@ -79,6 +80,7 @@ export default function UsageTab() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -87,6 +89,7 @@ export default function UsageTab() {
         {summary.by_target_company.length === 0 ? (
           <p className="subtitle">{t("usage.noCallsYet")}</p>
         ) : (
+          <div className="table-scroll">
           <table className="usage-table">
             <thead>
               <tr>
@@ -103,6 +106,7 @@ export default function UsageTab() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>
