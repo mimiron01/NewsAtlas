@@ -117,10 +117,16 @@ button.danger { background: var(--danger-solid); }
 
 .field-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
   max-width: 640px;
 }
 .field-row > label { flex: 1; }
+/* .field-row's 640px cap fits its original shape — two paired text inputs — but gets
+   reused for wider content (checkbox groups, 3+ tag-inputs, grouped form blocks). This
+   modifier opts a specific usage out of that cap instead of every consumer improvising
+   its own override. */
+.field-row--wide { max-width: none; }
 
 .field-hint { font-size: 0.75rem; color: var(--muted); }
 
@@ -1052,9 +1058,5 @@ button.secondary {
 
 .source-allowlist-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .source-allowlist-field .field-label { font-size: 0.8rem; font-weight: 600; }
-/* This field-row holds a radio/checkbox group, not paired inputs, so it shouldn't inherit
-   .field-row's 640px cap meant for two side-by-side text inputs — that cap was squeezing
-   "Workspace-Standard verwenden" onto two lines while the shorter options next to it had
-   room to spare. */
-.source-allowlist-field .field-row { gap: 16px; max-width: none; flex-wrap: wrap; }
+/* This field-row holds a radio/checkbox group, not paired inputs — see .field-row--wide. */
 .source-allowlist-field .field-row .checkbox-label { flex: 0 0 auto; }

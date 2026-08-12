@@ -59,7 +59,7 @@ export default function QueryPreviewPanel() {
           maxLength={255}
         />
       </label>
-      <div className="field-row">
+      <div className="field-row field-row--wide">
         <label>
           {t("targets.aliases")}
           <TagInput tags={aliases} onChange={setAliases} placeholder={t("targets.aliasesPlaceholder")} />

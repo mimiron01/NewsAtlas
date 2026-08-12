@@ -154,6 +154,11 @@
     "requestsLastMinute": "{{used}} / {{limit}} in der letzten Minute",
     "googleNewsRss": {
       "hint": "Kostenloser Feed ohne API-Schlüssel. Google veröffentlicht kein offizielles Kontingent dafür, daher ist das Limit unten eine selbst auferlegte Höflichkeitsgrenze und keine echte Plan-Stufe.",
+      "sections": {
+        "region": "Region & Rate Limit",
+        "sources": "Quellenlisten",
+        "behavior": "Abfrageverhalten"
+      },
       "country": "Land",
       "language": "Sprache",
       "sourceAllowlist": "Vertrauenswürdige Quellen (Workspace-Standard)",

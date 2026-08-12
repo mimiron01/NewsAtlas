@@ -154,6 +154,11 @@
     "requestsLastMinute": "{{used}} / {{limit}} in the last minute",
     "googleNewsRss": {
       "hint": "Free, keyless public feed. Google publishes no official quota for it, so the limit below is a self-imposed politeness ceiling, not a real plan tier.",
+      "sections": {
+        "region": "Region & rate limit",
+        "sources": "Source lists",
+        "behavior": "Query behavior"
+      },
       "country": "Country",
       "language": "Language",
       "sourceAllowlist": "Trusted sources (workspace default)",
