@@ -200,13 +200,15 @@ export default function TopicTemplateGallery({ onApplied, onBack }: TopicTemplat
                       </div>
                     </div>
                   )}
-                  <button
-                    type="button"
-                    disabled={applyingKey === key}
-                    onClick={() => applySuggestion(suggestion)}
-                  >
-                    {t("templates.useTemplate")}
-                  </button>
+                  {duplicate?.key !== key && (
+                    <button
+                      type="button"
+                      disabled={applyingKey === key}
+                      onClick={() => applySuggestion(suggestion)}
+                    >
+                      {t("templates.useTemplate")}
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -255,13 +257,15 @@ export default function TopicTemplateGallery({ onApplied, onBack }: TopicTemplat
                           </div>
                         </div>
                       )}
-                      <button
-                        type="button"
-                        disabled={applyingKey === key}
-                        onClick={() => applyTemplate(key, tpl.id, {})}
-                      >
-                        {t("templates.useTemplate")}
-                      </button>
+                      {duplicate?.key !== key && (
+                        <button
+                          type="button"
+                          disabled={applyingKey === key}
+                          onClick={() => applyTemplate(key, tpl.id, {})}
+                        >
+                          {t("templates.useTemplate")}
+                        </button>
+                      )}
                     </div>
                   );
                 })}

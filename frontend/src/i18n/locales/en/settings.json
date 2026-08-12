@@ -15,9 +15,14 @@
   "save": "Save settings",
   "clearing": "Clearing...",
   "clearOverride": "Clear in-app override",
+  "confirmAction": "Confirm {{action}}",
   "company": {
     "title": "Company profile",
     "subtitle": "This description is given to the AI model so it can explain why each news signal matters for your business and draft relevant outreach snippets.",
+    "sections": {
+      "identity": "Identity",
+      "digestAndLimits": "Digest & limits"
+    },
     "companyName": "Company name",
     "offeringDescription": "Offering description",
     "offeringPlaceholder": "Describe what your company sells, who it's for, and the problems it solves...",
@@ -70,6 +75,13 @@
     "unfollow": "Unfollow",
     "confirmAction": "Confirm {{action}}",
     "cancel": "Cancel",
+    "rowActionsLabel": "More actions for \"{{name}}\"",
+    "toolbar": {
+      "searchPlaceholder": "Search companies…",
+      "sortLabel": "Sort",
+      "sortName": "Name",
+      "sortCreated": "Newest"
+    },
     "addedToast": "Target company added.",
     "updatedToast": "\"{{name}}\" updated.",
     "deletedToast": "Deleted \"{{name}}\".",
@@ -154,6 +166,11 @@
     "requestsLastMinute": "{{used}} / {{limit}} in the last minute",
     "googleNewsRss": {
       "hint": "Free, keyless public feed. Google publishes no official quota for it, so the limit below is a self-imposed politeness ceiling, not a real plan tier.",
+      "sections": {
+        "region": "Region & rate limit",
+        "sources": "Source lists",
+        "behavior": "Query behavior"
+      },
       "country": "Country",
       "language": "Language",
       "sourceAllowlist": "Trusted sources (workspace default)",

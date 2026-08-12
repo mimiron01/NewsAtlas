@@ -46,7 +46,7 @@ export default function SourceAllowlistField({
       <span className="field-label">
         {tf("sourceAllowlist")} <HelpTooltip content={hint} />
       </span>
-      <div className="field-row">
+      <div className="field-row field-row--wide">
         <label className="checkbox-label">
           <input
             type="radio"

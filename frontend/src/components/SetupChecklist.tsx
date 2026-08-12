@@ -55,6 +55,9 @@ export default function SetupChecklist({
             <span className="checklist-mark" aria-hidden="true">
               {step.done ? "✓" : ""}
             </span>
+            <span className="visually-hidden">
+              {step.done ? t("setupChecklist.stepDone") : t("setupChecklist.stepNotDone")}
+            </span>
             <div>
               <div className="checklist-label">{step.label}</div>
               <div className="subtitle">{step.body}</div>

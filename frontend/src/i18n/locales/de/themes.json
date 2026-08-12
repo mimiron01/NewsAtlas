@@ -51,6 +51,7 @@
     "failed": "Vorschau für diese Suche konnte nicht geladen werden."
   },
   "trackedThemes": "Verfolgte Themen ({{count}})",
+  "rowActionsLabel": "Weitere Aktionen für „{{name}}“",
   "noThemesYet": "Noch keine Themen.",
   "muted": "Stummgeschaltet",
   "paused": "Pausiert",

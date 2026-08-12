@@ -15,9 +15,14 @@
   "save": "Einstellungen speichern",
   "clearing": "Wird entfernt...",
   "clearOverride": "In-App-Override entfernen",
+  "confirmAction": "{{action}} bestätigen",
   "company": {
     "title": "Unternehmensprofil",
     "subtitle": "Diese Beschreibung wird dem KI-Modell zur Verfügung gestellt, damit es erklären kann, warum jedes News-Signal für Ihr Unternehmen relevant ist, und passende Kontakt-Textbausteine entwerfen kann.",
+    "sections": {
+      "identity": "Identität",
+      "digestAndLimits": "Digest & Limits"
+    },
     "companyName": "Firmenname",
     "offeringDescription": "Angebotsbeschreibung",
     "offeringPlaceholder": "Beschreiben Sie, was Ihr Unternehmen verkauft, für wen und welche Probleme es löst...",
@@ -70,6 +75,13 @@
     "unfollow": "Nicht mehr folgen",
     "confirmAction": "{{action}} bestätigen",
     "cancel": "Abbrechen",
+    "rowActionsLabel": "Weitere Aktionen für „{{name}}“",
+    "toolbar": {
+      "searchPlaceholder": "Unternehmen durchsuchen…",
+      "sortLabel": "Sortieren",
+      "sortName": "Name",
+      "sortCreated": "Neueste"
+    },
     "addedToast": "Zielunternehmen hinzugefügt.",
     "updatedToast": "„{{name}}“ aktualisiert.",
     "deletedToast": "„{{name}}“ gelöscht.",
@@ -154,6 +166,11 @@
     "requestsLastMinute": "{{used}} / {{limit}} in der letzten Minute",
     "googleNewsRss": {
       "hint": "Kostenloser Feed ohne API-Schlüssel. Google veröffentlicht kein offizielles Kontingent dafür, daher ist das Limit unten eine selbst auferlegte Höflichkeitsgrenze und keine echte Plan-Stufe.",
+      "sections": {
+        "region": "Region & Rate Limit",
+        "sources": "Quellenlisten",
+        "behavior": "Abfrageverhalten"
+      },
       "country": "Land",
       "language": "Sprache",
       "sourceAllowlist": "Vertrauenswürdige Quellen (Workspace-Standard)",

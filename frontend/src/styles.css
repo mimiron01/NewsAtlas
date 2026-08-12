@@ -12,6 +12,7 @@
   --danger-soft-bg: #fdecec;
   --danger-solid: #c53030;
   --ok-solid: #1a7f4e;
+  --favorite: #d99b0c;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
@@ -29,6 +30,7 @@
   --danger-soft-bg: #301818;
   --danger-solid: #c53030;
   --ok-solid: #1a7f4e;
+  --favorite: #e0ac3a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -46,6 +48,7 @@
     --danger-soft-bg: #301818;
     --danger-solid: #c53030;
     --ok-solid: #1a7f4e;
+    --favorite: #e0ac3a;
   }
 }
 
@@ -117,10 +120,16 @@ button.danger { background: var(--danger-solid); }
 
 .field-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 16px;
   max-width: 640px;
 }
 .field-row > label { flex: 1; }
+/* .field-row's 640px cap fits its original shape — two paired text inputs — but gets
+   reused for wider content (checkbox groups, 3+ tag-inputs, grouped form blocks). This
+   modifier opts a specific usage out of that cap instead of every consumer improvising
+   its own override. */
+.field-row--wide { max-width: none; }
 
 .field-hint { font-size: 0.75rem; color: var(--muted); }
 
@@ -291,13 +300,15 @@ button.danger { background: var(--danger-solid); }
 .news-source-row:last-child { border-bottom: none; }
 .news-source-row .checkbox-label { margin-bottom: 6px; }
 .news-usage-summary { margin-top: 8px; }
-.news-usage-table {
+/* .csv-preview-table (CSV import preview) shares this styling — it isn't news-usage
+   data, but the row/column treatment it needs is identical. */
+.news-usage-table, .csv-preview-table {
   width: 100%;
   margin-top: 6px;
   font-size: 0.78rem;
   border-collapse: collapse;
 }
-.news-usage-table th, .news-usage-table td {
+.news-usage-table th, .news-usage-table td, .csv-preview-table th, .csv-preview-table td {
   text-align: left;
   padding: 4px 8px;
   border-bottom: 1px solid var(--border);
@@ -318,13 +329,16 @@ button.danger { background: var(--danger-solid); }
 .target-list { list-style: none; padding: 0; margin: 0; }
 .target-list li {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
+  align-items: flex-start;
+  gap: 10px 16px;
+  padding: 14px 0;
   border-bottom: 1px solid var(--border);
 }
 .target-list li:last-child { border-bottom: none; }
 .target-list li.inactive { opacity: 0.55; }
+.target-list li > div:first-child { flex: 1 1 260px; min-width: 220px; }
 .target-list .keywords { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
 .target-list .tag {
   margin-left: 8px;
@@ -334,9 +348,14 @@ button.danger { background: var(--danger-solid); }
   padding: 1px 8px;
   border-radius: 20px;
 }
-.target-list .actions { display: flex; gap: 8px; }
-.target-list .actions button { background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
-.target-list .actions button.danger { background: var(--danger-soft-bg); color: var(--danger); border-color: transparent; }
+/* Only the primary action (run) plus an overflow menu live here now — see
+   .overflow-menu below for the rest (edit/mute/digest/pause/delete), so this row
+   never has to squeeze more than two or three controls into place. */
+.target-list .actions { display: flex; flex-wrap: wrap; gap: 8px; flex: 0 0 auto; align-items: flex-start; }
+/* Child combinator, not descendant — the overflow menu (below) nests its own buttons
+   inside .actions too, and they must not inherit this row-level button skin. */
+.target-list .actions > button { background: var(--bg); color: var(--fg); border: 1px solid var(--border); white-space: nowrap; }
+.target-list .actions > button.danger { background: var(--danger-soft-bg); color: var(--danger); border-color: transparent; }
 .target-list li.editing { flex-direction: column; align-items: stretch; }
 .target-edit-form { display: flex; flex-direction: column; gap: 10px; width: 100%; }
 .target-edit-form .actions { justify-content: flex-end; }
@@ -370,8 +389,10 @@ button.danger { background: var(--danger-solid); }
   border-radius: 20px;
 }
 .company-table .actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.company-table .actions button { background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
-.company-table .actions button.danger { background: var(--danger-soft-bg); color: var(--danger); border-color: transparent; }
+/* Child combinator, not descendant — mirrors .target-list .actions > button. Keeps a
+   future nested menu's buttons from silently inheriting this row-level button skin. */
+.company-table .actions > button { background: var(--bg); color: var(--fg); border: 1px solid var(--border); }
+.company-table .actions > button.danger { background: var(--danger-soft-bg); color: var(--danger); border-color: transparent; }
 .company-table tr.editing td { padding: 16px 8px; }
 
 .bulk-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -463,14 +484,14 @@ button.danger { background: var(--danger-solid); }
   transition: background-color 150ms ease;
 }
 .signal-row-link:hover { background: var(--bg); }
-.signal-row-main { display: flex; gap: 12px; align-items: flex-start; }
+.signal-row-main { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
 .signal-row-actions {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding-top: 2px;
 }
-.signal-row-actions button { font-size: 0.78rem; padding: 5px 10px; white-space: nowrap; }
+.signal-row-actions > button { font-size: 0.78rem; padding: 5px 10px; white-space: nowrap; }
 .signal-title { font-weight: 600; margin: 2px 0; }
 
 @media (max-width: 640px) {
@@ -683,9 +704,13 @@ button.danger { background: var(--danger-solid); }
   background: var(--bg);
 }
 .template-card .keywords { font-size: 0.8rem; color: var(--muted); }
-.template-card button { align-self: flex-start; margin-top: 4px; }
+/* margin-top: auto pins the button to the bottom of the card regardless of how much
+   optional content (a "based on" hint, an excludes hint, a duplicate banner) renders
+   above it — the grid's default align-items: stretch already equalizes card heights,
+   so this is what makes buttons line up across a row instead of stair-stepping. */
+.template-card button { align-self: flex-start; margin-top: auto; }
 
-.status-actions { display: flex; gap: 8px; margin-top: 20px; }
+.status-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
 .status-actions button.secondary,
 button.secondary {
   background: var(--bg);
@@ -745,7 +770,7 @@ button.secondary {
   flex-shrink: 0;
 }
 .favorite-button:hover:not(:disabled) { background: var(--bg); transform: none; color: var(--fg); }
-.favorite-button.active { color: #d99b0c; }
+.favorite-button.active { color: var(--favorite); }
 .favorite-button.detail { margin-top: 0; }
 
 .todo-pill {
@@ -781,9 +806,16 @@ button.secondary {
 .todo-text { word-break: break-word; }
 .todo-delete { font-size: 0.8rem; flex-shrink: 0; }
 
+/* auto-fit instead of a fixed 4-column grid: the tile count is dynamic (3 with no
+   followed topic, 5 once one exists and something's been skipped), and a fixed column
+   count either stranded the 5th tile alone on its own row or left a gap for 3. Tracks
+   size themselves (not 1fr) so a handful of tiles stay a sensible width instead of
+   stretching edge to edge; justify-content keeps them left-aligned when they don't fill
+   the row. */
 .dashboard-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 220px));
+  justify-content: start;
   gap: 12px;
   margin-bottom: 20px;
 }
@@ -825,16 +857,23 @@ button.secondary {
 
 .dashboard-panel-footer-link { display: block; margin-top: 12px; text-align: center; }
 
-@media (max-width: 900px) {
-  .dashboard-stats { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (max-width: 480px) {
-  .dashboard-stats { grid-template-columns: 1fr; }
-}
-
 @media (max-width: 720px) {
   .dashboard-panels { grid-template-columns: 1fr; }
+}
+
+/* Visually hides content while keeping it in the accessibility tree — for text that
+   exists purely to give assistive tech an announcement a sighted user gets from a
+   visual cue instead (a spinner, a colored checkmark). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .skeleton-group { display: flex; flex-direction: column; gap: 10px; }
@@ -920,9 +959,10 @@ button.secondary {
   text-align: left;
 }
 .profile-popover button:hover { background: var(--bg); transform: none; }
-.profile-popover-language { padding: 2px 10px 6px; }
-.profile-popover-language .language-select {
-  width: 100%;
+/* Base styling lives on .language-select itself, not scoped to .profile-popover-language,
+   so LanguageSwitcher renders correctly wherever it's used — not just inside the one
+   parent it happens to be nested in today. */
+.language-select {
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -935,7 +975,7 @@ button.secondary {
   font-size: 0.82rem;
   padding: 6px 10px;
 }
-.profile-popover-language .language-select select {
+.language-select select {
   flex: 1;
   min-width: 0;
   background: transparent;
@@ -946,7 +986,54 @@ button.secondary {
   cursor: pointer;
   text-overflow: ellipsis;
 }
-.profile-popover-language .language-select select:focus { outline: none; }
+.language-select select:focus { outline: none; }
+
+.profile-popover-language { padding: 2px 10px 6px; }
+.profile-popover-language .language-select { width: 100%; }
+
+.overflow-menu { position: relative; }
+.overflow-menu-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border);
+}
+.overflow-menu-trigger:hover:not(:disabled) { background: var(--border); transform: none; }
+.overflow-menu-trigger[aria-expanded="true"] { background: var(--border); }
+.overflow-menu-popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 30;
+}
+.overflow-menu-popover button {
+  width: 100%;
+  text-align: left;
+  background: none;
+  color: var(--fg);
+  font-weight: 500;
+  font-size: 0.85rem;
+  padding: 8px 10px;
+  border-radius: 6px;
+}
+.overflow-menu-popover button:hover:not(:disabled) { background: var(--bg); transform: none; }
+.overflow-menu-popover button.danger { color: var(--danger); }
+.overflow-menu-popover button.danger:hover:not(:disabled) { background: var(--danger-soft-bg); }
+.overflow-menu-popover hr { border: none; border-top: 1px solid var(--border); margin: 4px 0; }
 
 .table-scroll { overflow-x: auto; }
 
@@ -1000,9 +1087,5 @@ button.secondary {
 
 .source-allowlist-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .source-allowlist-field .field-label { font-size: 0.8rem; font-weight: 600; }
-/* This field-row holds a radio/checkbox group, not paired inputs, so it shouldn't inherit
-   .field-row's 640px cap meant for two side-by-side text inputs — that cap was squeezing
-   "Workspace-Standard verwenden" onto two lines while the shorter options next to it had
-   room to spare. */
-.source-allowlist-field .field-row { gap: 16px; max-width: none; flex-wrap: wrap; }
+/* This field-row holds a radio/checkbox group, not paired inputs — see .field-row--wide. */
 .source-allowlist-field .field-row .checkbox-label { flex: 0 0 auto; }

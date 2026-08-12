@@ -16,6 +16,7 @@ import type {
 } from "../api/types";
 import FavoriteButton from "../components/FavoriteButton";
 import HelpTooltip from "../components/HelpTooltip";
+import OverflowMenu from "../components/OverflowMenu";
 import SourceAllowlistField from "../components/SourceAllowlistField";
 import TagInput from "../components/TagInput";
 import ThemeSourceSelector from "../components/ThemeSourceSelector";
@@ -753,7 +754,7 @@ export default function ThemesPage() {
           </div>
         )}
         {visibleThemes.length > 0 && (
-          <label className="field-hint">
+          <label className="checkbox-label field-hint">
             <input
               type="checkbox"
               checked={selectedIds.size === visibleThemes.length}
@@ -802,70 +803,79 @@ export default function ThemesPage() {
                       <input value={editIndustry} onChange={(e) => setEditIndustry(e.target.value)} />
                     </label>
                   </div>
-                  <label>
-                    <span className="label-text">
-                      {t("themes:addTheme.queryTerms")}{" "}
-                      <HelpTooltip content={t("themes:addTheme.queryTermsHint")} />
-                    </span>
-                    <TagInput
-                      tags={editQueryTerms}
-                      onChange={setEditQueryTerms}
-                      placeholder={t("themes:addTheme.queryTermsPlaceholder")}
-                    />
-                  </label>
-                  <label>
-                    <span className="label-text">
-                      {t("themes:addTheme.excludeTerms")}{" "}
-                      <HelpTooltip content={t("themes:addTheme.excludeTermsHint")} />
-                    </span>
-                    <TagInput
-                      tags={editExcludeTerms}
-                      onChange={setEditExcludeTerms}
-                      placeholder={t("themes:addTheme.excludeTermsPlaceholder")}
-                    />
-                  </label>
-                  <ThemeQueryPreviewPanel
-                    loading={editPreview.loading}
-                    result={editPreview.result}
-                    error={editPreview.error}
-                    googleNewsDisabled={googleNewsDisabled}
-                  />
-                  <label>
-                    <span className="label-text">
-                      {t("themes:addTheme.sourceDenylist")}{" "}
-                      <HelpTooltip content={t("themes:addTheme.sourceDenylistHint")} />
-                    </span>
-                    <TagInput
-                      tags={editSourceDenylist}
-                      onChange={setEditSourceDenylist}
-                      placeholder={t("themes:addTheme.sourceDenylistPlaceholder")}
-                    />
-                  </label>
-                  <ThemeSourceSelector value={editNewsSources} onChange={setEditNewsSources} />
-                  <SourceAllowlistField
-                    subject="topic"
-                    value={editSourceAllowlist}
-                    onChange={setEditSourceAllowlist}
-                  />
-                  <div className="field-row">
+                  <div className="form-section">
+                    <h3 className="form-section-heading">{t("themes:addTheme.sections.criteria")}</h3>
                     <label>
                       <span className="label-text">
-                        {t("themes:addTheme.country")} <HelpTooltip content={t("themes:addTheme.editionHint")} />
+                        {t("themes:addTheme.queryTerms")}{" "}
+                        <HelpTooltip content={t("themes:addTheme.queryTermsHint")} />
                       </span>
-                      <input
-                        value={editCountry}
-                        onChange={(e) => setEditCountry(e.target.value)}
-                        placeholder={workspaceEditionPlaceholder()}
+                      <TagInput
+                        tags={editQueryTerms}
+                        onChange={setEditQueryTerms}
+                        placeholder={t("themes:addTheme.queryTermsPlaceholder")}
                       />
                     </label>
                     <label>
-                      {t("themes:addTheme.language")}
-                      <input
-                        value={editLanguage}
-                        onChange={(e) => setEditLanguage(e.target.value)}
-                        placeholder={workspaceLanguagePlaceholder()}
+                      <span className="label-text">
+                        {t("themes:addTheme.excludeTerms")}{" "}
+                        <HelpTooltip content={t("themes:addTheme.excludeTermsHint")} />
+                      </span>
+                      <TagInput
+                        tags={editExcludeTerms}
+                        onChange={setEditExcludeTerms}
+                        placeholder={t("themes:addTheme.excludeTermsPlaceholder")}
                       />
                     </label>
+                    <ThemeQueryPreviewPanel
+                      loading={editPreview.loading}
+                      result={editPreview.result}
+                      error={editPreview.error}
+                      googleNewsDisabled={googleNewsDisabled}
+                    />
+                  </div>
+                  <div className="form-section">
+                    <h3 className="form-section-heading">{t("themes:addTheme.sections.sources")}</h3>
+                    <ThemeSourceSelector value={editNewsSources} onChange={setEditNewsSources} />
+                    <SourceAllowlistField
+                      subject="topic"
+                      value={editSourceAllowlist}
+                      onChange={setEditSourceAllowlist}
+                    />
+                    <label>
+                      <span className="label-text">
+                        {t("themes:addTheme.sourceDenylist")}{" "}
+                        <HelpTooltip content={t("themes:addTheme.sourceDenylistHint")} />
+                      </span>
+                      <TagInput
+                        tags={editSourceDenylist}
+                        onChange={setEditSourceDenylist}
+                        placeholder={t("themes:addTheme.sourceDenylistPlaceholder")}
+                      />
+                    </label>
+                  </div>
+                  <div className="form-section">
+                    <h3 className="form-section-heading">{t("themes:addTheme.sections.region")}</h3>
+                    <div className="field-row">
+                      <label>
+                        <span className="label-text">
+                          {t("themes:addTheme.country")} <HelpTooltip content={t("themes:addTheme.editionHint")} />
+                        </span>
+                        <input
+                          value={editCountry}
+                          onChange={(e) => setEditCountry(e.target.value)}
+                          placeholder={workspaceEditionPlaceholder()}
+                        />
+                      </label>
+                      <label>
+                        {t("themes:addTheme.language")}
+                        <input
+                          value={editLanguage}
+                          onChange={(e) => setEditLanguage(e.target.value)}
+                          placeholder={workspaceLanguagePlaceholder()}
+                        />
+                      </label>
+                    </div>
                   </div>
                   <div className="actions">
                     <button type="submit" disabled={pendingId === theme.id || editQueryTerms.length === 0}>
@@ -916,27 +926,6 @@ export default function ThemesPage() {
                     isPending={pendingId === theme.id}
                     onRun={runTheme}
                   />
-                  {canEdit(theme) && (
-                    <button type="button" disabled={pendingId === theme.id} onClick={() => startEdit(theme)}>
-                      {t("themes:edit")}
-                    </button>
-                  )}
-                  <button type="button" disabled={pendingId === theme.id} onClick={() => toggleMute(theme)}>
-                    {theme.is_muted ? t("themes:unmute") : t("themes:mute")}
-                  </button>
-                  <button
-                    type="button"
-                    className={theme.include_in_digest ? "secondary" : ""}
-                    disabled={pendingId === theme.id}
-                    onClick={() => toggleDigest(theme)}
-                  >
-                    {theme.include_in_digest ? t("themes:digest.exclude") : t("themes:digest.include")}
-                  </button>
-                  {canEdit(theme) && (
-                    <button type="button" disabled={pendingId === theme.id} onClick={() => toggleActive(theme)}>
-                      {theme.is_active ? t("themes:pause") : t("themes:resume")}
-                    </button>
-                  )}
                   {confirmingId === theme.id ? (
                     <>
                       <button
@@ -952,14 +941,37 @@ export default function ThemesPage() {
                       </button>
                     </>
                   ) : (
-                    <button
-                      type="button"
-                      className="danger"
-                      title={confirmCopy(theme)}
-                      onClick={() => setConfirmingId(theme.id)}
+                    <OverflowMenu
+                      label={t("themes:rowActionsLabel", { name: theme.name })}
+                      disabled={pendingId === theme.id}
                     >
-                      {removeLabel()}
-                    </button>
+                      {canEdit(theme) && (
+                        <button type="button" role="menuitem" onClick={() => startEdit(theme)}>
+                          {t("themes:edit")}
+                        </button>
+                      )}
+                      <button type="button" role="menuitem" onClick={() => toggleMute(theme)}>
+                        {theme.is_muted ? t("themes:unmute") : t("themes:mute")}
+                      </button>
+                      <button type="button" role="menuitem" onClick={() => toggleDigest(theme)}>
+                        {theme.include_in_digest ? t("themes:digest.exclude") : t("themes:digest.include")}
+                      </button>
+                      {canEdit(theme) && (
+                        <button type="button" role="menuitem" onClick={() => toggleActive(theme)}>
+                          {theme.is_active ? t("themes:pause") : t("themes:resume")}
+                        </button>
+                      )}
+                      <hr />
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className="danger"
+                        title={confirmCopy(theme)}
+                        onClick={() => setConfirmingId(theme.id)}
+                      >
+                        {removeLabel()}
+                      </button>
+                    </OverflowMenu>
                   )}
                 </div>
                 {confirmingId === theme.id && <p className="subtitle">{confirmCopy(theme)}</p>}

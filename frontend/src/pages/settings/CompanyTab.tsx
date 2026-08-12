@@ -57,53 +57,57 @@ export default function CompanyTab() {
         <h2>{t("company.title")}</h2>
         <p className="subtitle">{t("company.subtitle")}</p>
 
-        <label>
-          {t("company.companyName")}
-          <input
-            value={settings.company_name}
-            onChange={(e) => setSettings({ ...settings, company_name: e.target.value })}
-            required
-          />
-        </label>
+        <div className="form-section">
+          <h3 className="form-section-heading">{t("company.sections.identity")}</h3>
+          <label>
+            {t("company.companyName")}
+            <input
+              value={settings.company_name}
+              onChange={(e) => setSettings({ ...settings, company_name: e.target.value })}
+              required
+            />
+          </label>
 
-        <label>
-          {t("company.offeringDescription")}
-          <p className="field-hint">{t("company.offeringHelp.explainer")}</p>
-          <textarea
-            rows={8}
-            value={settings.offering_description}
-            onChange={(e) => setSettings({ ...settings, offering_description: e.target.value })}
-            placeholder={t("company.offeringPlaceholder")}
-          />
-          {offeringWordCount > 0 && offeringWordCount < 30 && (
-            <span className="field-hint">{t("company.offeringHelp.tooShort")}</span>
-          )}
-          <details>
-            <summary className="field-hint">{t("company.offeringHelp.showExample")}</summary>
-            <p className="field-hint">
-              <strong>{t("company.offeringHelp.goodExampleLabel")}</strong> {t("company.offeringHelp.goodExample")}
-            </p>
-            <p className="field-hint">
-              <strong>{t("company.offeringHelp.vagueExampleLabel")}</strong> {t("company.offeringHelp.vagueExample")}
-            </p>
-          </details>
-        </label>
+          <label>
+            {t("company.offeringDescription")}
+            <p className="field-hint">{t("company.offeringHelp.explainer")}</p>
+            <textarea
+              rows={8}
+              value={settings.offering_description}
+              onChange={(e) => setSettings({ ...settings, offering_description: e.target.value })}
+              placeholder={t("company.offeringPlaceholder")}
+            />
+            {offeringWordCount > 0 && offeringWordCount < 30 && (
+              <span className="field-hint">{t("company.offeringHelp.tooShort")}</span>
+            )}
+            <details>
+              <summary className="field-hint">{t("company.offeringHelp.showExample")}</summary>
+              <p className="field-hint">
+                <strong>{t("company.offeringHelp.goodExampleLabel")}</strong> {t("company.offeringHelp.goodExample")}
+              </p>
+              <p className="field-hint">
+                <strong>{t("company.offeringHelp.vagueExampleLabel")}</strong> {t("company.offeringHelp.vagueExample")}
+              </p>
+            </details>
+          </label>
 
-        <label>
-          {t("company.mainLanguage")}
-          <select
-            value={settings.main_language}
-            onChange={(e) =>
-              setSettings({ ...settings, main_language: e.target.value as "en" | "de" })
-            }
-          >
-            <option value="en">English</option>
-            <option value="de">Deutsch</option>
-          </select>
-          <span className="field-hint">{t("company.mainLanguageHint")}</span>
-        </label>
+          <label>
+            {t("company.mainLanguage")}
+            <select
+              value={settings.main_language}
+              onChange={(e) =>
+                setSettings({ ...settings, main_language: e.target.value as "en" | "de" })
+              }
+            >
+              <option value="en">English</option>
+              <option value="de">Deutsch</option>
+            </select>
+            <span className="field-hint">{t("company.mainLanguageHint")}</span>
+          </label>
+        </div>
 
-        <div className="field-row">
+        <div className="form-section">
+          <h3 className="form-section-heading">{t("company.sections.digestAndLimits")}</h3>
           <label>
             {t("company.digestSendTime")}
             <input
@@ -112,64 +116,64 @@ export default function CompanyTab() {
               onChange={(e) => setSettings({ ...settings, digest_send_time: e.target.value })}
             />
           </label>
-        </div>
 
-        <label>
-          {t("company.maxArticlesPerCompany")}
-          <input
-            type="number"
-            min={0}
-            max={1000}
-            value={settings.max_articles_per_company_per_run}
-            onChange={(e) =>
-              setSettings({ ...settings, max_articles_per_company_per_run: Number(e.target.value) })
-            }
-          />
-          <span className="field-hint">{t("company.maxArticlesPerCompanyHint")}</span>
-        </label>
-
-        <div className="field-row">
           <label>
-            {t("company.maxArticlesPerTheme")}
+            {t("company.maxArticlesPerCompany")}
             <input
               type="number"
               min={0}
               max={1000}
-              value={settings.max_articles_per_theme_per_run}
+              value={settings.max_articles_per_company_per_run}
               onChange={(e) =>
-                setSettings({ ...settings, max_articles_per_theme_per_run: Number(e.target.value) })
+                setSettings({ ...settings, max_articles_per_company_per_run: Number(e.target.value) })
               }
             />
-            <span className="field-hint">{t("company.maxArticlesPerThemeHint")}</span>
+            <span className="field-hint">{t("company.maxArticlesPerCompanyHint")}</span>
           </label>
+
+          <div className="field-row">
+            <label>
+              {t("company.maxArticlesPerTheme")}
+              <input
+                type="number"
+                min={0}
+                max={1000}
+                value={settings.max_articles_per_theme_per_run}
+                onChange={(e) =>
+                  setSettings({ ...settings, max_articles_per_theme_per_run: Number(e.target.value) })
+                }
+              />
+              <span className="field-hint">{t("company.maxArticlesPerThemeHint")}</span>
+            </label>
+            <label>
+              {t("company.maxActiveThemeWatches")}
+              <input
+                type="number"
+                min={1}
+                max={1000}
+                value={settings.max_active_theme_watches}
+                onChange={(e) =>
+                  setSettings({ ...settings, max_active_theme_watches: Number(e.target.value) })
+                }
+              />
+              <span className="field-hint">{t("company.maxActiveThemeWatchesHint")}</span>
+            </label>
+          </div>
+
           <label>
-            {t("company.maxActiveThemeWatches")}
+            {t("company.themeMatchMinRelevanceScore")}
             <input
               type="number"
               min={1}
-              max={1000}
-              value={settings.max_active_theme_watches}
+              max={5}
+              value={settings.theme_match_min_relevance_score}
               onChange={(e) =>
-                setSettings({ ...settings, max_active_theme_watches: Number(e.target.value) })
+                setSettings({ ...settings, theme_match_min_relevance_score: Number(e.target.value) })
               }
             />
-            <span className="field-hint">{t("company.maxActiveThemeWatchesHint")}</span>
+            <span className="field-hint">{t("company.themeMatchMinRelevanceScoreHint")}</span>
           </label>
         </div>
-
-        <label>
-          {t("company.themeMatchMinRelevanceScore")}
-          <input
-            type="number"
-            min={1}
-            max={5}
-            value={settings.theme_match_min_relevance_score}
-            onChange={(e) =>
-              setSettings({ ...settings, theme_match_min_relevance_score: Number(e.target.value) })
-            }
-          />
-          <span className="field-hint">{t("company.themeMatchMinRelevanceScoreHint")}</span>
-        </label>
       </div>
 
       <button type="submit" disabled={isSaving}>

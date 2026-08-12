@@ -71,6 +71,7 @@
   "copied": "Copied!",
   "notesAndTodos": "Notes & todos",
   "dismissedToast": "Signal dismissed.",
+  "archivedToast": "Signal archived.",
   "undo": "Undo",
   "skippedPage": {
     "title": "Skipped",
