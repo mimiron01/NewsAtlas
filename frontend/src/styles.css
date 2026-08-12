@@ -12,6 +12,7 @@
   --danger-soft-bg: #fdecec;
   --danger-solid: #c53030;
   --ok-solid: #1a7f4e;
+  --favorite: #d99b0c;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
@@ -29,6 +30,7 @@
   --danger-soft-bg: #301818;
   --danger-solid: #c53030;
   --ok-solid: #1a7f4e;
+  --favorite: #e0ac3a;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -46,6 +48,7 @@
     --danger-soft-bg: #301818;
     --danger-solid: #c53030;
     --ok-solid: #1a7f4e;
+    --favorite: #e0ac3a;
   }
 }
 
@@ -297,13 +300,15 @@ button.danger { background: var(--danger-solid); }
 .news-source-row:last-child { border-bottom: none; }
 .news-source-row .checkbox-label { margin-bottom: 6px; }
 .news-usage-summary { margin-top: 8px; }
-.news-usage-table {
+/* .csv-preview-table (CSV import preview) shares this styling — it isn't news-usage
+   data, but the row/column treatment it needs is identical. */
+.news-usage-table, .csv-preview-table {
   width: 100%;
   margin-top: 6px;
   font-size: 0.78rem;
   border-collapse: collapse;
 }
-.news-usage-table th, .news-usage-table td {
+.news-usage-table th, .news-usage-table td, .csv-preview-table th, .csv-preview-table td {
   text-align: left;
   padding: 4px 8px;
   border-bottom: 1px solid var(--border);
@@ -765,7 +770,7 @@ button.secondary {
   flex-shrink: 0;
 }
 .favorite-button:hover:not(:disabled) { background: var(--bg); transform: none; color: var(--fg); }
-.favorite-button.active { color: #d99b0c; }
+.favorite-button.active { color: var(--favorite); }
 .favorite-button.detail { margin-top: 0; }
 
 .todo-pill {
@@ -854,6 +859,21 @@ button.secondary {
 
 @media (max-width: 720px) {
   .dashboard-panels { grid-template-columns: 1fr; }
+}
+
+/* Visually hides content while keeping it in the accessibility tree — for text that
+   exists purely to give assistive tech an announcement a sighted user gets from a
+   visual cue instead (a spinner, a colored checkmark). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .skeleton-group { display: flex; flex-direction: column; gap: 10px; }

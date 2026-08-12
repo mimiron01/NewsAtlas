@@ -5,6 +5,8 @@
   "help": "Show help",
   "setupChecklist": {
     "title": "Get started",
+    "stepDone": "Completed",
+    "stepNotDone": "Not completed",
     "companyProfile": {
       "label": "Describe your company",
       "body": "Tell the AI what you sell so it can explain why each signal matters.",

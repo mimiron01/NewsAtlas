@@ -5,6 +5,8 @@
   "help": "Hilfe anzeigen",
   "setupChecklist": {
     "title": "Erste Schritte",
+    "stepDone": "Abgeschlossen",
+    "stepNotDone": "Nicht abgeschlossen",
     "companyProfile": {
       "label": "Beschreiben Sie Ihr Unternehmen",
       "body": "Teilen Sie der KI mit, was Sie verkaufen, damit sie erklären kann, warum jedes Signal wichtig ist.",

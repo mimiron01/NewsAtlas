@@ -135,7 +135,7 @@ export default function TargetCompanyCsvImport({ onImported }: TargetCompanyCsvI
 
           {previewRows.length > 0 && (
             <div className="table-scroll">
-              <table className="news-usage-table">
+              <table className="csv-preview-table">
                 <thead>
                   <tr>
                     {headers.map((header) => (
