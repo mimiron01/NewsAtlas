@@ -53,8 +53,11 @@ export default function SignalDetail() {
     try {
       const updated = await api.patch<Signal>(`/signals/${signal.id}`, { status });
       setSignal(updated);
-      if (status === "dismissed") {
-        showToast(t("dismissedToast"), "success", {
+      // Both are reversible transitions away from active review — "archived" gets the
+      // same undo affordance "dismissed" already had, instead of losing it depending on
+      // which of the two you picked.
+      if (status === "dismissed" || status === "archived") {
+        showToast(status === "dismissed" ? t("dismissedToast") : t("archivedToast"), "success", {
           label: t("undo"),
           onClick: () => updateStatus(previousStatus),
         });

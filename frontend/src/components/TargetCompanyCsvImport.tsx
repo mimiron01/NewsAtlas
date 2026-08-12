@@ -24,6 +24,11 @@ export default function TargetCompanyCsvImport({ onImported }: TargetCompanyCsvI
   const [industryColumn, setIndustryColumn] = useState(NO_INDUSTRY_COLUMN);
   const [isImporting, setIsImporting] = useState(false);
   const [result, setResult] = useState<TargetCompanyImportResult | null>(null);
+  // Row-level failures (skipped/errors above) stay visible in the panel already; a
+  // request-level failure (network, auth, a malformed file the server rejects outright)
+  // used to only flash a toast and leave no trace once it faded. This keeps it visible
+  // the same way.
+  const [requestError, setRequestError] = useState<string | null>(null);
 
   function reset() {
     setFile(null);
@@ -32,6 +37,7 @@ export default function TargetCompanyCsvImport({ onImported }: TargetCompanyCsvI
     setNameColumn("");
     setIndustryColumn(NO_INDUSTRY_COLUMN);
     setResult(null);
+    setRequestError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -60,6 +66,7 @@ export default function TargetCompanyCsvImport({ onImported }: TargetCompanyCsvI
   async function handleImport() {
     if (!file || !nameColumn) return;
     setIsImporting(true);
+    setRequestError(null);
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -71,7 +78,9 @@ export default function TargetCompanyCsvImport({ onImported }: TargetCompanyCsvI
       setResult(imported);
       onImported();
     } catch (err) {
-      showToast(err instanceof ApiError ? err.message : t("targets.import.importFailed"), "error");
+      const message = err instanceof ApiError ? err.message : t("targets.import.importFailed");
+      setRequestError(message);
+      showToast(message, "error");
     } finally {
       setIsImporting(false);
     }
@@ -147,6 +156,7 @@ export default function TargetCompanyCsvImport({ onImported }: TargetCompanyCsvI
             </div>
           )}
 
+          {requestError && <p className="error-text">{requestError}</p>}
           <div className="actions">
             <button type="button" disabled={!nameColumn || isImporting} onClick={handleImport}>
               {isImporting ? t("targets.import.importing") : t("targets.import.importButton")}

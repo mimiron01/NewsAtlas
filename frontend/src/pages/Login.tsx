@@ -87,7 +87,11 @@ export default function Login() {
           </label>
         )}
 
-        {error && <p className="error-text">{error}</p>}
+        {error && (
+          <p className="error-text" role="alert">
+            {error}
+          </p>
+        )}
 
         <button type="submit" disabled={isSubmitting}>
           {mode === "login" ? t("signIn") : t("createAccount")}

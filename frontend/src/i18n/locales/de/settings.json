@@ -19,6 +19,10 @@
   "company": {
     "title": "Unternehmensprofil",
     "subtitle": "Diese Beschreibung wird dem KI-Modell zur Verfügung gestellt, damit es erklären kann, warum jedes News-Signal für Ihr Unternehmen relevant ist, und passende Kontakt-Textbausteine entwerfen kann.",
+    "sections": {
+      "identity": "Identität",
+      "digestAndLimits": "Digest & Limits"
+    },
     "companyName": "Firmenname",
     "offeringDescription": "Angebotsbeschreibung",
     "offeringPlaceholder": "Beschreiben Sie, was Ihr Unternehmen verkauft, für wen und welche Probleme es löst...",

@@ -125,8 +125,8 @@ export default function SignalsFeed() {
     try {
       const updated = await api.patch<Signal>(`/signals/${id}`, { status });
       setSignals((prev) => prev.map((s) => (s.id === id ? updated : s)));
-      if (status === "dismissed" && previousStatus) {
-        showToast(t("dismissedToast"), "success", {
+      if ((status === "dismissed" || status === "archived") && previousStatus) {
+        showToast(status === "dismissed" ? t("dismissedToast") : t("archivedToast"), "success", {
           label: t("undo"),
           onClick: () => transitionSignal(id, previousStatus),
         });
@@ -138,6 +138,9 @@ export default function SignalsFeed() {
 
   async function transitionSelected(status: SignalStatus) {
     const ids = [...selectedIds];
+    // Captured before the mutation so an undo can restore each signal's own prior
+    // status, not one shared value — a bulk selection can span multiple statuses.
+    const previousById = new Map(ids.map((id) => [id, signals.find((s) => s.id === id)?.status]));
     try {
       const updates = await Promise.all(
         ids.map((id) => api.patch<Signal>(`/signals/${id}`, { status }))
@@ -146,7 +149,24 @@ export default function SignalsFeed() {
         prev.map((s) => updates.find((updated) => updated.id === s.id) ?? s)
       );
       setSelectedIds(new Set());
-      showToast(t("feed.bulkUpdated", { count: ids.length }), "success");
+      if (status === "dismissed" || status === "archived") {
+        showToast(t("feed.bulkUpdated", { count: ids.length }), "success", {
+          label: t("undo"),
+          onClick: async () => {
+            const reverted = await Promise.all(
+              ids.map((id) => {
+                const previous = previousById.get(id);
+                return previous ? api.patch<Signal>(`/signals/${id}`, { status: previous }) : null;
+              })
+            );
+            setSignals((prev) =>
+              prev.map((s) => reverted.find((updated) => updated?.id === s.id) ?? s)
+            );
+          },
+        });
+      } else {
+        showToast(t("feed.bulkUpdated", { count: ids.length }), "success");
+      }
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : t("feed.bulkUpdateFailed"), "error");
     }

@@ -699,7 +699,11 @@ button.danger { background: var(--danger-solid); }
   background: var(--bg);
 }
 .template-card .keywords { font-size: 0.8rem; color: var(--muted); }
-.template-card button { align-self: flex-start; margin-top: 4px; }
+/* margin-top: auto pins the button to the bottom of the card regardless of how much
+   optional content (a "based on" hint, an excludes hint, a duplicate banner) renders
+   above it — the grid's default align-items: stretch already equalizes card heights,
+   so this is what makes buttons line up across a row instead of stair-stepping. */
+.template-card button { align-self: flex-start; margin-top: auto; }
 
 .status-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
 .status-actions button.secondary,
@@ -797,9 +801,16 @@ button.secondary {
 .todo-text { word-break: break-word; }
 .todo-delete { font-size: 0.8rem; flex-shrink: 0; }
 
+/* auto-fit instead of a fixed 4-column grid: the tile count is dynamic (3 with no
+   followed topic, 5 once one exists and something's been skipped), and a fixed column
+   count either stranded the 5th tile alone on its own row or left a gap for 3. Tracks
+   size themselves (not 1fr) so a handful of tiles stay a sensible width instead of
+   stretching edge to edge; justify-content keeps them left-aligned when they don't fill
+   the row. */
 .dashboard-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 220px));
+  justify-content: start;
   gap: 12px;
   margin-bottom: 20px;
 }
@@ -840,14 +851,6 @@ button.secondary {
 .dashboard-mini-list-row a { flex: 1; min-width: 0; }
 
 .dashboard-panel-footer-link { display: block; margin-top: 12px; text-align: center; }
-
-@media (max-width: 900px) {
-  .dashboard-stats { grid-template-columns: repeat(2, 1fr); }
-}
-
-@media (max-width: 480px) {
-  .dashboard-stats { grid-template-columns: 1fr; }
-}
 
 @media (max-width: 720px) {
   .dashboard-panels { grid-template-columns: 1fr; }
@@ -936,9 +939,10 @@ button.secondary {
   text-align: left;
 }
 .profile-popover button:hover { background: var(--bg); transform: none; }
-.profile-popover-language { padding: 2px 10px 6px; }
-.profile-popover-language .language-select {
-  width: 100%;
+/* Base styling lives on .language-select itself, not scoped to .profile-popover-language,
+   so LanguageSwitcher renders correctly wherever it's used — not just inside the one
+   parent it happens to be nested in today. */
+.language-select {
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -951,7 +955,7 @@ button.secondary {
   font-size: 0.82rem;
   padding: 6px 10px;
 }
-.profile-popover-language .language-select select {
+.language-select select {
   flex: 1;
   min-width: 0;
   background: transparent;
@@ -962,7 +966,10 @@ button.secondary {
   cursor: pointer;
   text-overflow: ellipsis;
 }
-.profile-popover-language .language-select select:focus { outline: none; }
+.language-select select:focus { outline: none; }
+
+.profile-popover-language { padding: 2px 10px 6px; }
+.profile-popover-language .language-select { width: 100%; }
 
 .overflow-menu { position: relative; }
 .overflow-menu-trigger {

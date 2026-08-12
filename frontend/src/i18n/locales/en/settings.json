@@ -19,6 +19,10 @@
   "company": {
     "title": "Company profile",
     "subtitle": "This description is given to the AI model so it can explain why each news signal matters for your business and draft relevant outreach snippets.",
+    "sections": {
+      "identity": "Identity",
+      "digestAndLimits": "Digest & limits"
+    },
     "companyName": "Company name",
     "offeringDescription": "Offering description",
     "offeringPlaceholder": "Describe what your company sells, who it's for, and the problems it solves...",
