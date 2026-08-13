@@ -961,23 +961,31 @@ button.secondary {
 .profile-popover button:hover { background: var(--bg); transform: none; }
 /* Base styling lives on .language-select itself, not scoped to .profile-popover-language,
    so LanguageSwitcher renders correctly wherever it's used — not just inside the one
-   parent it happens to be nested in today. */
+   parent it happens to be nested in today. Matches the plain-row look of the other
+   .profile-popover menu items (theme, settings, logout) so it doesn't stand out. */
 .language-select {
   box-sizing: border-box;
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
-  background: var(--bg);
+  gap: 10px;
+  width: 100%;
+  margin-bottom: 0;
+  background: none;
   color: var(--fg);
-  border: 1px solid var(--border);
+  border: none;
   border-radius: 6px;
   font-weight: 500;
-  font-size: 0.82rem;
-  padding: 6px 10px;
+  font-size: 0.85rem;
+  padding: 8px 10px;
+  cursor: pointer;
 }
+.language-select:hover { background: var(--bg); }
 .language-select select {
   flex: 1;
   min-width: 0;
+  margin: 0;
+  padding: 0;
   background: transparent;
   color: inherit;
   border: none;
@@ -988,8 +996,7 @@ button.secondary {
 }
 .language-select select:focus { outline: none; }
 
-.profile-popover-language { padding: 2px 10px 6px; }
-.profile-popover-language .language-select { width: 100%; }
+.profile-popover-language { padding: 0; }
 
 .overflow-menu { position: relative; }
 .overflow-menu-trigger {
