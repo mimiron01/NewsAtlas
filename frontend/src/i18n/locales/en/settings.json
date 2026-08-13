@@ -21,7 +21,7 @@
     "subtitle": "This description is given to the AI model so it can explain why each news signal matters for your business and draft relevant outreach snippets.",
     "sections": {
       "identity": "Identity",
-      "digestAndLimits": "Digest & limits"
+      "digestAndLimits": "Digest & limits (defaults are fine for most workspaces)"
     },
     "companyName": "Company name",
     "offeringDescription": "Offering description",

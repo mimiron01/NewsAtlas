@@ -21,7 +21,7 @@
     "subtitle": "Diese Beschreibung wird dem KI-Modell zur Verfügung gestellt, damit es erklären kann, warum jedes News-Signal für Ihr Unternehmen relevant ist, und passende Kontakt-Textbausteine entwerfen kann.",
     "sections": {
       "identity": "Identität",
-      "digestAndLimits": "Digest & Limits"
+      "digestAndLimits": "Digest & Limits (Standardwerte passen für die meisten Workspaces)"
     },
     "companyName": "Firmenname",
     "offeringDescription": "Angebotsbeschreibung",
