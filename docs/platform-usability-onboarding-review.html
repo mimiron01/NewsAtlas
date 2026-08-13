@@ -192,6 +192,52 @@
     font-size: 0.85rem;
   }
 
+  .update-banner {
+    border-left: 4px solid var(--ok);
+    background: #e9f9f1;
+    padding: 14px 18px;
+    margin: 20px 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.92rem;
+  }
+
+  .decision {
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    background: var(--accent-bg);
+    padding: 16px 20px;
+    margin: 16px 0;
+    border-radius: 0 10px 10px 0;
+    font-size: 0.9rem;
+  }
+  .decision h3 { margin: 0 0 8px; font-size: 1rem; }
+  .decision h4 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--accent);
+    margin: 14px 0 4px;
+  }
+
+  .solution {
+    border-left: 4px solid var(--ok);
+    background: #f3fbf7;
+    padding: 4px 20px 14px;
+    margin: 14px 0 0;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.9rem;
+  }
+  .solution h4 {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--ok);
+    margin: 14px 0 4px;
+  }
+  .solution ol, .solution ul { margin: 6px 0 6px 20px; padding: 0; }
+  .solution li { margin-bottom: 8px; }
+  .solution pre { margin: 8px 0; background: #ffffff; }
+
   footer {
     margin-top: 60px;
     padding-top: 20px;
@@ -213,10 +259,21 @@
   <div><strong>Prior review:</strong> <code>docs/ui-ux-review.html</code> (all 13 findings marked fixed) covered general interaction polish — this review re-checks the app fresh and focuses specifically on first-run setup friction and plain-language clarity</div>
 </div>
 
+<div class="update-banner">
+  <strong>Update — decisions made, implementation guidance added.</strong> Every finding below
+  now has an "Implementation guidance" block with concrete file/line pointers so any of these
+  can be picked up directly. Three open questions from the first pass are resolved — see
+  <a href="#decisions">Decisions</a> — and F1 and F6 have been rewritten to match: F1 now
+  specifies flipping the default news-source mix for new workspaces plus a hard block (warning
+  + disabled button) when a workspace has none enabled; F6 stays visible to every admin, no
+  permission gating.
+</div>
+
 <nav class="toc">
   <h2>Contents</h2>
   <ol>
     <li><a href="#summary">Executive summary</a></li>
+    <li><a href="#decisions">Decisions</a></li>
     <li><a href="#clicks">Click-count: setting up a company vs. a topic</a></li>
     <li><a href="#heuristics">Nielsen's 10 usability heuristics</a></li>
     <li><a href="#doet">The Design of Everyday Things</a></li>
@@ -230,7 +287,6 @@
     <li><a href="#f7">F7. Three similarly-named source controls in one modal are easy to conflate</a></li>
     <li><a href="#positives">What's already working well</a></li>
     <li><a href="#roadmap">Prioritized roadmap</a></li>
-    <li><a href="#questions">Open questions for you</a></li>
   </ol>
 </nav>
 
@@ -254,6 +310,12 @@
   review is optimizing for — everything else found here is real but secondary polish by
   comparison.
 </p>
+<p>
+  The three calls this review originally flagged as open questions are now resolved (see
+  <a href="#decisions">Decisions</a>), and every finding F1–F7 below carries concrete
+  implementation guidance — file paths, line numbers, and a definition of done — so this doc
+  now doubles as the backlog for the follow-up implementation pass.
+</p>
 
 <table class="summary-table">
   <tr><th>#</th><th>Impact</th><th>Finding</th></tr>
@@ -265,6 +327,37 @@
   <tr><td>F6</td><td><span class="badge badge-medium">Medium</span></td><td>AI configuration tab reads as equally mandatory as Company/News sources, but is raw ML parameters a beginner shouldn't need to touch</td></tr>
   <tr><td>F7</td><td><span class="badge badge-low">Low</span></td><td>"Trusted sources," "News sources," and "Blocked sources" are three near-identically-worded controls in one modal</td></tr>
 </table>
+
+<h2 id="decisions">Decisions</h2>
+<p>Three calls this review flagged as yours to make. All three are resolved and reflected in the findings below.</p>
+
+<div class="decision">
+  <h3>Should new workspaces ship with Google News RSS on by default?</h3>
+  <p><strong>Decision: yes — and disable the other news sources by default.</strong> A brand-new
+  workspace will ship with <code>google_news_rss_enabled = true</code>,
+  <code>newsapi_enabled = false</code>, and <code>newsdata_enabled</code> stays
+  <code>false</code>. This single change fixes both silent traps described in F1 at once: it
+  needs no API key, and companies already check every enabled provider (not just NewsAPI), so a
+  fresh company or topic works out of the box with zero setup. See <a href="#f1">F1</a> for the
+  exact defaults to change and why NewsAPI is safe to turn off rather than leave on.</p>
+</div>
+
+<div class="decision">
+  <h3>Should "Fetch new signals" be blocked or just warned about, when no source is enabled?</h3>
+  <p><strong>Decision: block it.</strong> If every news source is off, show a clear warning
+  explaining why and how to fix it, <em>and</em> disable the "Fetch new signals" button — not
+  just a strong signifier while still letting the click through. Combined with the default
+  change above, this should be a rare state (only reachable if an admin later turns every
+  source off), but when it happens the button must not be clickable. See <a href="#f1">F1</a>
+  for where this needs to be wired in.</p>
+</div>
+
+<div class="decision">
+  <h3>Should AI configuration be gated behind a stricter permission?</h3>
+  <p><strong>Decision: no — keep it visible to every admin.</strong> F6's original
+  recommendation (badge the tab as advanced/optional, since its defaults already work for most
+  workspaces) still stands; only the permission-gating option is off the table.</p>
+</div>
 
 <h2 id="clicks">Click-count: setting up a company vs. a topic</h2>
 <p>
@@ -422,24 +515,89 @@
     gulf of execution (low here — actions are easy to start) and gulf of evaluation (high —
     understanding the outcome is not).
   </p>
-  <h4>Recommendation</h4>
-  <p>
-    Treat "the workspace can fetch from at least one working news source" as its own explicit,
-    checkable condition — surfaced in the same checklist, not buried in a run-history log:
-  </p>
-  <ul>
-    <li>Consider shipping Google News RSS <strong>on</strong> by default for new workspaces,
-      since it needs no key and is the only source topics can use — this alone would remove
-      the topic-side trap entirely for most new installs.</li>
-    <li>Add the missing-source/missing-key condition as a visible checklist item or a banner
-      that appears on the Dashboard and Signals feed (not just the Topics list), the same way
-      it already does on the Topics page — with a direct link to the fix, in the same style as
-      the existing "Go to news sources →" link.</li>
-    <li>Rewrite the two run-history messages in user-facing language with a next step, e.g.
-      "Acme Robotics GmbH: we don't have a working news source to check yet. [Turn one on in
-      Settings →]" instead of surfacing <code>NEWSAPI_API_KEY</code> or the internal
-      <code>theme:</code> identifier prefix (see also <a href="#f4">F4</a>).</li>
-  </ul>
+  <div class="decision">
+    <h4>Decision</h4>
+    <p>
+      Ship Google News RSS <strong>on</strong> and NewsAPI/NewsData <strong>off</strong> by
+      default for new workspaces. Separately, when a workspace genuinely has zero sources
+      enabled, show a clear warning <em>and</em> disable "Fetch new signals" outright — not
+      just a strong signifier while still letting the click through.
+    </p>
+  </div>
+  <div class="solution">
+    <h4>Implementation guidance</h4>
+    <p><strong>1. Flip the new-workspace defaults.</strong></p>
+    <ol>
+      <li>
+        <code>backend/app/models/workspace_settings.py:85</code> — change
+        <code>newsapi_enabled</code>'s column <code>default=True</code> to <code>default=False</code>.
+      </li>
+      <li>
+        <code>backend/app/models/workspace_settings.py:88</code> — change
+        <code>google_news_rss_enabled</code>'s column <code>default=False</code> to
+        <code>default=True</code>.
+      </li>
+      <li>
+        No migration needed: <code>get_or_create_workspace_settings()</code>
+        (<code>backend/app/services/workspace_settings.py:64-71</code>) only ever inserts a row
+        via bare <code>WorkspaceSettings()</code> the first time it's called for a deployment, so
+        this changes new installs only — existing workspaces keep whatever they already have.
+      </li>
+      <li>
+        For consistency, update the matching defaults in the <code>WorkspaceSettingsUpdate</code>
+        Pydantic schema too: <code>backend/app/schemas/settings.py:106</code>
+        (<code>newsapi_enabled: bool = True</code> → <code>False</code>) and
+        <code>:109</code> (<code>google_news_rss_enabled: bool = False</code> → <code>True</code>).
+      </li>
+      <li>
+        Note for the "why this is safe" writeup: companies aren't hardcoded to NewsAPI — ingestion
+        already iterates every workspace-enabled provider per company
+        (<code>backend/app/services/ingestion.py:165-181</code>). So flipping these two defaults
+        fixes <em>both</em> silent traps in one change: companies pick up Google News RSS
+        automatically, and topics (which could only ever use Google News RSS) stop being blocked.
+      </li>
+    </ol>
+    <p><strong>2. Warn and block when a workspace truly has no source enabled.</strong></p>
+    <ol>
+      <li>
+        Add a computed <code>any_news_source_enabled: bool</code> field to
+        <code>PublicWorkspaceSettingsResponse</code> (<code>backend/app/schemas/settings.py:10-22</code>)
+        and set it in <code>get_public_settings()</code>
+        (<code>backend/app/api/settings.py:84-105</code>) as
+        <code>settings.newsapi_enabled or settings.google_news_rss_enabled or settings.newsdata_enabled</code>
+        — this is what lets every user (not just admins, who are the only ones who can call
+        <code>GET /settings</code>) know whether fetching can work at all.
+      </li>
+      <li>
+        In <code>frontend/src/pages/Dashboard.tsx</code> and
+        <code>frontend/src/pages/SignalsFeed.tsx</code>, fetch <code>/settings/public</code> (already
+        the pattern <code>ThemesPage.tsx</code> uses) and extend the existing disabled condition —
+        <code>disabled={isRunningIngestion || !hasSomethingToFetch}</code> at
+        <code>Dashboard.tsx:197</code> and <code>SignalsFeed.tsx:237</code> — to also require
+        <code>publicSettings.any_news_source_enabled</code>, with a matching <code>title</code>
+        explaining why when it's the blocking condition.
+      </li>
+      <li>
+        Render a warning banner on both pages when the flag is false, reusing the
+        <code>.warning-banner</code> pattern and copy style already shipped on
+        <code>ThemesPage.tsx</code>'s "Google News RSS is disabled" banner — including its direct
+        <code>Go to news sources →</code> link — rather than inventing a new visual pattern.
+      </li>
+      <li>
+        Apply the same disabled-button + banner treatment to the per-row "Run now"/bulk-run
+        actions on <code>SettingsTargets.tsx</code> and the per-topic <code>ThemeRunButton.tsx</code>,
+        so there's no remaining path to trigger a fetch that's guaranteed to do nothing.
+      </li>
+    </ol>
+    <p><strong>3. Stop leaking internal identifiers into the messages that remain.</strong> Tracked
+      separately as its own fix in <a href="#f4">F4</a>, since it applies to run-history text
+      generally, not only the no-source case.</p>
+    <p class="dod"><strong>Definition of done:</strong> a brand-new self-hosted install can add a
+      company or a topic and fetch real results with zero configuration beyond the invite code.
+      If an admin later turns every source off, "Fetch new signals" (and every per-row/bulk run
+      action) becomes unclickable everywhere it appears, with a visible, linked explanation next
+      to it — not just in a run-history log after the fact.</p>
+  </div>
 </div>
 
 <h2 id="f2">F2. Company profile mixes plain identity fields with unexplained technical tuning parameters <span class="badge badge-high">High</span></h2>
@@ -469,14 +627,39 @@
     simultaneous fields of very different purpose, with only two small section labels
     ("IDENTITY," "DIGEST & LIMITS") to organize them.
   </p>
-  <h4>Recommendation</h4>
-  <p>
-    Split the page so the checklist's "Describe your company" step visually ends where the
-    checklist's promise ends — either a real second tab ("Digest &amp; limits") or a
-    collapsed "Advanced" disclosure under the identity fields, closed by default, so a
-    first-time visitor sees exactly Company name + Offering description + Save, and everything
-    else is there for later.
-  </p>
+  <div class="solution">
+    <h4>Implementation guidance</h4>
+    <p>
+      The page already has the two sections cleanly separated as adjacent
+      <code>form-section</code> blocks — "Identity" (<code>CompanyTab.tsx:60-107</code>) and
+      "Digest &amp; limits" (<code>CompanyTab.tsx:109-176</code>) — so this doesn't need a new
+      tab, just to stop rendering the second one open by default:
+    </p>
+    <ol>
+      <li>
+        Wrap the "Digest &amp; limits" <code>form-section</code>
+        (<code>CompanyTab.tsx:109-176</code>) in a <code>&lt;details&gt;</code>, the same
+        pattern the file already uses for the offering-description example at
+        <code>CompanyTab.tsx:83-91</code> (<code>&lt;details&gt;&lt;summary
+        className="field-hint"&gt;...&lt;/summary&gt;...&lt;/details&gt;</code>).
+      </li>
+      <li>
+        Give the <code>&lt;summary&gt;</code> copy that sets expectations, e.g. "Digest &amp;
+        limits (defaults are fine for most workspaces)" via a new
+        <code>t("company.sections.digestAndLimitsSummary")</code> key in place of the current
+        bare <code>t("company.sections.digestAndLimits")</code> heading text.
+      </li>
+      <li>
+        Leave it open by default only if any value in that section differs from the shipped
+        default (10 / 10 / 10 / 3 / "07:00") — mirrors the pattern already used for
+        workspace-default placeholders elsewhere, so an admin who's already customized these
+        never has them hidden.
+      </li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> a first-time visit to Company profile
+      shows Company name, Offering description, Main language, and Save — nothing else — until
+      the admin actively opens "Digest &amp; limits."</p>
+  </div>
 </div>
 
 <h2 id="f3">F3. The manual "Add topic" form front-loads all advanced options at once <span class="badge badge-high">High</span></h2>
@@ -502,14 +685,36 @@
     for anyone whose topic isn't covered by a template, and it's considerably harder than the
     path it's a fallback for.
   </p>
-  <h4>Recommendation</h4>
-  <p>
-    Show Topic name + Search terms + "Add topic" by default, with Sources and Region &amp;
-    language collapsed behind a single "More options" disclosure (auto-expanded only when
-    editing a topic that already has non-default values set, matching the "don't hide what's
-    already in use" principle used correctly elsewhere in the app, e.g. workspace-default
-    placeholders).
-  </p>
+  <div class="solution">
+    <h4>Implementation guidance</h4>
+    <ol>
+      <li>
+        In <code>ThemesPage.tsx</code>, both the create form (around lines 644-713, the
+        <code>sections.criteria</code>/<code>sections.sources</code>/<code>sections.region</code>
+        blocks) and the mirrored edit form further down render all three
+        <code>form-section</code>s unconditionally. Wrap the Sources and Region &amp; language
+        sections each in a <code>&lt;details&gt;</code>, same pattern proposed for F2, so only
+        Topic name, Industry, and Search criteria (name + search terms) render open by default.
+      </li>
+      <li>
+        Track whether the create form's Sources/Region values are still at their defaults
+        (<code>sourceAllowlist === null &amp;&amp; sourceDenylist.length === 0 &amp;&amp;
+        newsSources === null &amp;&amp; country === "" &amp;&amp; language === ""</code>) and
+        only auto-open those <code>&lt;details&gt;</code> in the <em>edit</em> form when a topic
+        being edited has any non-default value there — a new topic should always start
+        collapsed.
+      </li>
+      <li>
+        Keep the "Add topic" submit button's existing
+        <code>disabled={isSubmitting || queryTerms.length === 0}</code> guard
+        (<code>ThemesPage.tsx:733</code>) unchanged — Search criteria staying visible by default
+        is intentional, since Search terms is the one required field.
+      </li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> opening "Add topic" on a fresh workspace
+      shows 3 controls (Topic name, Industry, Search terms) instead of ~9, with everything else
+      one click away behind clearly-labeled disclosures.</p>
+  </div>
 </div>
 
 <h2 id="f4">F4. User-facing error text leaks internal naming that contradicts the UI's own vocabulary <span class="badge badge-medium">Medium</span></h2>
@@ -524,12 +729,47 @@
     correct product term "topic" in the same sentence, and doing so in the one message a
     confused first-time user is most likely to actually read carefully.
   </p>
-  <h4>Recommendation</h4>
-  <p>
-    Route ingestion run-history strings through the same translation/vocabulary layer as the
-    rest of the UI instead of interpolating internal identifiers directly, so "Topic" (or
-    "Thema" in German) is used consistently everywhere a user-facing message mentions one.
-  </p>
+  <div class="solution">
+    <h4>Implementation guidance</h4>
+    <p>The offending strings are built directly in the ingestion service, in three places:</p>
+    <ol>
+      <li>
+        <code>backend/app/services/ingestion.py:304</code> —
+        <code>f"[theme:{theme_watch.name}] skipped: none of the news sources this ..."</code>
+      </li>
+      <li>
+        <code>backend/app/services/ingestion.py:438</code> — the per-company fetch-failure
+        message (<code>f"[{target_company.name}] {source.value} fetch failed: {exc}"</code>,
+        which is where the raw <code>NEWSAPI_API_KEY is not configured</code> exception text
+        from <code>backend/app/services/news_client.py:80</code> ends up surfacing verbatim).
+      </li>
+      <li>
+        <code>backend/app/services/ingestion.py:934</code> — the equivalent per-topic
+        fetch-failure message, same <code>theme:</code> prefix issue as above.
+      </li>
+    </ol>
+    <p>Two changes, applied at all three sites:</p>
+    <ol>
+      <li>
+        Drop the internal <code>theme:</code> prefix — use
+        <code>f"[{theme_watch.name}]"</code> to match the company-side format exactly, so both
+        read as "[Name]" regardless of type.
+      </li>
+      <li>
+        Replace raw exception text (<code>{exc}</code>, which for the two "not configured"
+        cases is literally the <code>AIClientError</code>/<code>NewsClientError</code> message
+        including the env-var name) with a short catalog of known causes mapped to plain
+        sentences — e.g. catch <code>NewsClientError</code>/<code>AIClientError</code>
+        specifically for the "not configured" case and emit "we don't have a working news
+        source to check yet" instead of forwarding <code>str(exc)</code> — falling back to the
+        raw exception text only for genuinely unexpected errors, where a technical detail is
+        the better failure mode than a wrong plain-language guess.
+      </li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> every string in the run-history/ingestion
+      status panel that names a topic uses the same "[Name]" format a company does, and the two
+      "not configured" failure modes read as an instruction, not a stack-trace fragment.</p>
+  </div>
 </div>
 
 <h2 id="f5">F5. Sign-up asks for an "Invite code" with no explanation of what it is <span class="badge badge-medium">Medium</span></h2>
@@ -554,12 +794,28 @@
     with no signified meaning: the input affords typing, but gives no clue what belongs in it
     or where to get it.
   </p>
-  <h4>Recommendation</h4>
-  <p>
-    Add a one-line hint under the field using the same <code>field-hint</code> pattern already
-    used throughout the company/topic forms — e.g. "Ask whoever set up NewsAtlas for your
-    workspace for this code."
-  </p>
+  <div class="solution">
+    <h4>Implementation guidance</h4>
+    <ol>
+      <li>
+        In <code>frontend/src/pages/Login.tsx</code>, immediately after the invite-code
+        <code>&lt;input&gt;</code> (around line 86, right where the password field's
+        <code>&lt;span className="field-hint"&gt;{t("passwordHint")}&lt;/span&gt;</code> already
+        sits at line 76), add
+        <code>&lt;span className="field-hint"&gt;{t("inviteCodeHint")}&lt;/span&gt;</code>.
+      </li>
+      <li>
+        Add <code>"inviteCodeHint"</code> to both
+        <code>frontend/src/i18n/locales/en/auth.json</code> (e.g. "Ask whoever set up NewsAtlas
+        for your workspace for this code.") and
+        <code>frontend/src/i18n/locales/de/auth.json</code> (matching German), next to the
+        existing <code>"inviteCode": "Invite code"</code> / <code>"Einladungscode"</code> keys.
+      </li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> the invite-code field has a visible hint
+      under it on first render, with no interaction required to see it — matching every other
+      field on the form.</p>
+  </div>
 </div>
 
 <h2 id="f6">F6. AI configuration exposes raw ML/ops parameters with no "you can skip this" signal <span class="badge badge-medium">Medium</span></h2>
@@ -574,13 +830,37 @@
     a non-technical admin should ever need to touch, and none of which explain the consequence
     of getting them wrong (what happens at 0.5 vs. 0.9? what if the model name is misspelled?).
   </p>
-  <h4>Recommendation</h4>
-  <p>
-    Either badge this tab clearly as advanced/optional ("Defaults work well for most
-    workspaces — only change these if you know what you're doing"), or replace the free-text
-    model fields with a constrained dropdown of supported models so a mistyped value can't
-    silently break summarization.
-  </p>
+  <div class="decision">
+    <h4>Decision</h4>
+    <p>
+      Keep AI configuration visible to every admin — no permission gating. The "badge it as
+      advanced" half of the original recommendation still applies.
+    </p>
+  </div>
+  <div class="solution">
+    <h4>Implementation guidance</h4>
+    <ol>
+      <li>
+        Add a one-line notice at the top of the form in
+        <code>frontend/src/pages/settings/AITab.tsx</code> (before the first field, around line
+        95+, same position as the descriptive paragraph already used on
+        <code>CompanyTab.tsx:58</code>), e.g. "Defaults work well for most workspaces — only
+        change these if you know what you're doing," styled with the existing
+        <code>subtitle</code> class so it reads as a de-emphasized aside, not a warning.
+      </li>
+      <li>
+        The model fields already use a forgiving pattern worth keeping as-is: free-text
+        <code>&lt;input list="mistral-model-suggestions"&gt;</code> backed by a
+        <code>&lt;datalist&gt;</code> of <code>MODEL_SUGGESTIONS</code>
+        (<code>AITab.tsx:12-13, 100-104, 135-139</code>) — this already nudges toward valid
+        values via autocomplete without hard-blocking a legitimately newer model name Mistral
+        ships after this code does. No change needed there; a hard-constrained
+        <code>&lt;select&gt;</code> would trade that flexibility away for marginal extra safety.
+      </li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> the tab remains reachable by every admin,
+      but visibly signals on first glance that its defaults are safe to leave alone.</p>
+  </div>
 </div>
 
 <h2 id="f7">F7. Three similarly-named source controls in one modal are easy to conflate <span class="badge badge-low">Low</span></h2>
@@ -602,6 +882,36 @@
     sub-heading, visually distinct from "News sources" (which is about providers, not
     domains), would also reduce the chance of a user picking the wrong one.
   </p>
+  <div class="solution">
+    <h4>Implementation guidance</h4>
+    <ol>
+      <li>
+        In <code>ThemesPage.tsx</code>'s Sources <code>form-section</code> (create form around
+        lines 675-690, mirrored in the edit form), insert an
+        <code>&lt;h4 className="form-section-subheading"&gt;{t("addTheme.sections.domainFilters")}&lt;/h4&gt;</code>
+        immediately before the existing
+        <code>&lt;SourceAllowlistField subject="topic" .../&gt;</code> call, so it visually
+        brackets that field and the denylist <code>&lt;TagInput&gt;</code> together, separate
+        from <code>&lt;ThemeSourceSelector&gt;</code> above it.
+      </li>
+      <li>
+        Extend <code>frontend/src/components/SourceAllowlistField.tsx</code>'s hint strings
+        (<code>allowlistInheritHint</code>/<code>allowlistAllHint</code>/<code>allowlistCustomHint</code>,
+        looked up via the <code>tf()</code> helper at line 34) with a trailing worked example,
+        and add one to the source-denylist <code>TagInput</code>'s placeholder text
+        (<code>themes:addTheme.sourceDenylistPlaceholder</code>) the same way.
+      </li>
+      <li>
+        Apply the identical subheading to the company form's use of
+        <code>&lt;SourceAllowlistField subject="company" .../&gt;</code> in
+        <code>SettingsTargets.tsx</code> for consistency, even though it doesn't have a
+        separate denylist field there.
+      </li>
+    </ol>
+    <p class="dod"><strong>Definition of done:</strong> "News sources" (providers) and "Domain
+      filters" (Trusted/Blocked) read as two visually distinct groups, each with at least one
+      concrete example in its hint text.</p>
+  </div>
 </div>
 
 <h2 id="positives">What's already working well</h2>
@@ -632,7 +942,7 @@
 <h2 id="roadmap">Prioritized roadmap</h2>
 <table>
   <tr><th>Priority</th><th>Item</th><th>Why first</th></tr>
-  <tr><td>1</td><td>F1 — make "can this workspace actually fetch anything" visible in the checklist itself, and/or ship Google News RSS on by default</td><td>The one gap that turns a 2–3 click success story into a silent dead end for the exact audience this review is about</td></tr>
+  <tr><td>1</td><td>F1 — flip new-workspace source defaults (Google News RSS on, NewsAPI/NewsData off), and warn + disable "Fetch new signals" when no source is enabled</td><td>The one gap that turns a 2–3 click success story into a silent dead end for the exact audience this review is about</td></tr>
   <tr><td>2</td><td>F3 — collapse the manual "Add topic" form's Sources/Region sections by default</td><td>Directly reduces the cognitive load of the fallback path for the app's core "add a topic" action</td></tr>
   <tr><td>3</td><td>F2 — separate Company profile's identity fields from its digest/limit tuning fields</td><td>First page a new admin is sent to; currently the least focused screen in the onboarding path</td></tr>
   <tr><td>4</td><td>F4 — route run-history messages through the same vocabulary as the rest of the UI</td><td>Small, isolated fix; compounds F1's impact today</td></tr>
@@ -641,28 +951,13 @@
   <tr><td>7</td><td>F7 — add worked examples to the three source-filter controls</td><td>Low effort, narrow but real clarity improvement</td></tr>
 </table>
 
-<h2 id="questions">Open questions for you</h2>
-<p>
-  A few calls worth your input before any of the above gets built:
-</p>
-<ul class="checklist">
-  <li>Is it acceptable to change the shipped default for <code>google_news_rss_enabled</code> to
-    <code>true</code> for new workspaces, or is there a reason (rate limits, terms of use,
-    quality concerns per <code>docs/google-news-quality-planning.html</code>) it was deliberately
-    left off?</li>
-  <li>For F1's checklist fix: would you rather block "Fetch new signals" entirely until a
-    working source exists (a hard constraint), or just make the warning impossible to miss (a
-    strong signifier) while still letting an admin fetch anyway?</li>
-  <li>Is the AI configuration tab (F6) meant to be visible to every admin, or should it
-    eventually be gated further (e.g. behind a workspace-owner-only permission) given how easy
-    it is to break summarization from there?</li>
-</ul>
-
 <footer>
   Prepared via a live, scripted walkthrough of the running app (fresh Postgres + backend +
   frontend, real signup, real setup flow) with screenshots captured at each step, cross-checked
-  against the source. No changes were made to the codebase as part of this review — see the
-  roadmap above for suggested next steps.
+  against the source. All three open questions from the first pass are resolved — see
+  <a href="#decisions">Decisions</a> — and every finding above now carries concrete
+  implementation guidance. No changes have been made to the codebase yet; this is the backlog
+  for that follow-up pass.
 </footer>
 
 </body>
