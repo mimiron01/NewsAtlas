@@ -385,6 +385,16 @@ button.danger { background: var(--danger-solid); }
 .company-table tbody tr:last-child td { border-bottom: none; }
 .company-table tr.inactive { opacity: 0.55; }
 .company-table .checkbox-cell { width: 32px; }
+/* The status and tracked-from columns hug their content (width: 1% shrinks a table
+   column to its min content width) so the company name column absorbs the table's
+   remaining width instead of leaving a gap after the actions buttons. The actions
+   column gets an explicit min-width instead of the same 1% treatment — its wrapping
+   flex button row would otherwise be squeezed down to its narrowest single button and
+   stack instead of sitting side by side. */
+.company-table th:nth-child(2), .company-table td:nth-child(2) { width: 100%; }
+.company-table th:nth-child(3), .company-table td:nth-child(3),
+.company-table th:nth-child(4), .company-table td:nth-child(4) { width: 1%; white-space: nowrap; }
+.company-table th:nth-child(5), .company-table td:nth-child(5) { min-width: 195px; }
 .company-table .keywords { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
 .company-table .tag {
   margin-left: 8px;
@@ -471,11 +481,25 @@ button.danger { background: var(--danger-solid); }
 
 .feed-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
 .feed-toolbar h2 { margin: 0 0 4px; }
+.toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+/* When the CSV import panel is open it's a full form (file picker, column pickers,
+   preview table) — too wide to sit inline next to the toolbar's other controls, so it
+   drops to its own full-width row instead of being squeezed into the flex row. */
+.csv-import-panel { flex: 1 1 100%; margin-top: 4px; }
 
 .error-list { padding-left: 18px; margin: 8px 0 0; }
 

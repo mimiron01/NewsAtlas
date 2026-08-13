@@ -422,46 +422,47 @@ export default function SettingsTargets() {
         </Modal>
       )}
 
-      {isAdmin && <TargetCompanyCsvImport onImported={loadCompanies} />}
-
       <div className="panel-card">
         <div className="feed-toolbar">
           <h3>{t("targets.trackedCompanies", { count: companies.length })}</h3>
-          {selectedIds.size > 0 && (
-            <div className="bulk-actions">
-              <span className="subtitle">{t("targets.selectedCount", { count: selectedIds.size })}</span>
-              <button
-                type="button"
-                disabled={isBulkRunning || isRunningIngestion || noSourceEnabled}
-                title={
-                  noSourceEnabled
-                    ? t("noNewsSource.blockedTooltip", { ns: "common" })
-                    : isRunningIngestion
-                      ? t("targets.runNowBlockedRunning")
-                      : undefined
-                }
-                onClick={handleBulkRunNow}
-              >
-                {t("targets.bulkRunNow", { count: selectedIds.size })}
-              </button>
-              {confirmingBulk ? (
-                <>
-                  <button type="button" className="danger" disabled={isBulkDeleting} onClick={handleBulkDelete}>
-                    {t("targets.confirmAction", { action: removeLabel().toLowerCase() })}
-                  </button>
-                  <button type="button" onClick={() => setConfirmingBulk(false)} disabled={isBulkDeleting}>
-                    {t("targets.cancel")}
-                  </button>
-                </>
-              ) : (
-                <button type="button" className="danger" onClick={() => setConfirmingBulk(true)}>
-                  {isAdmin
-                    ? t("targets.bulkDelete", { count: selectedIds.size })
-                    : t("targets.bulkUnfollow", { count: selectedIds.size })}
+          <div className="toolbar-actions">
+            {selectedIds.size > 0 && (
+              <div className="bulk-actions">
+                <span className="subtitle">{t("targets.selectedCount", { count: selectedIds.size })}</span>
+                <button
+                  type="button"
+                  disabled={isBulkRunning || isRunningIngestion || noSourceEnabled}
+                  title={
+                    noSourceEnabled
+                      ? t("noNewsSource.blockedTooltip", { ns: "common" })
+                      : isRunningIngestion
+                        ? t("targets.runNowBlockedRunning")
+                        : undefined
+                  }
+                  onClick={handleBulkRunNow}
+                >
+                  {t("targets.bulkRunNow", { count: selectedIds.size })}
                 </button>
-              )}
-            </div>
-          )}
+                {confirmingBulk ? (
+                  <>
+                    <button type="button" className="danger" disabled={isBulkDeleting} onClick={handleBulkDelete}>
+                      {t("targets.confirmAction", { action: removeLabel().toLowerCase() })}
+                    </button>
+                    <button type="button" onClick={() => setConfirmingBulk(false)} disabled={isBulkDeleting}>
+                      {t("targets.cancel")}
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="danger" onClick={() => setConfirmingBulk(true)}>
+                    {isAdmin
+                      ? t("targets.bulkDelete", { count: selectedIds.size })
+                      : t("targets.bulkUnfollow", { count: selectedIds.size })}
+                  </button>
+                )}
+              </div>
+            )}
+            {isAdmin && <TargetCompanyCsvImport onImported={loadCompanies} />}
+          </div>
         </div>
         {confirmingBulk && (
           <p className="subtitle">
@@ -473,11 +474,14 @@ export default function SettingsTargets() {
         {companies.length === 0 && <p className="subtitle">{t("targets.noCompaniesYet")}</p>}
         {companies.length > 0 && (
           <div className="field-row">
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t("targets.toolbar.searchPlaceholder")}
-            />
+            <label>
+              {t("targets.toolbar.searchLabel")}
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t("targets.toolbar.searchPlaceholder")}
+              />
+            </label>
             <label>
               {t("targets.toolbar.sortLabel")}
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>

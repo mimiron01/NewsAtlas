@@ -87,6 +87,7 @@
     "cancel": "Abbrechen",
     "rowActionsLabel": "Weitere Aktionen für „{{name}}“",
     "toolbar": {
+      "searchLabel": "Suchen",
       "searchPlaceholder": "Unternehmen durchsuchen…",
       "sortLabel": "Sortieren",
       "sortName": "Name",
