@@ -8,6 +8,7 @@ import type {
   TargetCompanyBulkDeleteResult,
   WorkspaceSettings,
 } from "../api/types";
+import Modal from "../components/Modal";
 import OverflowMenu from "../components/OverflowMenu";
 import SourceAllowlistField from "../components/SourceAllowlistField";
 import TagInput from "../components/TagInput";
@@ -33,6 +34,7 @@ export default function SettingsTargets() {
   // defaults to inheriting, which is what almost every company should do.
   const [sourceAllowlist, setSourceAllowlist] = useState<string[] | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
@@ -102,6 +104,7 @@ export default function SettingsTargets() {
       setExclusionTerms([]);
       setIndustry("");
       setSourceAllowlist(null);
+      setIsAddModalOpen(false);
       showToast(t("targets.addedToast"), "success");
       if (backfillEnabled && created.backfilled_at === null) {
         setJustCreatedId(created.id);
@@ -283,47 +286,61 @@ export default function SettingsTargets() {
 
   return (
     <div>
-      <form className="panel-card" onSubmit={handleAdd}>
-        <h2>{t("targets.title")}</h2>
-        <p className="subtitle">{t("targets.subtitle")}</p>
-        <div className="field-row">
-          <label>
-            {t("targets.companyName")}
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
-          </label>
-          <label>
-            {t("targets.industryOptional")}
-            <input value={industry} onChange={(e) => setIndustry(e.target.value)} />
-          </label>
+      <div className="panel-card">
+        <div className="feed-toolbar">
+          <div>
+            <h2>{t("targets.title")}</h2>
+            <p className="subtitle">{t("targets.subtitle")}</p>
+          </div>
+          <button type="button" onClick={() => setIsAddModalOpen(true)}>
+            {t("targets.addButton")}
+          </button>
         </div>
-        <label>
-          {t("targets.aliases")}
-          <TagInput tags={aliases} onChange={setAliases} placeholder={t("targets.aliasesPlaceholder")} />
-          <span className="field-hint">{t("targets.aliasesHint")}</span>
-        </label>
-        <label>
-          {t("targets.contextTerms")}
-          <TagInput
-            tags={contextTerms}
-            onChange={setContextTerms}
-            placeholder={t("targets.contextTermsPlaceholder")}
-          />
-          <span className="field-hint">{t("targets.contextTermsHint")}</span>
-        </label>
-        <label>
-          {t("targets.excludeTerms")}
-          <TagInput
-            tags={excludeTerms}
-            onChange={setExclusionTerms}
-            placeholder={t("targets.excludeTermsPlaceholder")}
-          />
-          <span className="field-hint">{t("targets.excludeTermsHint")}</span>
-        </label>
-        <SourceAllowlistField value={sourceAllowlist} onChange={setSourceAllowlist} />
-        <button type="submit" disabled={isSubmitting}>
-          {t("targets.addTargetCompany")}
-        </button>
-      </form>
+      </div>
+
+      {isAddModalOpen && (
+        <Modal title={t("targets.addButton")} onClose={() => setIsAddModalOpen(false)}>
+          <form onSubmit={handleAdd}>
+            <div className="field-row">
+              <label>
+                {t("targets.companyName")}
+                <input value={name} onChange={(e) => setName(e.target.value)} required />
+              </label>
+              <label>
+                {t("targets.industryOptional")}
+                <input value={industry} onChange={(e) => setIndustry(e.target.value)} />
+              </label>
+            </div>
+            <label>
+              {t("targets.aliases")}
+              <TagInput tags={aliases} onChange={setAliases} placeholder={t("targets.aliasesPlaceholder")} />
+              <span className="field-hint">{t("targets.aliasesHint")}</span>
+            </label>
+            <label>
+              {t("targets.contextTerms")}
+              <TagInput
+                tags={contextTerms}
+                onChange={setContextTerms}
+                placeholder={t("targets.contextTermsPlaceholder")}
+              />
+              <span className="field-hint">{t("targets.contextTermsHint")}</span>
+            </label>
+            <label>
+              {t("targets.excludeTerms")}
+              <TagInput
+                tags={excludeTerms}
+                onChange={setExclusionTerms}
+                placeholder={t("targets.excludeTermsPlaceholder")}
+              />
+              <span className="field-hint">{t("targets.excludeTermsHint")}</span>
+            </label>
+            <SourceAllowlistField value={sourceAllowlist} onChange={setSourceAllowlist} />
+            <button type="submit" disabled={isSubmitting}>
+              {t("targets.addTargetCompany")}
+            </button>
+          </form>
+        </Modal>
+      )}
 
       {isAdmin && <TargetCompanyCsvImport onImported={loadCompanies} />}
 

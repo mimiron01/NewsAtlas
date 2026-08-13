@@ -59,6 +59,7 @@
     "sourceAllowlistPlaceholder": "Type a domain (e.g. techcrunch.com) and press Enter",
     "sourceAllowlistHint": "Adds to (never replaces) the workspace-wide trusted-source list for Google News RSS.",
     "addTargetCompany": "Add target company",
+    "addButton": "Add company",
     "trackedCompanies": "Tracked companies ({{count}})",
     "noCompaniesYet": "No target companies yet.",
     "muted": "Muted",

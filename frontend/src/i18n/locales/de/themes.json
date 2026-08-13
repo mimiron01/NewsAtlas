@@ -102,7 +102,10 @@
     "trackCompanyFailed": "Unternehmen konnte nicht verfolgt werden",
     "trackedToast": "Verfolgt jetzt „{{name}}“.",
     "extractedCompany": "Erwähnt: {{name}}",
-    "alreadyTracked": "Verfolgt bereits {{name}}"
+    "alreadyTracked": "Verfolgt bereits {{name}}",
+    "openArticle": "Artikel öffnen",
+    "showMore": "Mehr anzeigen",
+    "showLess": "Weniger anzeigen"
   },
   "sourceDisabled": {
     "title": "Google News RSS ist deaktiviert",

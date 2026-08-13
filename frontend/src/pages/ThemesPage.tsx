@@ -16,6 +16,8 @@ import type {
 } from "../api/types";
 import FavoriteButton from "../components/FavoriteButton";
 import HelpTooltip from "../components/HelpTooltip";
+import { ExternalLinkIcon } from "../components/icons/NavIcons";
+import Modal from "../components/Modal";
 import OverflowMenu from "../components/OverflowMenu";
 import SourceAllowlistField from "../components/SourceAllowlistField";
 import TagInput from "../components/TagInput";
@@ -53,6 +55,7 @@ export default function ThemesPage() {
   const [country, setCountry] = useState("");
   const [language, setLanguage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAddThemeModalOpen, setIsAddThemeModalOpen] = useState(false);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -98,6 +101,29 @@ export default function ThemesPage() {
   const [matchesLoading, setMatchesLoading] = useState(true);
   const [matchesError, setMatchesError] = useState<string | null>(null);
   const [trackingId, setTrackingId] = useState<string | null>(null);
+  // Titles are clamped to 2 lines by default (see .signal-title) so row height stays
+  // predictable regardless of title length; the "mehr anzeigen" toggle below only needs
+  // to appear for rows that actually clamp, which this measures after each render.
+  const [expandedMatchIds, setExpandedMatchIds] = useState<Set<string>>(new Set());
+  const [overflowingMatchIds, setOverflowingMatchIds] = useState<Set<string>>(new Set());
+  const titleRefs = useRef<Map<string, HTMLSpanElement>>(new Map());
+
+  useEffect(() => {
+    const next = new Set<string>();
+    titleRefs.current.forEach((el, matchId) => {
+      if (el.scrollHeight > el.clientHeight + 1) next.add(matchId);
+    });
+    setOverflowingMatchIds(next);
+  }, [matches]);
+
+  function toggleMatchExpanded(matchId: string) {
+    setExpandedMatchIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(matchId)) next.delete(matchId);
+      else next.add(matchId);
+      return next;
+    });
+  }
 
   const [publicSettings, setPublicSettings] = useState<PublicWorkspaceSettings | null>(null);
   const [ingestionStatus, setIngestionStatus] = useState<IngestionRunStatus | null>(null);
@@ -293,6 +319,7 @@ export default function ThemesPage() {
     try {
       await api.post<ThemeWatch>("/theme-watches", buildCreatePayload(false));
       resetCreateForm();
+      setIsAddThemeModalOpen(false);
       showToast(t("themes:addedToast"), "success");
       loadThemes();
     } catch (err) {
@@ -321,6 +348,7 @@ export default function ThemesPage() {
       await api.post<ThemeWatch>("/theme-watches", buildCreatePayload(true));
       resetCreateForm();
       setDuplicateConflict(null);
+      setIsAddThemeModalOpen(false);
       showToast(t("themes:addedToast"), "success");
       loadThemes();
     } catch (err) {
@@ -612,126 +640,138 @@ export default function ThemesPage() {
         />
       ) : (
         <>
-      <form className="panel-card" onSubmit={handleAddTheme}>
+      <div className="panel-card">
         <div className="feed-toolbar">
           <div>
             <h2>{t("themes:title")}</h2>
             <p className="subtitle">{t("themes:subtitle")}</p>
           </div>
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => {
-              setShowGallery(true);
-              setGalleryDismissed(false);
-            }}
-          >
-            {t("themes:browseTemplates")}
-          </button>
-        </div>
-        <div className="field-row">
-          <label>
-            {t("themes:addTheme.name")}
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
-          </label>
-          <label>
-            {t("themes:addTheme.industryOptional")}
-            <input value={industry} onChange={(e) => setIndustry(e.target.value)} />
-          </label>
-        </div>
-        <div className="form-section">
-          <h3 className="form-section-heading">{t("themes:addTheme.sections.criteria")}</h3>
-          <label>
-            <span className="label-text">
-              {t("themes:addTheme.queryTerms")}{" "}
-              <HelpTooltip content={t("themes:addTheme.queryTermsHint")} />
-            </span>
-            <TagInput
-              tags={queryTerms}
-              onChange={setQueryTerms}
-              placeholder={t("themes:addTheme.queryTermsPlaceholder")}
-            />
-          </label>
-          <label>
-            <span className="label-text">
-              {t("themes:addTheme.excludeTerms")}{" "}
-              <HelpTooltip content={t("themes:addTheme.excludeTermsHint")} />
-            </span>
-            <TagInput
-              tags={excludeTerms}
-              onChange={setExcludeTerms}
-              placeholder={t("themes:addTheme.excludeTermsPlaceholder")}
-            />
-          </label>
-          <ThemeQueryPreviewPanel
-            loading={createPreview.loading}
-            result={createPreview.result}
-            error={createPreview.error}
-            googleNewsDisabled={googleNewsDisabled}
-          />
-        </div>
-        <div className="form-section">
-          <h3 className="form-section-heading">{t("themes:addTheme.sections.sources")}</h3>
-          <ThemeSourceSelector value={newsSources} onChange={setNewsSources} />
-          <SourceAllowlistField subject="topic" value={sourceAllowlist} onChange={setSourceAllowlist} />
-          <label>
-            <span className="label-text">
-              {t("themes:addTheme.sourceDenylist")}{" "}
-              <HelpTooltip content={t("themes:addTheme.sourceDenylistHint")} />
-            </span>
-            <TagInput
-              tags={sourceDenylist}
-              onChange={setSourceDenylist}
-              placeholder={t("themes:addTheme.sourceDenylistPlaceholder")}
-            />
-          </label>
-        </div>
-        <div className="form-section">
-          <h3 className="form-section-heading">{t("themes:addTheme.sections.region")}</h3>
-          <div className="field-row">
-            <label>
-              <span className="label-text">
-                {t("themes:addTheme.country")} <HelpTooltip content={t("themes:addTheme.editionHint")} />
-              </span>
-              <input
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                placeholder={workspaceEditionPlaceholder()}
-              />
-            </label>
-            <label>
-              {t("themes:addTheme.language")}
-              <input
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                placeholder={workspaceLanguagePlaceholder()}
-              />
-            </label>
+          <div className="actions">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                setShowGallery(true);
+                setGalleryDismissed(false);
+              }}
+            >
+              {t("themes:browseTemplates")}
+            </button>
+            <button type="button" onClick={() => setIsAddThemeModalOpen(true)}>
+              {t("themes:addTheme.addButton")}
+            </button>
           </div>
         </div>
-        {duplicateConflict && (
-          <div className="panel-card warning-banner">
-            <strong>{t("themes:duplicate.title")}</strong>
-            <p className="subtitle">
-              {t("themes:duplicate.body", {
-                name,
-                terms: duplicateConflict.existing_query_terms.join(", "),
-              })}
-            </p>
-            <div className="actions">
-              <button type="button" disabled={isSubmitting} onClick={followExistingDuplicate}>
-                {t("themes:duplicate.followExisting")}
-              </button>
-              <button type="button" onClick={() => setDuplicateConflict(null)}>
-                {t("themes:duplicate.useDifferentName")}
-              </button>
+      </div>
+
+      {isAddThemeModalOpen && (
+        <Modal title={t("themes:addTheme.addButton")} onClose={() => setIsAddThemeModalOpen(false)}>
+          <form onSubmit={handleAddTheme}>
+            <div className="field-row">
+              <label>
+                {t("themes:addTheme.name")}
+                <input value={name} onChange={(e) => setName(e.target.value)} required />
+              </label>
+              <label>
+                {t("themes:addTheme.industryOptional")}
+                <input value={industry} onChange={(e) => setIndustry(e.target.value)} />
+              </label>
             </div>
-          </div>
-        )}
-        <button type="submit" disabled={isSubmitting || queryTerms.length === 0}>
-          {t("themes:addTheme.addButton")}
-        </button>
-      </form>
+            <div className="form-section">
+              <h3 className="form-section-heading">{t("themes:addTheme.sections.criteria")}</h3>
+              <label>
+                <span className="label-text">
+                  {t("themes:addTheme.queryTerms")}{" "}
+                  <HelpTooltip content={t("themes:addTheme.queryTermsHint")} />
+                </span>
+                <TagInput
+                  tags={queryTerms}
+                  onChange={setQueryTerms}
+                  placeholder={t("themes:addTheme.queryTermsPlaceholder")}
+                />
+              </label>
+              <label>
+                <span className="label-text">
+                  {t("themes:addTheme.excludeTerms")}{" "}
+                  <HelpTooltip content={t("themes:addTheme.excludeTermsHint")} />
+                </span>
+                <TagInput
+                  tags={excludeTerms}
+                  onChange={setExcludeTerms}
+                  placeholder={t("themes:addTheme.excludeTermsPlaceholder")}
+                />
+              </label>
+              <ThemeQueryPreviewPanel
+                loading={createPreview.loading}
+                result={createPreview.result}
+                error={createPreview.error}
+                googleNewsDisabled={googleNewsDisabled}
+              />
+            </div>
+            <div className="form-section">
+              <h3 className="form-section-heading">{t("themes:addTheme.sections.sources")}</h3>
+              <ThemeSourceSelector value={newsSources} onChange={setNewsSources} />
+              <SourceAllowlistField subject="topic" value={sourceAllowlist} onChange={setSourceAllowlist} />
+              <label>
+                <span className="label-text">
+                  {t("themes:addTheme.sourceDenylist")}{" "}
+                  <HelpTooltip content={t("themes:addTheme.sourceDenylistHint")} />
+                </span>
+                <TagInput
+                  tags={sourceDenylist}
+                  onChange={setSourceDenylist}
+                  placeholder={t("themes:addTheme.sourceDenylistPlaceholder")}
+                />
+              </label>
+            </div>
+            <div className="form-section">
+              <h3 className="form-section-heading">{t("themes:addTheme.sections.region")}</h3>
+              <div className="field-row">
+                <label>
+                  <span className="label-text">
+                    {t("themes:addTheme.country")} <HelpTooltip content={t("themes:addTheme.editionHint")} />
+                  </span>
+                  <input
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    placeholder={workspaceEditionPlaceholder()}
+                  />
+                </label>
+                <label>
+                  {t("themes:addTheme.language")}
+                  <input
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    placeholder={workspaceLanguagePlaceholder()}
+                  />
+                </label>
+              </div>
+            </div>
+            {duplicateConflict && (
+              <div className="panel-card warning-banner">
+                <strong>{t("themes:duplicate.title")}</strong>
+                <p className="subtitle">
+                  {t("themes:duplicate.body", {
+                    name,
+                    terms: duplicateConflict.existing_query_terms.join(", "),
+                  })}
+                </p>
+                <div className="actions">
+                  <button type="button" disabled={isSubmitting} onClick={followExistingDuplicate}>
+                    {t("themes:duplicate.followExisting")}
+                  </button>
+                  <button type="button" onClick={() => setDuplicateConflict(null)}>
+                    {t("themes:duplicate.useDifferentName")}
+                  </button>
+                </div>
+              </div>
+            )}
+            <button type="submit" disabled={isSubmitting || queryTerms.length === 0}>
+              {t("themes:addTheme.addButton")}
+            </button>
+          </form>
+        </Modal>
+      )}
 
       <div className="panel-card">
         <h3>{t("themes:trackedThemes", { count: themes.length })}</h3>
@@ -1047,15 +1087,39 @@ export default function ThemesPage() {
                     )}
                     <div>
                       <strong>{match.theme_watch_name}</strong>
-                      <a
-                        className="signal-title"
-                        href={match.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ display: "block" }}
-                      >
-                        {match.title}
-                      </a>
+                      <div className="signal-title-row">
+                        <span
+                          className="signal-title"
+                          ref={(el) => {
+                            if (el) titleRefs.current.set(match.id, el);
+                            else titleRefs.current.delete(match.id);
+                          }}
+                          data-expanded={expandedMatchIds.has(match.id) ? "" : undefined}
+                        >
+                          {match.title}
+                        </span>
+                        <a
+                          className="signal-title-link"
+                          href={match.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={t("themes:matches.openArticle")}
+                          title={t("themes:matches.openArticle")}
+                        >
+                          <ExternalLinkIcon />
+                        </a>
+                      </div>
+                      {overflowingMatchIds.has(match.id) && (
+                        <button
+                          type="button"
+                          className="signal-title-toggle"
+                          onClick={() => toggleMatchExpanded(match.id)}
+                        >
+                          {expandedMatchIds.has(match.id)
+                            ? t("themes:matches.showLess")
+                            : t("themes:matches.showMore")}
+                        </button>
+                      )}
                       <div className="subtitle">{match.summary}</div>
                       {match.extracted_company_name && (
                         <div className="field-hint">

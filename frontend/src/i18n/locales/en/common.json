@@ -3,6 +3,7 @@
   "add": "Add",
   "delete": "Delete",
   "help": "Show help",
+  "close": "Close",
   "setupChecklist": {
     "title": "Get started",
     "stepDone": "Completed",

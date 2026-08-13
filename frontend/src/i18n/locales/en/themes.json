@@ -102,7 +102,10 @@
     "trackCompanyFailed": "Failed to track company",
     "trackedToast": "Now tracking \"{{name}}\".",
     "extractedCompany": "Mentions: {{name}}",
-    "alreadyTracked": "Already tracking {{name}}"
+    "alreadyTracked": "Already tracking {{name}}",
+    "openArticle": "Open article",
+    "showMore": "Show more",
+    "showLess": "Show less"
   },
   "sourceDisabled": {
     "title": "Google News RSS is disabled",

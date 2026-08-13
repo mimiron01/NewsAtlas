@@ -3,6 +3,7 @@
   "add": "Hinzufügen",
   "delete": "Löschen",
   "help": "Hilfe anzeigen",
+  "close": "Schließen",
   "setupChecklist": {
     "title": "Erste Schritte",
     "stepDone": "Abgeschlossen",
