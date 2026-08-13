@@ -21,9 +21,12 @@ def test_news_usage_reflects_defaults_when_empty(client):
     assert resp.status_code == 200
     body = resp.json()
     by_source = {row["source"]: row for row in body["sources"]}
-    assert by_source["newsapi"]["enabled"] is True
+    # NewsAPI off / Google News RSS on is the new-workspace default (see F1 in
+    # docs/platform-usability-onboarding-review.html): it needs no API key, so a fresh
+    # workspace can fetch real results with zero source configuration.
+    assert by_source["newsapi"]["enabled"] is False
     assert by_source["newsapi"]["requests_today"] == 0
-    assert by_source["google_news_rss"]["enabled"] is False
+    assert by_source["google_news_rss"]["enabled"] is True
     assert by_source["newsdata"]["enabled"] is False
 
 

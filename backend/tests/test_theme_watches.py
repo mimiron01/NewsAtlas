@@ -322,8 +322,15 @@ def _enable_google_news(db_session):
     return settings
 
 
-def test_preview_theme_query_requires_google_news_enabled(client):
+def test_preview_theme_query_requires_google_news_enabled(client, db_session):
     headers = auth_headers(client)
+    # Google News RSS now defaults to enabled for new workspaces (see F1 in
+    # docs/platform-usability-onboarding-review.html), so disable it explicitly to hit
+    # the validation path this test is actually about.
+    settings = get_or_create_workspace_settings(db_session)
+    settings.google_news_rss_enabled = False
+    db_session.commit()
+
     resp = client.post(
         "/theme-watches/preview", json={"query_terms": ["Automotive"]}, headers=headers
     )

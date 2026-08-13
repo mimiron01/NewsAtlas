@@ -252,9 +252,13 @@ def test_public_settings_readable_by_non_admin(client):
     resp = client.get("/settings/public", headers=member_headers)
     assert resp.status_code == 200
     body = resp.json()
-    assert body["google_news_rss_enabled"] is False
+    # Google News RSS ships on (and NewsAPI/NewsData off) for new workspaces, so a fresh
+    # install can fetch real results with zero source configuration (see F1 in
+    # docs/platform-usability-onboarding-review.html).
+    assert body["google_news_rss_enabled"] is True
     assert body["google_news_rss_country"] == "US"
     assert body["google_news_rss_language"] == "en"
+    assert body["any_news_source_enabled"] is True
     # Nothing sensitive leaks through the non-admin door: no key status, no quotas, no AI
     # configuration.
     assert body["manual_trigger_cooldown_seconds"] > 0
@@ -262,8 +266,31 @@ def test_public_settings_readable_by_non_admin(client):
         "google_news_rss_enabled",
         "google_news_rss_country",
         "google_news_rss_language",
+        "any_news_source_enabled",
         "manual_trigger_cooldown_seconds",
     }
+
+
+def test_public_settings_any_news_source_enabled_reflects_all_three_providers(client):
+    """any_news_source_enabled has to OR across all three providers, not just Google News
+    RSS — companies check every enabled provider, not only the one topics are restricted
+    to (see F1 in docs/platform-usability-onboarding-review.html)."""
+    admin = admin_headers(client)
+    payload = _full_update_payload(
+        newsapi_enabled=False, google_news_rss_enabled=False, newsdata_enabled=False
+    )
+    resp = client.put("/settings", json=payload, headers=admin)
+    assert resp.status_code == 200
+
+    body = client.get("/settings/public", headers=admin).json()
+    assert body["any_news_source_enabled"] is False
+
+    payload = _full_update_payload(
+        newsapi_enabled=True, google_news_rss_enabled=False, newsdata_enabled=False
+    )
+    assert client.put("/settings", json=payload, headers=admin).status_code == 200
+    body = client.get("/settings/public", headers=admin).json()
+    assert body["any_news_source_enabled"] is True
 
 
 def test_public_settings_requires_auth(client):

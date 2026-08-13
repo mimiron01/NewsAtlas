@@ -101,6 +101,9 @@ def get_public_settings(
         google_news_rss_enabled=settings.google_news_rss_enabled,
         google_news_rss_country=settings.google_news_rss_country,
         google_news_rss_language=settings.google_news_rss_language,
+        any_news_source_enabled=(
+            settings.newsapi_enabled or settings.google_news_rss_enabled or settings.newsdata_enabled
+        ),
         manual_trigger_cooldown_seconds=get_settings().manual_trigger_cooldown_seconds,
     )
 

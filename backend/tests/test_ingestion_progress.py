@@ -19,7 +19,7 @@ from app.services.ingestion_runs import (
 )
 from app.services.news_client import NewsArticle
 
-from tests.test_ingestion import FailingAIClient, FakeAIClient
+from tests.test_ingestion import FailingAIClient, FakeAIClient, _disable_google_news_rss
 
 
 class _RecordingProgress:
@@ -73,6 +73,7 @@ def _article(title, url):
 
 
 def test_run_ingestion_reports_company_progress(db_session):
+    _disable_google_news_rss(db_session)
     _company(db_session, "Acme Corp")
     _company(db_session, "Globex Corp")
     news = FakeNewsClient(
@@ -114,6 +115,7 @@ def test_run_ingestion_reports_article_progress_within_a_company(db_session):
 
 
 def test_run_ingestion_appends_errors_live_as_they_happen(db_session):
+    _disable_google_news_rss(db_session)
     _company(db_session, "Acme Corp")
     news = FakeNewsClient(
         {"Acme Corp": [_article("Acme raises $10M", "https://example.com/acme-funding")]}

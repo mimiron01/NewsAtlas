@@ -391,7 +391,10 @@ def test_theme_ingestion_respects_max_articles_per_theme_per_run_cap(db_session)
 
 def test_theme_ingestion_not_run_when_google_news_rss_disabled(db_session):
     _make_theme(db_session, name="Automotive")
-    # google_news_rss_enabled defaults to False, and no google_news_client is injected.
+    # google_news_rss_enabled now defaults to True for new workspaces (see F1 in
+    # docs/platform-usability-onboarding-review.html), so disable it explicitly here — no
+    # google_news_client is injected either.
+    _enable_sources(db_session, google_news_rss_enabled=False)
     result = run_ingestion(db_session, ai_client=FakeThemeAIClient())
 
     assert result.theme_matches_created == 0

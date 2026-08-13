@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
 import type {
   IngestionRunStatus,
+  PublicWorkspaceSettings,
   Signal,
   SignalStatus,
   TargetCompany,
@@ -39,6 +40,7 @@ export default function SignalsFeed() {
   const [companies, setCompanies] = useState<TargetCompany[]>([]);
   const [themes, setThemes] = useState<ThemeWatch[]>([]);
   const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
+  const [publicSettings, setPublicSettings] = useState<PublicWorkspaceSettings | null>(null);
   const [companyFilter, setCompanyFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<SignalStatus | "">(
     (searchParams.get("status") as SignalStatus | null) ?? ""
@@ -69,12 +71,19 @@ export default function SignalsFeed() {
   useEffect(() => {
     api.get<TargetCompany[]>("/target-companies").then(setCompanies).catch(() => undefined);
     api.get<ThemeWatch[]>("/theme-watches").then(setThemes).catch(() => undefined);
+    // Readable by every user (unlike /settings below), so every user — not just admins —
+    // learns whether a fetch can produce anything at all right now.
+    api.get<PublicWorkspaceSettings>("/settings/public").then(setPublicSettings).catch(() => undefined);
     // /settings is admin-only; regular users can't view or fix the company profile anyway,
     // so skip the call rather than eat a 403 on every page load.
     if (isAdmin) {
       api.get<WorkspaceSettings>("/settings").then(setSettings).catch(() => undefined);
     }
   }, [isAdmin]);
+
+  // Treated as available until the flags load, so the UI doesn't flash a warning it may
+  // immediately retract (same reasoning as ThemesPage's googleNewsDisabled).
+  const noSourceEnabled = publicSettings !== null && !publicSettings.any_news_source_enabled;
 
   useEffect(loadSignals, [companyFilter, statusFilter, favoritedOnly]);
 
@@ -226,6 +235,22 @@ export default function SignalsFeed() {
 
   return (
     <div>
+      {noSourceEnabled && (
+        <div className="panel-card warning-banner">
+          <strong>{t("noNewsSource.title", { ns: "common" })}</strong>
+          <p className="subtitle">
+            {isAdmin
+              ? t("noNewsSource.bodyAdmin", { ns: "common" })
+              : t("noNewsSource.bodyMember", { ns: "common" })}
+          </p>
+          {isAdmin && (
+            <Link to="/settings/sources" className="link-button">
+              {t("noNewsSource.link", { ns: "common" })} →
+            </Link>
+          )}
+        </div>
+      )}
+
       <div className="panel-card feed-toolbar">
         <div>
           <h2>{t("feed.title")}</h2>
@@ -234,8 +259,14 @@ export default function SignalsFeed() {
         <button
           type="button"
           onClick={handleRunIngestion}
-          disabled={isRunningIngestion || !hasSomethingToFetch}
-          title={hasSomethingToFetch ? undefined : t("feed.addCompanyOrThemeFirst")}
+          disabled={isRunningIngestion || !hasSomethingToFetch || noSourceEnabled}
+          title={
+            noSourceEnabled
+              ? t("noNewsSource.blockedTooltip", { ns: "common" })
+              : hasSomethingToFetch
+                ? undefined
+                : t("feed.addCompanyOrThemeFirst")
+          }
         >
           {isRunningIngestion
             ? t("feed.fetching", { percent: ingestionStatus?.progress_percent ?? 0 })
