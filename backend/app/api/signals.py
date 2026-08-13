@@ -42,6 +42,11 @@ def list_signals(
         query = query.filter(TargetCompany.id == company_id)
     if status_filter is not None:
         query = query.filter(Signal.status == status_filter)
+    else:
+        # No explicit status requested: default to the active working set so archived/
+        # dismissed signals (which now live on the dedicated Archive page) don't clutter
+        # the main feed. Callers that want them pass an explicit status= value.
+        query = query.filter(Signal.status.in_([SignalStatus.NEW, SignalStatus.REVIEWED]))
     if favorited:
         favorite_signal_ids = db.query(SignalFavorite.signal_id).filter(
             SignalFavorite.user_id == current_user.id

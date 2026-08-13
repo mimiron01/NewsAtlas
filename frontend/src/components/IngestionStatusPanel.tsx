@@ -163,7 +163,7 @@ export default function IngestionStatusPanel({ status, isAdmin, onCancel }: Inge
           {showHighSkipRateWarning && (
             <p className="field-hint error-text">
               {t("feed.ingestion.highSkipRateWarning", { percent: Math.round(triageSkipRate * 100) })}{" "}
-              <Link to="/skipped">{t("feed.ingestion.reviewSkippedArticles")}</Link>
+              <Link to="/archive">{t("feed.ingestion.reviewSkippedArticles")}</Link>
             </p>
           )}
           {Object.keys(status.by_source).length > 0 && (

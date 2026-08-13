@@ -60,6 +60,7 @@ export default function SignalRow({ signal, onFavoriteToggle, selection, onTrans
                 type="button"
                 key={status}
                 className="secondary"
+                title={t(`transitionHints.${status}`, { defaultValue: "" })}
                 onClick={() => onTransition(signal.id, status)}
               >
                 {t(`transitions.${status}`)}

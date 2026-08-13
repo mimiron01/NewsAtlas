@@ -48,9 +48,10 @@ def get_dashboard(
 
     new_signal_count = followed_query.filter(Signal.status == SignalStatus.NEW).count()
 
-    # Two separate "skipped" systems (see docs/v1-release-roadmap.html §2.4), surfaced
-    # here so "where did my skipped stuff go" has one visible answer instead of being
-    # buried in a filter dropdown / an admin-only settings tab a user has to know exists.
+    # Surfaced here so "where did my archived/skipped stuff go" has one visible answer
+    # instead of being buried in a filter dropdown / an admin-only settings tab a user
+    # has to know exists (see docs/archive-dismiss-ux-planning.html).
+    archived_signal_count = followed_query.filter(Signal.status == SignalStatus.ARCHIVED).count()
     dismissed_signal_count = followed_query.filter(Signal.status == SignalStatus.DISMISSED).count()
     # Triaged-out articles never became a Signal, so they can't be follow-scoped the same
     # way — and the list endpoint that shows them (/articles/skipped) is admin-only, so a
@@ -132,6 +133,7 @@ def get_dashboard(
         recent_favorites=recent_favorites,
         open_todo_count=open_todo_count,
         open_todos=open_todos,
+        archived_signal_count=archived_signal_count,
         dismissed_signal_count=dismissed_signal_count,
         skipped_article_count=skipped_article_count,
     )

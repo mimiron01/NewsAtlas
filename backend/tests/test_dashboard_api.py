@@ -63,6 +63,7 @@ def test_dashboard_empty_state(client, db_session):
         "open_todos": [],
         "new_theme_match_count": 0,
         "top_theme_matches": [],
+        "archived_signal_count": 0,
         "dismissed_signal_count": 0,
         "skipped_article_count": 0,
     }
@@ -168,6 +169,18 @@ def test_dashboard_dismissed_signal_count_scoped_to_follows(client, db_session):
 
     resp = client.get("/dashboard", headers=headers)
     assert resp.json()["dismissed_signal_count"] == 1
+
+
+def test_dashboard_archived_signal_count_scoped_to_follows(client, db_session):
+    headers, user_id = signup(client)
+    archived = _make_signal(db_session, company_name="Acme Corp", status=SignalStatus.ARCHIVED)
+    archived_article = db_session.get(Article, archived.article_id)
+    follow_company(db_session, user_id, archived_article.target_company_id)
+    # Not followed, so it shouldn't count for this user.
+    _make_signal(db_session, company_name="Globex", status=SignalStatus.ARCHIVED)
+
+    resp = client.get("/dashboard", headers=headers)
+    assert resp.json()["archived_signal_count"] == 1
 
 
 def test_dashboard_skipped_article_count_admin_only(client, db_session):

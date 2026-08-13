@@ -9,8 +9,10 @@
   },
   "transitions": {
     "reviewed": "Als geprüft markieren",
-    "archived": "Archivieren",
-    "dismissed": "Verwerfen"
+    "archived": "Archivieren"
+  },
+  "transitionHints": {
+    "archived": "Erledigt, aber aufbewahren — wird aus der aktiven Liste entfernt und im Archiv gespeichert."
   },
   "openTasks_one": "{{count}} offene Aufgabe",
   "openTasks_other": "{{count}} offene Aufgaben",
@@ -70,15 +72,17 @@
   "copySnippet": "Textbaustein kopieren",
   "copied": "Kopiert!",
   "notesAndTodos": "Notizen & Aufgaben",
-  "dismissedToast": "Signal verworfen.",
   "archivedToast": "Signal archiviert.",
   "undo": "Rückgängig",
-  "skippedPage": {
-    "title": "Übersprungen",
-    "subtitle": "Alles, was die Pipeline nicht zu einem aktiven Signal gemacht hat — verworfene Signale, die Sie wiederherstellen können, und (für Admins) aussortierte Artikel, die Sie befördern können.",
-    "loadFailed": "Übersprungene Einträge konnten nicht geladen werden",
-    "dismissedHeading": "Verworfene Signale",
-    "noDismissed": "Keine verworfenen Signale.",
+  "archivePage": {
+    "title": "Archiv",
+    "subtitle": "Signale, die Sie archiviert oder verworfen haben, und (für Admins) aussortierte Artikel, die Sie befördern können.",
+    "loadFailed": "Archiv konnte nicht geladen werden",
+    "filterLabel": "Ansicht",
+    "filterAll": "Alle",
+    "filterArchived": "Archiviert",
+    "filterDismissed": "Verworfen",
+    "empty": "Keine Einträge in dieser Ansicht.",
     "restored": "„{{title}}“ wiederhergestellt.",
     "skippedArticlesHeading": "Übersprungene Artikel"
   },

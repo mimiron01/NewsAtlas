@@ -168,15 +168,22 @@
 <p class="subtitle">Planning document — what the two statuses mean today, why they clutter the Signals table, and a concrete plan to fix it for low-technical end users</p>
 
 <div class="meta">
-  <div><strong>Status:</strong> Proposed — not yet implemented. This document answers the "what's the
-  difference" question and lays out an implementation plan; no code has changed yet.</div>
+  <div><strong>Status:</strong> Implemented (2026-08-13) on
+  <code>claude/archivieren-verwerfen-ux-elrhbi</code>, with one change from the original proposal
+  below confirmed by the stakeholder: rather than keeping "Verwerfen" as a lower-profile action, the
+  <strong>dismiss transition was removed from the UI entirely</strong> — going forward "Archivieren" is
+  the only way to move a signal out of the active feed. Existing <code>dismissed</code> signals are not
+  migrated or deleted; they remain visible (and restorable) on the renamed Archive page, filterable
+  separately from newly-archived ones. §4 and §9 are updated accordingly; §1–§3's analysis of why the two
+  statuses existed and why they cluttered the table still stands as the record of the problem this fix
+  addresses.</div>
   <div><strong>Builds on:</strong> <a href="v1-release-roadmap.html">v1-release-roadmap.html</a> §2.4
-  (shipped the "Übersprungen"/Skipped page for dismissed signals),
+  (shipped the "Übersprungen"/Skipped page this page replaces),
   <a href="dashboard-favorites-todos-planning.html">dashboard-favorites-todos-planning.html</a>
   (the dashboard counts pattern this plan reuses)</div>
   <div><strong>Doc purpose:</strong> Explain the intended semantics of <code>archived</code> vs.
   <code>dismissed</code> signal status, confirm in code why both still clutter the default Signals view
-  despite §2.4's fix, and specify a plan a future session can implement directly.</div>
+  despite §2.4's fix, and record the plan this session implemented directly from it.</div>
 </div>
 
 <nav class="toc">
@@ -291,14 +298,18 @@ line with a pattern the dashboard already proves out.</div>
 </ul>
 <h3>Non-goals (this pass)</h3>
 <ul>
-  <li>Renaming the statuses themselves (<code>archived</code>/<code>dismissed</code> as data) or their
-  German labels "Archivieren"/"Verwerfen" — see the open question in §9. This plan fixes visibility and
-  clarity, not vocabulary, unless a naming change is separately confirmed.</li>
-  <li>Merging archived signals into the existing "Übersprungen" page — dismissed and archived have
-  opposite emotional meaning (junk vs. a job well done) and merging them would recreate the exact
-  ambiguity §1 is trying to resolve. They should have parallel but separate homes.</li>
+  <li>Renaming the <code>archived</code>/<code>dismissed</code> statuses as data, or the "Archivieren"
+  label — see §9's resolved question. <strong>Update:</strong> "Verwerfen" ended up removed as an action
+  rather than renamed or merely re-homed; see §4's confirmed decisions.</li>
   <li>Changing how <code>reviewed</code> works — it stays an active, in-list status.</li>
 </ul>
+<p><strong>Update — one originally-listed non-goal was overridden by the stakeholder:</strong> this
+document originally argued against merging archived signals into the "Übersprungen" page, reasoning that
+archived and dismissed have opposite emotional meaning and merging would recreate §1's ambiguity. The
+confirmed decision (§4, §9) merged them anyway, into a single filterable Archive page — a filter row
+picking "Archiviert" vs. "Verworfen" turned out to be enough to keep the two legible side by side without
+needing separate pages, and consolidating both plus the admin skipped-articles queue behind one nav entry
+was judged more valuable for a low-technical audience than three destinations.</p>
 
 <h2 id="decisions">4. Key decisions</h2>
 
@@ -308,11 +319,6 @@ should mean <code>new</code> + <code>reviewed</code>. A literal "every status in
 archived/dismissed" option stays available for anyone who wants full history, but it stops being the
 default and gets its own explicit label so it's never ambiguous which one is selected.</div>
 
-<div class="decision"><strong>Archived gets a mirror of the Skipped page, not a merge into it.</strong>
-Add a dedicated Archive view (new page or a second section alongside "Übersprungen," reusing
-<code>SignalRow</code> and the same restore-with-toast pattern <code>SkippedFeed.transitionSignal</code>
-already implements). Keeps the "done, and I chose to keep it" meaning distinct from "junk, discard it."</div>
-
 <div class="decision"><strong>Surface counts on the dashboard, following the existing pattern exactly.
 </strong> Add <code>archived_signal_count</code> to <code>DashboardSummary</code>
 (<code>backend/app/schemas/dashboard.py</code>) computed the same way
@@ -320,140 +326,187 @@ already implements). Keeps the "done, and I chose to keep it" meaning distinct f
 view — mirrors the comment already in the code: "so 'where did my skipped stuff go' has one visible
 answer instead of being buried in a filter dropdown."</div>
 
-<h2 id="backend">5. Backend changes</h2>
+<div class="decision"><strong>Confirmed with stakeholder (2026-08-13) — three changes to the plan above:
+</strong>
+<ol>
+<li><strong>"Verwerfen" is removed as an action, not just re-homed.</strong> <code>STATUS_TRANSITION_VALUES</code>
+(<code>constants/signalStatus.ts</code>) drops <code>"dismissed"</code> entirely, so the button disappears
+from <code>SignalRow</code>, <code>SignalDetail</code>, and the bulk-action toolbar everywhere at once —
+"Archivieren" is the only way forward to move a signal out of the active feed. The <code>dismissed</code>
+status itself is <em>not</em> removed from the data model or API: existing dismissed signals keep their
+status and stay visible/restorable on the Archive page, they just can't be created anymore.</li>
+<li><strong>One merged Archive page, not a mirror of the Skipped page.</strong> Rather than giving
+archived signals their own separate view alongside "Übersprungen," the renamed <code>/archive</code>
+page (<code>ArchiveFeed.tsx</code>, replacing <code>SkippedFeed.tsx</code>) shows archived and dismissed
+signals together in one list, with a filter (<code>Alle</code> / <code>Archiviert</code> /
+<code>Verworfen</code>) to narrow the view — plus the existing admin-only triaged-out-articles section,
+unchanged. This supersedes the "mirror, not merge" recommendation this document originally made.</li>
+<li><strong>Tooltip hint extends to the bulk-action toolbar too</strong> (§7's suggestion, confirmed
+rather than deferred): the same <code>transitionHints.archived</code> string renders as the
+<code>title</code> on both the per-row button and the toolbar's bulk "Archivieren" button.</li>
+</ol>
+</div>
+
+<h2 id="backend">5. Backend changes (as shipped)</h2>
 <table>
   <tr><th>File</th><th>Change</th></tr>
   <tr>
     <td><code>backend/app/api/signals.py</code></td>
-    <td><code>list_signals</code>: when <code>status_filter</code> is <code>None</code> <em>and</em> no
-    explicit "all" sentinel is passed, filter to
+    <td><code>list_signals</code>: when <code>status_filter</code> is <code>None</code>, filter to
     <code>Signal.status.in_([SignalStatus.NEW, SignalStatus.REVIEWED])</code> instead of leaving the
-    query unfiltered. Add support for an explicit <code>status=all</code> query value (not a real enum
-    member) that skips the status filter entirely, for the one dropdown option that intentionally wants
-    every status.</td>
+    query unfiltered. No "all" sentinel was needed — with "Verwerfen" gone and archived/dismissed moved
+    to their own page, the main feed's dropdown no longer needs a literal-everything option at all
+    (see §6); <code>status=archived</code> and <code>status=dismissed</code> still work as explicit
+    filters for the Archive page to use.</td>
   </tr>
   <tr>
     <td><code>backend/app/api/dashboard.py</code></td>
-    <td>Add <code>archived_signal_count = followed_query.filter(Signal.status ==
+    <td>Added <code>archived_signal_count = followed_query.filter(Signal.status ==
     SignalStatus.ARCHIVED).count()</code> next to the existing <code>dismissed_signal_count</code>
-    line (<code>dashboard.py:54</code>).</td>
+    line, and included it in the <code>DashboardSummary</code> response.</td>
   </tr>
   <tr>
     <td><code>backend/app/schemas/dashboard.py</code></td>
-    <td><code>DashboardSummary</code> gains <code>archived_signal_count: int</code>.</td>
+    <td><code>DashboardSummary</code> gained <code>archived_signal_count: int</code>.</td>
   </tr>
   <tr>
-    <td><code>backend/tests/test_signals_api.py</code>,
-    <code>backend/tests/test_dashboard_api.py</code></td>
-    <td>Add coverage: default <code>GET /signals</code> excludes archived/dismissed; explicit
-    <code>status=archived</code>/<code>status=dismissed</code>/<code>status=all</code> still work;
-    dashboard response includes the new count.</td>
+    <td><code>backend/tests/test_signals_api.py</code></td>
+    <td>Added <code>test_list_signals_default_excludes_archived_and_dismissed</code>: default
+    <code>GET /signals</code> returns only the active signal; explicit
+    <code>status=archived</code>/<code>status=dismissed</code> each return exactly the matching one.</td>
+  </tr>
+  <tr>
+    <td><code>backend/tests/test_dashboard_api.py</code></td>
+    <td>Added <code>archived_signal_count</code> to the empty-state assertion and a new
+    <code>test_dashboard_archived_signal_count_scoped_to_follows</code>, mirroring the existing dismissed
+    test.</td>
   </tr>
 </table>
 
-<h2 id="frontend">6. Frontend changes</h2>
+<h2 id="frontend">6. Frontend changes (as shipped)</h2>
 <table>
   <tr><th>File</th><th>Change</th></tr>
   <tr>
-    <td><code>frontend/src/pages/SignalsFeed.tsx</code></td>
-    <td>Status dropdown (<code>SIGNAL_STATUSES</code>, line 27, and the <code>&lt;select&gt;</code>
-    around line 267-276): keep the empty-value default option but relabel it to mean "active" and stop
-    sending it as "no filter" — send nothing to the backend (which now defaults to active) or an explicit
-    marker; add a separate, clearly-labeled "Alle Status (inkl. Archiv/Verworfen)" option at the bottom
-    of the list for the literal-all case, mapped to <code>status=all</code>.</td>
+    <td><code>frontend/src/constants/signalStatus.ts</code></td>
+    <td><code>STATUS_TRANSITION_VALUES</code> changed from <code>["reviewed", "archived", "dismissed"]</code>
+    to <code>["reviewed", "archived"]</code>. Because every transition button in the app (row actions,
+    detail-page actions, bulk-toolbar actions, and the Themes page's topic-match actions, which share
+    this same constant) is generated from this list, removing <code>"dismissed"</code> here removed the
+    "Verwerfen" button everywhere in one change.</td>
   </tr>
   <tr>
-    <td><code>frontend/src/pages/ArchivedFeed.tsx</code> (new)</td>
-    <td>Close copy of <code>SkippedFeed.tsx</code>'s dismissed-signals section: fetches
-    <code>GET /signals?status=archived</code>, renders via <code>SignalRow</code>, and reuses the same
-    "any transition off this status removes it from the list" restore pattern
-    (<code>SkippedFeed.tsx:58-68</code>). Could live as a second section on the existing "Übersprungen"
-    page (renamed something broader) or as its own nav entry — see open question in §9.</td>
+    <td><code>frontend/src/pages/SignalsFeed.tsx</code></td>
+    <td><code>SIGNAL_STATUSES</code> (the status-filter dropdown's options) shrank to
+    <code>["new", "reviewed"]</code> — archived and dismissed are no longer offered as filters here at
+    all, since they now live on the Archive page. The empty-value "Alle Status" default option was kept
+    as-is; it now means "active statuses" because the backend defaults that way. Also removed the dead
+    <code>status === "dismissed"</code> branches from <code>transitionSignal</code>/
+    <code>transitionSelected</code> (unreachable now that "dismissed" is never a transition target from
+    this page) and added the §7 tooltip to the bulk-action toolbar's "Archivieren" button.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/pages/ArchiveFeed.tsx</code> (renamed from <code>SkippedFeed.tsx</code>)</td>
+    <td>Fetches both <code>GET /signals?status=archived</code> and <code>GET /signals?status=dismissed</code>,
+    merges them into one list sorted by recency, and renders it through <code>SignalRow</code> with a
+    filter select (<code>Alle</code> / <code>Archiviert</code> / <code>Verworfen</code>) that narrows the
+    displayed subset client-side. Restoring a signal (via the same <code>SignalRow</code> transition
+    buttons — now just "Geprüft" / "Archivieren", per the constant change above) removes it from the
+    list, same pattern <code>SkippedFeed.transitionSignal</code> used. The admin-only triaged-out-articles
+    section is carried over unchanged beneath it.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/App.tsx</code></td>
+    <td>Route moved from <code>/skipped</code> to <code>/archive</code>; the
+    <code>/settings/review</code> redirect now points at <code>/archive</code>. No redirect shim for the
+    old <code>/skipped</code> path, consistent with this app's existing internal-tool-only convention
+    (see <a href="dashboard-favorites-todos-planning.html">dashboard-favorites-todos-planning.html
+    §9</a>).</td>
   </tr>
   <tr>
     <td><code>frontend/src/pages/Dashboard.tsx</code></td>
-    <td>Add an "N archiviert" stat next to the existing dismissed/skipped count, linking to the new
-    Archive view — same treatment already given to <code>dismissed_signal_count</code> and
-    <code>skipped_article_count</code>.</td>
+    <td>Replaced the conditional "N skipped" stat with an always-visible "Archiv" button/stat linking to
+    <code>/archive</code>, showing <code>archived_signal_count + dismissed_signal_count +
+    skipped_article_count</code> combined — this is the "button on the homepage" the user asked for.</td>
   </tr>
   <tr>
     <td><code>frontend/src/components/SignalRow.tsx</code>,
     <code>frontend/src/pages/SignalDetail.tsx</code></td>
-    <td>Add a <code>title</code> attribute (native tooltip) to each transition button using new i18n keys
-    — see §7. No layout change needed, this is copy-only.</td>
+    <td>Added a <code>title</code> attribute (native tooltip) to each transition button, reading
+    <code>transitionHints.&lt;status&gt;</code> with an empty-string fallback so "Geprüft" (which has no
+    hint) silently gets no tooltip. Also dropped the now-dead <code>dismissedToast</code> branch from
+    <code>SignalDetail.updateStatus</code>.</td>
   </tr>
 </table>
 
 <h2 id="copy">7. Copy &amp; i18n (for low-technical users)</h2>
 <p>
-  The single highest-leverage, lowest-risk change here is adding one line of explanatory copy to the two
-  buttons — it needs no data model or filtering change to ship and directly addresses "our users don't
-  know what these mean." Proposed additions to
-  <code>frontend/src/i18n/locales/de/signals.json</code> / <code>en/signals.json</code>:
+  The single highest-leverage, lowest-risk change here was adding one line of explanatory copy to the
+  archive button — no data model or filtering change needed, and it directly addresses "our users don't
+  know what this does." Shipped additions to
+  <code>frontend/src/i18n/locales/de/signals.json</code> / <code>en/signals.json</code> (the
+  <code>dismissed</code> transition/hint entries were dropped along with the button itself):
 </p>
 <pre><code>"transitions": {
   "reviewed": "Als geprüft markieren",
-  "archived": "Archivieren",
-  "dismissed": "Verwerfen"
+  "archived": "Archivieren"
 },
 "transitionHints": {
-  "archived": "Erledigt, aber aufbewahren — wird aus der aktiven Liste entfernt und im Archiv gespeichert.",
-  "dismissed": "Nicht relevant — wird ausgeblendet, taucht aber weiterhin unter „Übersprungen“ auf."
+  "archived": "Erledigt, aber aufbewahren — wird aus der aktiven Liste entfernt und im Archiv gespeichert."
 }</code></pre>
 <p>
-  These render as native <code>title</code> tooltips on the two buttons to start (zero layout risk); if
-  usability feedback later shows tooltips aren't enough for this audience, promote the hint text to a
-  visible one-line caption under each button as a follow-up, rather than bundling that layout change into
-  this fix.
+  These render as native <code>title</code> tooltips on the button, on both the per-row/detail-page
+  instance and the bulk-action toolbar instance (§4's third confirmed change). If usability feedback
+  later shows a hover tooltip isn't enough for this audience, promoting the hint text to a visible
+  one-line caption under the button is the natural next step — not bundled into this pass.
 </p>
 
-<h2 id="roadmap">8. Implementation roadmap</h2>
+<h2 id="roadmap">8. Implementation roadmap (as shipped)</h2>
 
 <div class="phase">
-<h4><span class="phase-badge">Phase 1</span> Fix the clutter (backend + filter default)</h4>
-<p>§5's backend change plus the <code>SignalsFeed.tsx</code> dropdown default fix from §6. This alone
-solves the reported complaint: archiving or dismissing a signal makes it disappear from the default
-table immediately. Independently shippable, low risk, no new UI surface.</p>
+<h4><span class="phase-badge">Done</span> Remove "Verwerfen," fix the clutter</h4>
+<p><code>STATUS_TRANSITION_VALUES</code> dropped <code>"dismissed"</code>; <code>GET /signals</code>
+defaults to active statuses only; <code>SignalsFeed.tsx</code>'s filter dropdown shrank to
+new/reviewed. Together these mean archiving a signal (the only remaining transition off the active list)
+makes it disappear from the default table immediately, and there is no longer a UI path to create new
+dismissed signals.</p>
 </div>
 
 <div class="phase">
-<h4><span class="phase-badge">Phase 2</span> Explain the actions</h4>
-<p>The tooltip copy from §7. Ships alongside or right after Phase 1 — same files, no dependency either
-way.</p>
+<h4><span class="phase-badge">Done</span> Explain the action</h4>
+<p>The §7 tooltip, on both the per-row/detail button and the bulk-toolbar button.</p>
 </div>
 
 <div class="phase">
-<h4><span class="phase-badge">Phase 3</span> Give archived a home</h4>
-<p><code>ArchivedFeed.tsx</code>, the <code>archived_signal_count</code> dashboard card, and its nav
-entry. Depends on Phase 1's backend filtering support (<code>status=archived</code> already works today
-via the existing filter, so this phase is mostly additive frontend work).</p>
+<h4><span class="phase-badge">Done</span> Give archived (and legacy dismissed) a home</h4>
+<p><code>ArchiveFeed.tsx</code> at <code>/archive</code> (renamed from <code>SkippedFeed.tsx</code> /
+<code>/skipped</code>), combining archived + dismissed signals with a filter, plus the always-visible
+"Archiv" button on the Dashboard homepage and the <code>archived_signal_count</code> it depends on.</p>
 </div>
 
-<h2 id="assumptions">9. Open questions</h2>
+<h2 id="assumptions">9. Resolved questions</h2>
+<p>The three open questions this document originally raised were resolved directly by the stakeholder
+before implementation (2026-08-13):</p>
 
-<div class="assumption"><strong>Where does the Archive view live in navigation?</strong> Two reasonable
-options: (a) a second section on the existing "Übersprungen" page, renamed to something like "Archiv
-&amp; Übersprungen," or (b) its own nav entry / dashboard-linked page, parallel to but separate from
-Skipped. Given §3's non-goal of not conflating the two concepts, (b) is the safer default recommendation,
-but this needs a call before Phase 3 starts.</div>
+<div class="decision"><strong>Where does the Archive view live? — merged, not mirrored.</strong> Contrary
+to this document's original (b)-leaning recommendation, the confirmed answer combined archived and
+dismissed signals into <em>one</em> renamed page (<code>/archive</code>, replacing "Übersprungen") with a
+filter to switch between "Alle" / "Archiviert" / "Verworfen," rather than giving archived its own separate
+page. See §4's third confirmed decision.</div>
 
-<div class="assumption"><strong>Should "Archivieren"/"Verwerfen" be renamed?</strong> The German verbs
-are correct and reasonably common, but not self-explanatory to a first-time low-technical user without
-the tooltip. This plan recommends shipping Phase 2's tooltip first and only considering a label change
-(e.g. to "Erledigt" vs. "Nicht relevant") if user feedback after that still shows confusion — changing
-labels people have already learned has its own cost, so it shouldn't be bundled into this fix without
-evidence it's needed.</div>
+<div class="decision"><strong>Should "Archivieren"/"Verwerfen" be renamed? — narrower than either option
+this document posed.</strong> Neither "keep both labels" nor "rename both" — "Verwerfen" is removed as an
+action entirely, and "Archivieren" keeps its existing label unchanged. The historical <code>dismissed</code>
+status itself keeps its "Verworfen" label wherever it's still displayed (the status badge, the Archive
+page's filter), since that's describing data, not offering an action.</div>
 
-<div class="assumption"><strong>Bulk action bar wording.</strong> <code>SignalsFeed.tsx:340-348</code>'s
-bulk-selection action buttons reuse the same <code>t(\`transitions.${status}\`)</code> strings as the
-per-row buttons; the same tooltip treatment from §7 should extend there for consistency, but bulk buttons
-in a toolbar have less room for a hover tooltip to be discoverable — worth a quick UX check once Phase 2
-is in front of real users.</div>
+<div class="decision"><strong>Bulk action bar wording — confirmed as suggested.</strong> The tooltip
+treatment from §7 extends to the bulk toolbar's "Archivieren" button, per the recommendation this document
+made.</div>
 
 <footer>
   NewsAtlas — planning document. Written to answer "what's the difference between Archivieren and
-  Verwerfen" and to close the gap between what the two statuses are supposed to mean and what the
-  Signals table actually shows today.
+  Verwerfen," to close the gap between what the two statuses were supposed to mean and what the Signals
+  table actually showed, and — after stakeholder confirmation — implemented directly from §4–§7 above.
 </footer>
 
 </body>

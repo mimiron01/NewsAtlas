@@ -15,7 +15,7 @@ import UsersTab from "./pages/settings/UsersTab";
 import SettingsTargets from "./pages/SettingsTargets";
 import SignalDetail from "./pages/SignalDetail";
 import SignalsFeed from "./pages/SignalsFeed";
-import SkippedFeed from "./pages/SkippedFeed";
+import ArchiveFeed from "./pages/ArchiveFeed";
 import ThemesPage from "./pages/ThemesPage";
 
 export default function App() {
@@ -31,7 +31,7 @@ export default function App() {
         <Route path="/" element={<Dashboard />} />
         <Route path="/signals" element={<SignalsFeed />} />
         <Route path="/signals/:signalId" element={<SignalDetail />} />
-        <Route path="/skipped" element={<SkippedFeed />} />
+        <Route path="/archive" element={<ArchiveFeed />} />
         <Route path="/settings/targets" element={<SettingsTargets />} />
         <Route path="/themes" element={<ThemesPage />} />
         <Route element={<RequireAdmin />}>
@@ -47,7 +47,7 @@ export default function App() {
           {/* Old paths, kept working for existing bookmarks/history */}
           <Route path="/settings/profile" element={<Navigate to="/settings/company" replace />} />
           <Route path="/settings/ai-usage" element={<Navigate to="/settings/usage" replace />} />
-          <Route path="/settings/review" element={<Navigate to="/skipped" replace />} />
+          <Route path="/settings/review" element={<Navigate to="/archive" replace />} />
           <Route path="/admin/users" element={<Navigate to="/settings/users" replace />} />
         </Route>
       </Route>

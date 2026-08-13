@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
@@ -10,26 +10,36 @@ import { useToast } from "../context/ToastContext";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { usePageTitle } from "../hooks/usePageTitle";
 
-// Consolidates the two "skipped" systems that were previously each buried in their own
-// corner (a generic status filter for dismissed signals, an admin-only settings tab for
-// triaged-out articles) into one page reachable from the dashboard (see
-// docs/v1-release-roadmap.html §2.4).
-export default function SkippedFeed() {
+type ArchiveFilter = "all" | "archived" | "dismissed";
+
+// Consolidates archived and dismissed signals (see docs/archive-dismiss-ux-planning.html)
+// plus the admin-only triaged-out articles queue into one page, so "where did my
+// archived/skipped stuff go" has one answer instead of several.
+export default function ArchiveFeed() {
   const { t } = useTranslation(["signals", "settings"]);
-  usePageTitle(t("skippedPage.title"));
+  usePageTitle(t("archivePage.title"));
   const { formatDate } = useLocaleFormat();
   const { showToast } = useToast();
   const isAdmin = useIsAdmin();
   const [signals, setSignals] = useState<Signal[] | null>(null);
+  const [filter, setFilter] = useState<ArchiveFilter>("all");
   const [articles, setArticles] = useState<SkippedArticle[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [promotingId, setPromotingId] = useState<string | null>(null);
 
-  function loadDismissedSignals() {
-    api
-      .get<Signal[]>("/signals?status=dismissed")
-      .then(setSignals)
-      .catch((err) => setLoadError(err instanceof ApiError ? err.message : t("skippedPage.loadFailed")));
+  function loadArchivedSignals() {
+    Promise.all([
+      api.get<Signal[]>("/signals?status=archived"),
+      api.get<Signal[]>("/signals?status=dismissed"),
+    ])
+      .then(([archived, dismissed]) =>
+        setSignals(
+          [...archived, ...dismissed].sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          )
+        )
+      )
+      .catch((err) => setLoadError(err instanceof ApiError ? err.message : t("archivePage.loadFailed")));
   }
 
   function loadSkippedArticles() {
@@ -40,8 +50,13 @@ export default function SkippedFeed() {
       .catch((err) => setLoadError(err instanceof ApiError ? err.message : t("review.loadFailed", { ns: "settings" })));
   }
 
-  useEffect(loadDismissedSignals, [t]);
+  useEffect(loadArchivedSignals, [t]);
   useEffect(loadSkippedArticles, [isAdmin, t]);
+
+  const visibleSignals = useMemo(
+    () => (signals ?? []).filter((s) => filter === "all" || s.status === filter),
+    [signals, filter]
+  );
 
   async function handleFavoriteToggle(signal: Signal) {
     const nextFavorited = !signal.is_favorited;
@@ -58,10 +73,10 @@ export default function SkippedFeed() {
   async function transitionSignal(id: string, status: SignalStatus) {
     try {
       const updated = await api.patch<Signal>(`/signals/${id}`, { status });
-      // Any transition off "dismissed" (the only status this list ever shows) means it
-      // no longer belongs in this list.
+      // Any transition away from archived/dismissed (the only statuses this list ever
+      // shows) means it no longer belongs here.
       setSignals((prev) => (prev ? prev.filter((s) => s.id !== id) : prev));
-      showToast(t("skippedPage.restored", { title: updated.article_title }), "success");
+      showToast(t("archivePage.restored", { title: updated.article_title }), "success");
     } catch (err) {
       showToast(err instanceof ApiError ? err.message : t("feed.signalUpdateFailed"), "error");
     }
@@ -95,17 +110,24 @@ export default function SkippedFeed() {
   return (
     <div>
       <div className="panel-card">
-        <h2>{t("skippedPage.title")}</h2>
-        <p className="subtitle">{t("skippedPage.subtitle")}</p>
+        <h2>{t("archivePage.title")}</h2>
+        <p className="subtitle">{t("archivePage.subtitle")}</p>
       </div>
 
       <div className="panel-card">
-        <h3>{t("skippedPage.dismissedHeading")}</h3>
-        {signals.length === 0 ? (
-          <p className="subtitle">{t("skippedPage.noDismissed")}</p>
+        <label>
+          {t("archivePage.filterLabel")}
+          <select value={filter} onChange={(e) => setFilter(e.target.value as ArchiveFilter)}>
+            <option value="all">{t("archivePage.filterAll")}</option>
+            <option value="archived">{t("archivePage.filterArchived")}</option>
+            <option value="dismissed">{t("archivePage.filterDismissed")}</option>
+          </select>
+        </label>
+        {visibleSignals.length === 0 ? (
+          <p className="subtitle">{t("archivePage.empty")}</p>
         ) : (
           <ul className="signal-list">
-            {signals.map((signal) => (
+            {visibleSignals.map((signal) => (
               <SignalRow
                 key={signal.id}
                 signal={signal}
@@ -119,7 +141,7 @@ export default function SkippedFeed() {
 
       {isAdmin && (
         <div className="panel-card">
-          <h3>{t("skippedPage.skippedArticlesHeading")}</h3>
+          <h3>{t("archivePage.skippedArticlesHeading")}</h3>
           <p className="subtitle">{t("review.subtitle", { ns: "settings" })}</p>
           {articles === null ? (
             <Skeleton rows={3} />
