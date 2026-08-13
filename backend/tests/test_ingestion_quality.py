@@ -345,6 +345,58 @@ def test_a_company_still_never_ingests_the_same_url_twice(db_session):
     )
 
 
+# --- Company-scoped runs (POST /target-companies/{id}/run-now and /run-now bulk) ---
+
+
+def test_company_scoped_run_processes_only_selected_companies_and_no_themes(db_session):
+    wanted = _company(db_session, name="Acme Corp", aliases=["Acme"], keywords=["Acme"])
+    _company(db_session, name="Other Corp", aliases=["Other"], keywords=["Other"])
+    _theme(db_session, name="Automotive")
+    _settings(db_session, newsapi_enabled=True)
+    news = FakeNewsClient(
+        {
+            "Acme Corp": [_article("Acme wins a contract", "https://example.com/acme")],
+            "Other Corp": [_article("Other Corp news", "https://example.com/other")],
+        }
+    )
+
+    result = run_ingestion(
+        db_session, ai_client=FakeAIClient(), news_client=news, target_company_ids=[wanted.id]
+    )
+
+    assert result.target_companies_processed == 1
+    assert result.themes_processed == 0
+    assert result.themes_total == 0
+    # Exactly one fetch, for the scoped company — neither the other company nor the theme
+    # was touched.
+    assert news.calls == ["Acme Corp"]
+    assert [a.target_company_id for a in db_session.query(Article).all()] == [wanted.id]
+
+
+def test_company_scoped_run_excludes_a_paused_selected_company(db_session):
+    active = _company(db_session, name="Acme Corp", aliases=["Acme"], keywords=["Acme"])
+    paused = _company(db_session, name="Paused Co", aliases=["Paused"], keywords=["Paused"])
+    paused.is_active = False
+    db_session.commit()
+    _settings(db_session, newsapi_enabled=True)
+    news = FakeNewsClient(
+        {
+            "Acme Corp": [_article("Acme wins a contract", "https://example.com/acme")],
+            "Paused Co": [_article("Paused Co news", "https://example.com/paused")],
+        }
+    )
+
+    result = run_ingestion(
+        db_session,
+        ai_client=FakeAIClient(),
+        news_client=news,
+        target_company_ids=[active.id, paused.id],
+    )
+
+    assert result.target_companies_processed == 1
+    assert news.calls == ["Acme Corp"]
+
+
 # --- Phase 6: multi-provider themes ------------------------------------------------
 
 

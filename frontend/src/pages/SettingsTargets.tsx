@@ -4,10 +4,12 @@ import { useTranslation } from "react-i18next";
 import { api, ApiError } from "../api/client";
 import type {
   BackfillTriggerResult,
+  IngestionRunStatus,
   TargetCompany,
   TargetCompanyBulkDeleteResult,
   WorkspaceSettings,
 } from "../api/types";
+import IngestionStatusPanel from "../components/IngestionStatusPanel";
 import Modal from "../components/Modal";
 import OverflowMenu from "../components/OverflowMenu";
 import SourceAllowlistField from "../components/SourceAllowlistField";
@@ -15,6 +17,7 @@ import TagInput from "../components/TagInput";
 import TargetCompanyCsvImport from "../components/TargetCompanyCsvImport";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useIngestionStatus } from "../hooks/useIngestionStatus";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { usePageTitle } from "../hooks/usePageTitle";
 
@@ -42,6 +45,12 @@ export default function SettingsTargets() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmingBulk, setConfirmingBulk] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isBulkRunning, setIsBulkRunning] = useState(false);
+  // Resumes tracking a run already in flight (page reloaded mid-fetch, a scheduled run
+  // happens to be going, or another user started one) rather than only reacting to this
+  // browser's own click — same pattern as the Themes/Signals pages.
+  const { ingestionStatus, setIngestionStatus, isRunning: isRunningIngestion } =
+    useIngestionStatus();
   const [editName, setEditName] = useState("");
   const [editAliases, setEditAliases] = useState<string[]>([]);
   const [editContextTerms, setEditContextTerms] = useState<string[]>([]);
@@ -240,6 +249,45 @@ export default function SettingsTargets() {
     }
   }
 
+  async function runCompanyNow(company: TargetCompany) {
+    setPendingId(company.id);
+    try {
+      const result = await api.post<IngestionRunStatus>(`/target-companies/${company.id}/run-now`);
+      setIngestionStatus(result);
+      showToast(t("targets.runNowStartedToast", { name: company.name }), "success");
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("targets.runNowFailed"), "error");
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  async function handleBulkRunNow() {
+    const ids = Array.from(selectedIds);
+    setIsBulkRunning(true);
+    try {
+      const result = await api.post<IngestionRunStatus>("/target-companies/run-now", {
+        target_company_ids: ids,
+      });
+      setIngestionStatus(result);
+      showToast(t("targets.bulkRunNowStartedToast", { count: result.companies_total }), "success");
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("targets.bulkRunNowFailed"), "error");
+    } finally {
+      setIsBulkRunning(false);
+    }
+  }
+
+  async function handleCancelIngestion() {
+    if (!ingestionStatus) return;
+    try {
+      const result = await api.post<IngestionRunStatus>(`/ingestion/runs/${ingestionStatus.id}/cancel`);
+      setIngestionStatus(result);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("targets.cancelFetchFailed"), "error");
+    }
+  }
+
   async function triggerBackfill(company: TargetCompany) {
     setPendingId(company.id);
     try {
@@ -298,6 +346,8 @@ export default function SettingsTargets() {
         </div>
       </div>
 
+      <IngestionStatusPanel status={ingestionStatus} isAdmin={isAdmin} onCancel={handleCancelIngestion} />
+
       {isAddModalOpen && (
         <Modal title={t("targets.addButton")} onClose={() => setIsAddModalOpen(false)}>
           <form onSubmit={handleAdd}>
@@ -350,6 +400,14 @@ export default function SettingsTargets() {
           {selectedIds.size > 0 && (
             <div className="bulk-actions">
               <span className="subtitle">{t("targets.selectedCount", { count: selectedIds.size })}</span>
+              <button
+                type="button"
+                disabled={isBulkRunning || isRunningIngestion}
+                title={isRunningIngestion ? t("targets.runNowBlockedRunning") : undefined}
+                onClick={handleBulkRunNow}
+              >
+                {t("targets.bulkRunNow", { count: selectedIds.size })}
+              </button>
               {confirmingBulk ? (
                 <>
                   <button type="button" className="danger" disabled={isBulkDeleting} onClick={handleBulkDelete}>
@@ -497,6 +555,21 @@ export default function SettingsTargets() {
                       <td>{company.is_active ? t("targets.statusActive") : t("targets.statusPaused")}</td>
                       <td>
                         <div className="actions">
+                          <button
+                            type="button"
+                            className="secondary"
+                            disabled={pendingId === company.id || isRunningIngestion || !company.is_active}
+                            title={
+                              !company.is_active
+                                ? t("targets.runNowBlockedPaused")
+                                : isRunningIngestion
+                                  ? t("targets.runNowBlockedRunning")
+                                  : t("targets.runNow")
+                            }
+                            onClick={() => runCompanyNow(company)}
+                          >
+                            {t("targets.runNow")}
+                          </button>
                           {canEdit(company) && (
                             <button
                               type="button"

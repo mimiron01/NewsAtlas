@@ -46,6 +46,9 @@ class IngestionRunStatusResponse(BaseModel):
     # Set only for a single-theme run started from the Themes page; None for an ordinary
     # full run over every company and theme.
     theme_watch_id: uuid.UUID | None = None
+    # Set only for a run scoped to one or more companies from the "My companies" table's
+    # per-row or multi-select "fetch now" action; None otherwise.
+    target_company_ids: list[uuid.UUID] | None = None
 
     current_step: str | None
     current_company_name: str | None

@@ -167,3 +167,7 @@ class TargetCompanyBulkDeleteRequest(BaseModel):
 class TargetCompanyBulkDeleteResult(BaseModel):
     deleted: int
     not_found: int
+
+
+class TargetCompanyRunNowRequest(BaseModel):
+    target_company_ids: list[uuid.UUID] = Field(min_length=1, max_length=200)

@@ -118,8 +118,6 @@
     "buttonCooldown": "Jetzt abrufen ({{seconds}}s)",
     "startedToast": "Abruf für „{{name}}“ gestartet.",
     "failed": "Abruf konnte nicht gestartet werden",
-    "progressTheme": "Thema „{{name}}“ wird abgerufen …",
-    "progressGeneric": "Abruf läuft …",
     "blockedSourceDisabled": "Google News RSS ist deaktiviert — Themen können nichts abrufen.",
     "blockedPaused": "Dieses Thema ist pausiert. Setzen Sie es fort, um Nachrichten abzurufen.",
     "blockedRunning": "Es läuft bereits ein Abruf. Bitte warten Sie, bis er abgeschlossen ist.",

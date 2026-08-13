@@ -17,6 +17,7 @@ import type {
 import FavoriteButton from "../components/FavoriteButton";
 import HelpTooltip from "../components/HelpTooltip";
 import { ExternalLinkIcon } from "../components/icons/NavIcons";
+import IngestionStatusPanel from "../components/IngestionStatusPanel";
 import Modal from "../components/Modal";
 import OverflowMenu from "../components/OverflowMenu";
 import SourceAllowlistField from "../components/SourceAllowlistField";
@@ -28,12 +29,12 @@ import TopicTemplateGallery from "../components/TopicTemplateGallery";
 import { STATUS_TRANSITION_VALUES } from "../constants/signalStatus";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useIngestionStatus } from "../hooks/useIngestionStatus";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { usePageTitle } from "../hooks/usePageTitle";
 import { useThemeQueryPreview } from "../hooks/useThemeQueryPreview";
 
 const MATCH_STATUSES: SignalStatus[] = ["new", "reviewed", "archived", "dismissed"];
-const POLL_INTERVAL_MS = 1500;
 
 export default function ThemesPage() {
   const { t } = useTranslation(["themes", "signals"]);
@@ -126,11 +127,13 @@ export default function ThemesPage() {
   }
 
   const [publicSettings, setPublicSettings] = useState<PublicWorkspaceSettings | null>(null);
-  const [ingestionStatus, setIngestionStatus] = useState<IngestionRunStatus | null>(null);
-  // Tracks whether *this page load* watched a run go through "running", so a long-finished
-  // run from before the page opened doesn't trigger a spurious reload on arrival.
-  const sawRunningRef = useRef(false);
-  const isRunningIngestion = ingestionStatus?.status === "running";
+  // Resumes tracking a run already in flight (page reloaded mid-fetch, a scheduled run
+  // happens to be going, or another user started one) rather than only reacting to this
+  // browser's own click, and refreshes matches/topics once a run this page watched settles.
+  const { ingestionStatus, setIngestionStatus, isRunning: isRunningIngestion } = useIngestionStatus(() => {
+    loadMatches();
+    loadThemes();
+  });
   // Google News RSS is the only source topics can use, so everything on this page is inert
   // without it. Treated as available until the flags load, so the UI doesn't flash a
   // warning it may immediately retract.
@@ -234,45 +237,10 @@ export default function ThemesPage() {
       .catch(() => undefined);
   }, []);
 
-  async function pollIngestionStatus() {
-    try {
-      const result = await api.get<IngestionRunStatus | null>("/ingestion/status");
-      if (result?.status === "running") {
-        sawRunningRef.current = true;
-      }
-      setIngestionStatus(result);
-      // A finished run is the only moment new matches can have appeared, so this is where
-      // the feed refreshes itself instead of leaving the user to reload the page.
-      if (sawRunningRef.current && result && result.status !== "running") {
-        sawRunningRef.current = false;
-        loadMatches();
-        loadThemes();
-      }
-    } catch {
-      // Transient poll failure — the next tick (or the next page load) picks it back up.
-    }
-  }
-
-  // Resumes tracking a run already in flight (page reloaded mid-fetch, a scheduled run
-  // happens to be going, or another user started one) rather than only reacting to this
-  // browser's own click.
-  useEffect(() => {
-    pollIngestionStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!isRunningIngestion) return;
-    const interval = window.setInterval(pollIngestionStatus, POLL_INTERVAL_MS);
-    return () => window.clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRunningIngestion]);
-
   async function runTheme(theme: ThemeWatch) {
     setPendingId(theme.id);
     try {
       const result = await api.post<IngestionRunStatus>(`/theme-watches/${theme.id}/run-now`);
-      sawRunningRef.current = true;
       setIngestionStatus(result);
       showToast(t("themes:run.startedToast", { name: theme.name }), "success");
       // Refreshes last_manual_run_at so this theme's cooldown countdown starts immediately.
@@ -281,6 +249,16 @@ export default function ThemesPage() {
       showToast(err instanceof ApiError ? err.message : t("themes:run.failed"), "error");
     } finally {
       setPendingId(null);
+    }
+  }
+
+  async function handleCancelIngestion() {
+    if (!ingestionStatus) return;
+    try {
+      const result = await api.post<IngestionRunStatus>(`/ingestion/runs/${ingestionStatus.id}/cancel`);
+      setIngestionStatus(result);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("signals:feed.ingestion.stopFailed"), "error");
     }
   }
 
@@ -614,21 +592,7 @@ export default function ThemesPage() {
         </div>
       )}
 
-      {isRunningIngestion && ingestionStatus && (
-        <div className="panel-card">
-          <p className="subtitle">
-            {ingestionStatus.current_theme_name
-              ? t("themes:run.progressTheme", { name: ingestionStatus.current_theme_name })
-              : t("themes:run.progressGeneric")}
-          </p>
-          <div className="progress-bar">
-            <div
-              className="progress-bar-fill"
-              style={{ width: `${ingestionStatus.progress_percent}%` }}
-            />
-          </div>
-        </div>
-      )}
+      <IngestionStatusPanel status={ingestionStatus} isAdmin={isAdmin} onCancel={handleCancelIngestion} />
 
       {displayGallery ? (
         <TopicTemplateGallery

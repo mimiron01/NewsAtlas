@@ -16,11 +16,14 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user, require_admin
 from app.core.audit import log_event
+from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.db.session import SessionLocal, get_db
 from app.models.company_follow import CompanyFollow
+from app.models.ingestion_run import TRIGGER_MANUAL
 from app.models.target_company import TargetCompany
 from app.models.user import User, UserRole
+from app.schemas.ingestion import IngestionRunStatusResponse
 from app.schemas.news_usage import BackfillTriggerResult
 from app.schemas.target_company import (
     CompanyFollowerResponse,
@@ -29,6 +32,7 @@ from app.schemas.target_company import (
     TargetCompanyCreate,
     TargetCompanyImportResult,
     TargetCompanyResponse,
+    TargetCompanyRunNowRequest,
     TargetCompanyUpdate,
 )
 from app.services.company_follows import (
@@ -38,6 +42,12 @@ from app.services.company_follows import (
     remove_follow,
     to_response,
 )
+from app.services.ingestion_runs import (
+    create_run,
+    execute_ingestion_run,
+    get_running_run,
+    to_status_response,
+)
 from app.services.newsdata_backfill import run_backfill_for_company
 from app.services.target_company_terms import sync_keywords
 from app.services.target_company_import import (
@@ -45,7 +55,7 @@ from app.services.target_company_import import (
     import_target_companies,
     parse_target_company_csv,
 )
-from app.services.workspace_settings import get_or_create_workspace_settings
+from app.services.workspace_settings import enforce_manual_trigger_cooldown, get_or_create_workspace_settings
 
 router = APIRouter(prefix="/target-companies", tags=["target-companies"])
 
@@ -252,6 +262,75 @@ def bulk_delete_target_companies(
     return TargetCompanyBulkDeleteResult(deleted=deleted, not_found=not_found)
 
 
+@router.post("/run-now", response_model=IngestionRunStatusResponse, status_code=202)
+@limiter.limit("20/hour")
+def run_companies_now(
+    payload: TargetCompanyRunNowRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> IngestionRunStatusResponse:
+    """Multi-select variant of POST /{target_company_id}/run-now, for the "My companies"
+    table's bulk-action bar — fetches news for just the selected companies. IDs that don't
+    exist, aren't followed by the caller (unless admin), or are paused are silently dropped
+    from the run rather than failing the whole request — same tolerant style as
+    POST /bulk-delete, since the frontend's selection is built from a list the caller
+    already has open and a stale row shouldn't block the rest of the selection."""
+    eligible_ids: list[uuid.UUID] = []
+    for target_company_id in payload.target_company_ids:
+        company = db.get(TargetCompany, target_company_id)
+        if company is None or not company.is_active:
+            continue
+        if (
+            current_user.role != UserRole.ADMIN
+            and get_follow(db, current_user.id, target_company_id) is None
+        ):
+            continue
+        eligible_ids.append(target_company_id)
+
+    if not eligible_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "None of the selected companies are eligible to fetch "
+                "(not found, not followed, or paused)."
+            ),
+        )
+
+    # A run already in flight (a company's, a theme's, or a full one) is handed back as-is
+    # rather than started alongside — same rule as POST /ingestion/run-now and POST
+    # /theme-watches/{id}/run-now, keeping the frontend's single progress bar honest.
+    # Checked before the cooldown is stamped so a click that merely joins an existing run
+    # doesn't burn this workspace's clock.
+    existing_run = get_running_run(db)
+    if existing_run is not None:
+        return to_status_response(existing_run)
+
+    workspace_settings = get_or_create_workspace_settings(db)
+    enforce_manual_trigger_cooldown(
+        db,
+        workspace_settings,
+        "last_manual_ingestion_at",
+        get_settings().manual_trigger_cooldown_seconds,
+    )
+
+    run = create_run(
+        db,
+        trigger=TRIGGER_MANUAL,
+        triggered_by_user_id=current_user.id,
+        target_company_ids=eligible_ids,
+    )
+    background_tasks.add_task(execute_ingestion_run, run.id)
+    log_event(
+        "companies_manual_run_triggered",
+        request=request,
+        actor_id=str(current_user.id),
+        company_count=len(eligible_ids),
+    )
+    return to_status_response(run)
+
+
 @router.patch("/{target_company_id}", response_model=TargetCompanyResponse)
 def update_target_company(
     target_company_id: uuid.UUID,
@@ -360,6 +439,66 @@ def list_followers(
         )
         for follow, user in rows
     ]
+
+
+@router.post("/{target_company_id}/run-now", response_model=IngestionRunStatusResponse, status_code=202)
+@limiter.limit("20/hour")
+def run_company_now(
+    target_company_id: uuid.UUID,
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> IngestionRunStatusResponse:
+    """Fetches news for this one company only, without waiting for the next scheduled run
+    or triggering a full pass over every target company and topic.
+
+    Open to any follower of the company (not admin-only): mirrors POST
+    /theme-watches/{id}/run-now for the same reason — the people who configure a
+    company's aliases/context terms are the ones who need to see whether that
+    configuration actually works, and "wait up to N hours for the scheduler" is not a
+    workable loop for iterating on it.
+    """
+    company = _get_or_404(db, target_company_id)
+    if current_user.role != UserRole.ADMIN and get_follow(db, current_user.id, target_company_id) is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not following this company"
+        )
+    if not company.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This company is paused. Resume it before fetching news for it.",
+        )
+
+    # A run already in flight (this company's, another company's, a theme's, or a full
+    # one) is handed back as-is rather than started alongside — see run_companies_now
+    # above for the same rule.
+    existing_run = get_running_run(db)
+    if existing_run is not None:
+        return to_status_response(existing_run)
+
+    workspace_settings = get_or_create_workspace_settings(db)
+    enforce_manual_trigger_cooldown(
+        db,
+        workspace_settings,
+        "last_manual_ingestion_at",
+        get_settings().manual_trigger_cooldown_seconds,
+    )
+
+    run = create_run(
+        db,
+        trigger=TRIGGER_MANUAL,
+        triggered_by_user_id=current_user.id,
+        target_company_ids=[target_company_id],
+    )
+    background_tasks.add_task(execute_ingestion_run, run.id)
+    log_event(
+        "company_manual_run_triggered",
+        request=request,
+        actor_id=str(current_user.id),
+        company_id=str(target_company_id),
+    )
+    return to_status_response(run)
 
 
 @router.post("/{target_company_id}/backfill", response_model=BackfillTriggerResult)

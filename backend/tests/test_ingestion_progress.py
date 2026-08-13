@@ -199,7 +199,8 @@ def test_execute_ingestion_run_marks_row_cancelled_with_partial_counts(db_sessio
         errors=[],
     )
     monkeypatch.setattr(
-        "app.services.ingestion_runs.run_ingestion", lambda db, progress=None, theme_watch_id=None: fake_result
+        "app.services.ingestion_runs.run_ingestion",
+        lambda db, progress=None, theme_watch_id=None, target_company_ids=None: fake_result,
     )
 
     execute_ingestion_run(run.id)
@@ -272,7 +273,8 @@ def test_execute_ingestion_run_marks_row_completed(db_session, monkeypatch):
         signals_created=1, errors=[],
     )
     monkeypatch.setattr(
-        "app.services.ingestion_runs.run_ingestion", lambda db, progress=None, theme_watch_id=None: fake_result
+        "app.services.ingestion_runs.run_ingestion",
+        lambda db, progress=None, theme_watch_id=None, target_company_ids=None: fake_result,
     )
     # execute_ingestion_run closes the session it opens (SessionLocal()) — patched here to
     # return db_session directly so this test can inspect the row afterward without a
@@ -292,7 +294,7 @@ def test_execute_ingestion_run_marks_row_failed_on_unexpected_exception(db_sessi
     monkeypatch.setattr("app.services.ingestion_runs.SessionLocal", lambda: db_session)
     monkeypatch.setattr(db_session, "close", lambda: None)
 
-    def _boom(db, progress=None, theme_watch_id=None):
+    def _boom(db, progress=None, theme_watch_id=None, target_company_ids=None):
         raise RuntimeError("db exploded")
 
     monkeypatch.setattr("app.services.ingestion_runs.run_ingestion", _boom)

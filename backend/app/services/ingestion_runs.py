@@ -89,14 +89,26 @@ def create_run(
     trigger: str,
     triggered_by_user_id: uuid.UUID | None = None,
     theme_watch_id: uuid.UUID | None = None,
+    target_company_ids: list[uuid.UUID] | None = None,
 ) -> IngestionRun:
     # A best-effort initial estimate — run_ingestion() re-confirms both totals via
     # progress.update() once it queries active companies/themes itself, moments later.
     # A theme-scoped run touches no companies and exactly one theme, so it says so up
-    # front rather than briefly showing the whole workspace's company count.
+    # front rather than briefly showing the whole workspace's company count. A
+    # company-scoped run is the mirror image: no themes, and only the (active subset of
+    # the) selected companies — counted here rather than trusting len(target_company_ids)
+    # so a paused company in the selection doesn't inflate the total run_ingestion() will
+    # never actually process.
     if theme_watch_id is not None:
         companies_total = 0
         themes_total = 1
+    elif target_company_ids is not None:
+        companies_total = (
+            db.query(TargetCompany)
+            .filter(TargetCompany.id.in_(target_company_ids), TargetCompany.is_active.is_(True))
+            .count()
+        )
+        themes_total = 0
     else:
         companies_total = db.query(TargetCompany).filter(TargetCompany.is_active.is_(True)).count()
         themes_total = db.query(ThemeWatch).filter(ThemeWatch.is_active.is_(True)).count()
@@ -105,6 +117,11 @@ def create_run(
         status=STATUS_RUNNING,
         triggered_by_user_id=triggered_by_user_id,
         theme_watch_id=theme_watch_id,
+        target_company_ids=(
+            [str(company_id) for company_id in target_company_ids]
+            if target_company_ids is not None
+            else None
+        ),
         companies_total=companies_total,
         themes_total=themes_total,
     )
@@ -129,11 +146,22 @@ def execute_ingestion_run(run_id: uuid.UUID) -> None:
         tracker = ProgressTracker(db, run_id)
         # Read off the row rather than passed in, so both entry points (the manual-trigger
         # background task and the scheduled job) stay single-argument.
-        scoped_theme_id = (
-            db.query(IngestionRun.theme_watch_id).filter(IngestionRun.id == run_id).scalar()
+        scoped_theme_id, scoped_company_ids = (
+            db.query(IngestionRun.theme_watch_id, IngestionRun.target_company_ids)
+            .filter(IngestionRun.id == run_id)
+            .one()
         )
         try:
-            result = run_ingestion(db, progress=tracker, theme_watch_id=scoped_theme_id)
+            result = run_ingestion(
+                db,
+                progress=tracker,
+                theme_watch_id=scoped_theme_id,
+                target_company_ids=(
+                    [uuid.UUID(company_id) for company_id in scoped_company_ids]
+                    if scoped_company_ids is not None
+                    else None
+                ),
+            )
         except Exception as exc:  # noqa: BLE001 - top-level background job boundary
             log_event("ingestion_run_failed", run_id=str(run_id), error=str(exc))
             db.query(IngestionRun).filter(IngestionRun.id == run_id).update(
@@ -208,6 +236,11 @@ def to_status_response(run: IngestionRun) -> IngestionRunStatusResponse:
         cancel_requested=run.cancel_requested,
         trigger=run.trigger,
         theme_watch_id=run.theme_watch_id,
+        target_company_ids=(
+            [uuid.UUID(company_id) for company_id in run.target_company_ids]
+            if run.target_company_ids is not None
+            else None
+        ),
         started_at=run.started_at,
         finished_at=run.finished_at,
         progress_percent=progress_percent(run),
