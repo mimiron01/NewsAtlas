@@ -738,11 +738,14 @@ export default function ThemesPage() {
         {themes.length === 0 && <p className="subtitle">{t("themes:noThemesYet")}</p>}
         {themes.length > 0 && (
           <div className="field-row">
-            <input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t("themes:toolbar.searchPlaceholder")}
-            />
+            <label>
+              {t("themes:toolbar.searchLabel")}
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t("themes:toolbar.searchPlaceholder")}
+              />
+            </label>
             <label>
               {t("themes:toolbar.sortLabel")}
               <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
@@ -754,14 +757,14 @@ export default function ThemesPage() {
           </div>
         )}
         {visibleThemes.length > 0 && (
-          <label className="checkbox-label field-hint">
+          <label className="checkbox-label select-all-row">
             <input
               type="checkbox"
               checked={selectedIds.size === visibleThemes.length}
               onChange={(e) =>
                 setSelectedIds(e.target.checked ? new Set(visibleThemes.map((t) => t.id)) : new Set())
               }
-            />{" "}
+            />
             {t("themes:bulk.selectAll")}
           </label>
         )}
@@ -889,33 +892,37 @@ export default function ThemesPage() {
               </li>
             ) : (
               <li key={theme.id} className={theme.is_active ? "" : "inactive"}>
-                <div>
+                <div className="theme-row">
                   <input
                     type="checkbox"
                     checked={selectedIds.has(theme.id)}
                     onChange={() => toggleSelected(theme.id)}
                     aria-label={theme.name}
-                  />{" "}
-                  <strong>{theme.name}</strong>
-                  {theme.industry && <span className="tag">{theme.industry}</span>}
-                  {theme.is_muted && <span className="tag">{t("themes:muted")}</span>}
-                  {!theme.is_active && <span className="tag">{t("themes:paused")}</span>}
-                  {(theme.google_news_country || theme.google_news_language) && (
-                    <span className="tag">
-                      {[theme.google_news_country, theme.google_news_language]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </span>
-                  )}
-                  {theme.query_terms.length > 0 && (
-                    <div className="keywords">{theme.query_terms.join(", ")}</div>
-                  )}
-                  {theme.exclude_terms.length > 0 && (
-                    <div className="keywords subtitle">
-                      −{theme.exclude_terms.join(", −")}
+                  />
+                  <div className="theme-row-body">
+                    <div className="theme-row-title">
+                      <strong>{theme.name}</strong>
+                      {theme.industry && <span className="tag">{theme.industry}</span>}
+                      {theme.is_muted && <span className="tag">{t("themes:muted")}</span>}
+                      {!theme.is_active && <span className="tag">{t("themes:paused")}</span>}
+                      {(theme.google_news_country || theme.google_news_language) && (
+                        <span className="tag">
+                          {[theme.google_news_country, theme.google_news_language]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </span>
+                      )}
                     </div>
-                  )}
-                  {renderThemeStats(theme)}
+                    {theme.query_terms.length > 0 && (
+                      <div className="keywords">{theme.query_terms.join(", ")}</div>
+                    )}
+                    {theme.exclude_terms.length > 0 && (
+                      <div className="keywords subtitle">
+                        −{theme.exclude_terms.join(", −")}
+                      </div>
+                    )}
+                    {renderThemeStats(theme)}
+                  </div>
                 </div>
                 <div className="actions">
                   <ThemeRunButton

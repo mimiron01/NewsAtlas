@@ -339,6 +339,12 @@ button.danger { background: var(--danger-solid); }
 .target-list li:last-child { border-bottom: none; }
 .target-list li.inactive { opacity: 0.55; }
 .target-list li > div:first-child { flex: 1 1 260px; min-width: 220px; }
+/* Checkbox as its own column so the title, keywords, exclusions, and stats stacked
+   beneath it all line up under the title instead of under the checkbox. */
+.theme-row { display: flex; align-items: flex-start; gap: 10px; }
+.theme-row > input[type="checkbox"] { flex: 0 0 auto; margin-top: 3px; }
+.theme-row-body { flex: 1; min-width: 0; }
+.theme-row-title { display: flex; align-items: center; flex-wrap: wrap; gap: 2px; }
 .target-list .keywords { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
 .target-list .tag {
   margin-left: 8px;
@@ -520,6 +526,7 @@ button.danger { background: var(--danger-solid); }
   margin-bottom: 4px;
 }
 .checkbox-label { flex-direction: row; align-items: center; gap: 6px; margin-bottom: 0; }
+.select-all-row { font-size: 0.85rem; color: var(--fg); margin: 12px 0; }
 .bulk-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .bulk-actions button { font-size: 0.82rem; padding: 6px 12px; }
 
