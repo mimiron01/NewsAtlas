@@ -24,7 +24,10 @@ import { usePageTitle } from "../hooks/usePageTitle";
 
 type SortOrder = "newest" | "oldest" | "relevance";
 
-const SIGNAL_STATUSES: SignalStatus[] = ["new", "reviewed", "archived", "dismissed"];
+// Archived/dismissed signals live on the dedicated Archive page (see
+// docs/archive-dismiss-ux-planning.html) instead of cluttering this default working list,
+// so the filter here only ever offers the active statuses.
+const SIGNAL_STATUSES: SignalStatus[] = ["new", "reviewed"];
 
 export default function SignalsFeed() {
   const { t } = useTranslation("signals");
@@ -125,8 +128,8 @@ export default function SignalsFeed() {
     try {
       const updated = await api.patch<Signal>(`/signals/${id}`, { status });
       setSignals((prev) => prev.map((s) => (s.id === id ? updated : s)));
-      if ((status === "dismissed" || status === "archived") && previousStatus) {
-        showToast(status === "dismissed" ? t("dismissedToast") : t("archivedToast"), "success", {
+      if (status === "archived" && previousStatus) {
+        showToast(t("archivedToast"), "success", {
           label: t("undo"),
           onClick: () => transitionSignal(id, previousStatus),
         });
@@ -149,7 +152,7 @@ export default function SignalsFeed() {
         prev.map((s) => updates.find((updated) => updated.id === s.id) ?? s)
       );
       setSelectedIds(new Set());
-      if (status === "dismissed" || status === "archived") {
+      if (status === "archived") {
         showToast(t("feed.bulkUpdated", { count: ids.length }), "success", {
           label: t("undo"),
           onClick: async () => {
@@ -342,6 +345,7 @@ export default function SignalsFeed() {
                       type="button"
                       key={status}
                       className="secondary"
+                      title={t(`transitionHints.${status}`, { defaultValue: "" })}
                       onClick={() => transitionSelected(status)}
                     >
                       {t(`transitions.${status}`)}

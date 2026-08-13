@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NewsAtlas — Archivieren vs. Verwerfen UX Planning</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1d23;
+    --muted: #5b6270;
+    --accent: #2757c7;
+    --accent-bg: #eef2fc;
+    --border: #e2e5ea;
+    --code-bg: #f5f6f8;
+    --ok: #1a7f4e;
+    --warn: #a15c00;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    color: var(--fg);
+    background: var(--bg);
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 40px 24px 120px;
+    line-height: 1.55;
+  }
+  h1 { font-size: 2rem; margin-bottom: 4px; }
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 48px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--border);
+  }
+  h3 { font-size: 1.1rem; margin-top: 28px; color: var(--fg); }
+  h4 { font-size: 1rem; margin-top: 20px; }
+  p.subtitle { color: var(--muted); margin-top: 0; font-size: 1.05rem; }
+  .meta {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 12px 0 32px;
+    padding: 12px 16px;
+    background: var(--accent-bg);
+    border-radius: 8px;
+  }
+  .meta strong { color: var(--fg); }
+  nav.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 24px;
+    margin: 24px 0 40px;
+  }
+  nav.toc h2 { margin-top: 0; border: none; font-size: 1.05rem; padding-bottom: 4px; }
+  nav.toc ol { columns: 2; column-gap: 32px; padding-left: 20px; }
+  nav.toc li { margin-bottom: 4px; break-inside: avoid; }
+  nav.toc a { color: var(--accent); text-decoration: none; font-size: 0.92rem; }
+  nav.toc a:hover { text-decoration: underline; }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--code-bg); font-weight: 600; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.88em;
+    font-family: "SF Mono", Consolas, Monaco, monospace;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+  .decision {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-bg);
+    padding: 10px 16px;
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .decision strong { color: var(--accent); }
+  .gap {
+    border-left: 4px solid #b23b3b;
+    background: #fdecec;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .gap strong { color: #b23b3b; }
+  .ok-box {
+    border-left: 4px solid var(--ok);
+    background: #eaf7f0;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92rem;
+  }
+  .ok-box strong { color: var(--ok); }
+  .phase {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  .phase h4 { margin-top: 0; display: flex; align-items: center; gap: 10px; }
+  .phase-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 20px;
+  }
+  .assumption {
+    border-left: 4px solid var(--warn);
+    background: #fdf4e3;
+    padding: 10px 16px;
+    margin: 10px 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.9rem;
+  }
+  ul.checklist { list-style: none; padding-left: 4px; }
+  ul.checklist li::before { content: "☐ "; color: var(--muted); }
+  footer {
+    margin-top: 60px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  .tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    margin-left: 6px;
+  }
+  .status-table td:first-child { white-space: nowrap; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<h1>Archivieren vs. Verwerfen</h1>
+<p class="subtitle">Planning document — what the two statuses mean today, why they clutter the Signals table, and a concrete plan to fix it for low-technical end users</p>
+
+<div class="meta">
+  <div><strong>Status:</strong> Implemented (2026-08-13) on
+  <code>claude/archivieren-verwerfen-ux-elrhbi</code>, with one change from the original proposal
+  below confirmed by the stakeholder: rather than keeping "Verwerfen" as a lower-profile action, the
+  <strong>dismiss transition was removed from the UI entirely</strong> — going forward "Archivieren" is
+  the only way to move a signal out of the active feed. Existing <code>dismissed</code> signals are not
+  migrated or deleted; they remain visible (and restorable) on the renamed Archive page, filterable
+  separately from newly-archived ones. §4 and §9 are updated accordingly; §1–§3's analysis of why the two
+  statuses existed and why they cluttered the table still stands as the record of the problem this fix
+  addresses.</div>
+  <div><strong>Builds on:</strong> <a href="v1-release-roadmap.html">v1-release-roadmap.html</a> §2.4
+  (shipped the "Übersprungen"/Skipped page this page replaces),
+  <a href="dashboard-favorites-todos-planning.html">dashboard-favorites-todos-planning.html</a>
+  (the dashboard counts pattern this plan reuses)</div>
+  <div><strong>Doc purpose:</strong> Explain the intended semantics of <code>archived</code> vs.
+  <code>dismissed</code> signal status, confirm in code why both still clutter the default Signals view
+  despite §2.4's fix, and record the plan this session implemented directly from it.</div>
+</div>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#difference">1. What's the difference, today</a></li>
+    <li><a href="#clutter">2. Why they clutter the table anyway</a></li>
+    <li><a href="#goals">3. Goals &amp; non-goals</a></li>
+    <li><a href="#decisions">4. Key decisions</a></li>
+    <li><a href="#backend">5. Backend changes</a></li>
+    <li><a href="#frontend">6. Frontend changes</a></li>
+    <li><a href="#copy">7. Copy &amp; i18n (for low-technical users)</a></li>
+    <li><a href="#roadmap">8. Implementation roadmap</a></li>
+    <li><a href="#assumptions">9. Open questions</a></li>
+  </ol>
+</nav>
+
+<h2 id="difference">1. What's the difference, today</h2>
+
+<p>
+  A <code>Signal</code> moves through four statuses (<code>backend/app/models/signal.py:14-18</code>):
+  <code>new</code> → <code>reviewed</code> → one of <code>archived</code> / <code>dismissed</code>. Both
+  of the terminal statuses are reached from the exact same two buttons everywhere a signal is shown
+  (<code>SignalRow.tsx</code>, <code>SignalDetail.tsx</code>), and nothing in the UI currently explains
+  the difference — no tooltip, no helper text, just the two German verbs. That ambiguity is itself a
+  usability problem for a low-technical audience, before even getting to the clutter complaint.
+</p>
+
+<p>Based on how the rest of the app already treats each status, the intended meaning is:</p>
+
+<table>
+  <tr><th></th><th>Archivieren (archived)</th><th>Verwerfen (dismissed)</th></tr>
+  <tr>
+    <td><strong>Meaning</strong></td>
+    <td>"This was a real, relevant signal — I'm done acting on it, but I want to keep it for the
+    record." A positive/neutral conclusion.</td>
+    <td>"This isn't relevant / it's noise / a false positive." A rejection — conceptually the same
+    bucket as an article the AI triaged out before it ever became a signal.</td>
+  </tr>
+  <tr>
+    <td><strong>Evidence in the codebase</strong></td>
+    <td>No dedicated view exists yet — it's purely a status label today (the gap this plan closes).</td>
+    <td><code>SkippedFeed.tsx</code>'s "Übersprungen" page already bundles dismissed signals together
+    with admin-only <em>triaged-out articles</em> under one page and one subtitle: "Alles, was die
+    Pipeline nicht zu einem aktiven Signal gemacht hat" (<code>signals.json:78</code>) — i.e. the product
+    already treats "dismissed" as equivalent to "never became a real signal," not as "a real signal I've
+    filed away."</td>
+  </tr>
+  <tr>
+    <td><strong>Restorable?</strong></td>
+    <td>Yes, via the status filter dropdown, but with no dedicated "put it back" affordance.</td>
+    <td>Yes — <code>SkippedFeed.transitionSignal</code> already has a one-click restore + toast.</td>
+  </tr>
+  <tr>
+    <td><strong>Good analogy for non-technical users</strong></td>
+    <td>An email "Archive" folder — done with it, not deleting it.</td>
+    <td>An email "Trash"/spam action — actively saying this doesn't belong in my inbox.</td>
+  </tr>
+</table>
+
+<h2 id="clutter">2. Why they clutter the table anyway</h2>
+
+<p>
+  The reported problem — dismissing/archiving many articles clutters the Signals table — is confirmed in
+  code, and it's <em>not</em> because the concepts are wrong; it's because neither the filter default nor
+  (for archived) any dedicated view actually removes them from view:
+</p>
+
+<div class="gap"><strong>G1 — the default status filter is not actually "active only."</strong>
+<code>SignalsFeed.tsx:40-42</code> defaults <code>statusFilter</code> to <code>""</code>, which means
+<code>loadSignals()</code> (<code>SignalsFeed.tsx:52-53</code>) sends no <code>status</code> query param
+at all. <code>backend/app/api/signals.py:43-44</code> only filters by status when one is explicitly
+given, so with no filter every status — <code>new</code>, <code>reviewed</code>, <code>archived</code>,
+<code>dismissed</code> — comes back and is rendered in the same list, distinguished only by a small
+colored <code>status-badge</code>. The dropdown option is even labeled <code>t("status.all")</code> =
+"Alle Status," which is literally true but not what a user wants as their <em>default</em> working
+view.</div>
+
+<div class="gap"><strong>G2 — dismissed got a second home, not a replacement home.</strong>
+<a href="v1-release-roadmap.html">v1-release-roadmap.html §2.4</a> added the "Übersprungen"
+(<code>SkippedFeed.tsx</code>) page specifically so dismissed signals had somewhere findable to live. But
+that page is additive — dismissed signals still also show up in the main table under "Alle Status" (see
+G1), so the roadmap item gave users a second place to find dismissed signals without removing them from
+the first place they were cluttering.</div>
+
+<div class="gap"><strong>G3 — archived has no second home at all.</strong> Unlike dismissed, there is no
+<code>archived_signal_count</code> anywhere (<code>backend/app/api/dashboard.py:49-62</code> computes
+<code>new_signal_count</code> and <code>dismissed_signal_count</code> but nothing for archived) and no
+archive-equivalent of <code>SkippedFeed.tsx</code>. The only way to stop seeing an archived signal is to
+manually pick a different value in the status filter dropdown — a discovery step most low-technical users
+won't take. Every signal a user archives just sits in the default table forever.</div>
+
+<div class="ok-box"><strong>One thing already works: the Dashboard gets it right.</strong>
+<code>dashboard.py:42</code> restricts its "top signals" panel to
+<code>status IN (new, reviewed)</code> specifically so archived/dismissed don't clutter that view. That's
+the exact behavior the main Signals table's default should also have — this plan brings the list page in
+line with a pattern the dashboard already proves out.</div>
+
+<h2 id="goals">3. Goals &amp; non-goals</h2>
+<h3>Goals</h3>
+<ul>
+  <li>Make the default Signals view show only actionable signals (<code>new</code> +
+  <code>reviewed</code>) — archiving or dismissing a signal should visibly remove it from the list the
+  user is working in, immediately, with no extra filter click required.</li>
+  <li>Give <code>archived</code> the same findability <code>dismissed</code> already has: a count and a
+  dedicated place to browse/restore it, so archiving never feels like "did that just delete it?"</li>
+  <li>Make the difference between the two actions legible in the UI itself (tooltip/microcopy), not just
+  inferable from behavior, since low-technical users won't read planning docs.</li>
+  <li>Preserve the existing undo-toast safety net (<code>transitionSignal</code>/
+  <code>transitionSelected</code> in <code>SignalsFeed.tsx</code>) exactly as is — it's the right
+  pattern and already works well.</li>
+</ul>
+<h3>Non-goals (this pass)</h3>
+<ul>
+  <li>Renaming the <code>archived</code>/<code>dismissed</code> statuses as data, or the "Archivieren"
+  label — see §9's resolved question. <strong>Update:</strong> "Verwerfen" ended up removed as an action
+  rather than renamed or merely re-homed; see §4's confirmed decisions.</li>
+  <li>Changing how <code>reviewed</code> works — it stays an active, in-list status.</li>
+</ul>
+<p><strong>Update — one originally-listed non-goal was overridden by the stakeholder:</strong> this
+document originally argued against merging archived signals into the "Übersprungen" page, reasoning that
+archived and dismissed have opposite emotional meaning and merging would recreate §1's ambiguity. The
+confirmed decision (§4, §9) merged them anyway, into a single filterable Archive page — a filter row
+picking "Archiviert" vs. "Verworfen" turned out to be enough to keep the two legible side by side without
+needing separate pages, and consolidating both plus the admin skipped-articles queue behind one nav entry
+was judged more valuable for a low-technical audience than three destinations.</p>
+
+<h2 id="decisions">4. Key decisions</h2>
+
+<div class="decision"><strong>Default Signals view = active statuses, not literally all four.</strong>
+When no explicit status filter is chosen, both <code>GET /signals</code> and the dropdown's default
+should mean <code>new</code> + <code>reviewed</code>. A literal "every status including
+archived/dismissed" option stays available for anyone who wants full history, but it stops being the
+default and gets its own explicit label so it's never ambiguous which one is selected.</div>
+
+<div class="decision"><strong>Surface counts on the dashboard, following the existing pattern exactly.
+</strong> Add <code>archived_signal_count</code> to <code>DashboardSummary</code>
+(<code>backend/app/schemas/dashboard.py</code>) computed the same way
+<code>dismissed_signal_count</code> already is (<code>dashboard.py:54</code>), linking to the new Archive
+view — mirrors the comment already in the code: "so 'where did my skipped stuff go' has one visible
+answer instead of being buried in a filter dropdown."</div>
+
+<div class="decision"><strong>Confirmed with stakeholder (2026-08-13) — three changes to the plan above:
+</strong>
+<ol>
+<li><strong>"Verwerfen" is removed as an action, not just re-homed.</strong> <code>STATUS_TRANSITION_VALUES</code>
+(<code>constants/signalStatus.ts</code>) drops <code>"dismissed"</code> entirely, so the button disappears
+from <code>SignalRow</code>, <code>SignalDetail</code>, and the bulk-action toolbar everywhere at once —
+"Archivieren" is the only way forward to move a signal out of the active feed. The <code>dismissed</code>
+status itself is <em>not</em> removed from the data model or API: existing dismissed signals keep their
+status and stay visible/restorable on the Archive page, they just can't be created anymore.</li>
+<li><strong>One merged Archive page, not a mirror of the Skipped page.</strong> Rather than giving
+archived signals their own separate view alongside "Übersprungen," the renamed <code>/archive</code>
+page (<code>ArchiveFeed.tsx</code>, replacing <code>SkippedFeed.tsx</code>) shows archived and dismissed
+signals together in one list, with a filter (<code>Alle</code> / <code>Archiviert</code> /
+<code>Verworfen</code>) to narrow the view — plus the existing admin-only triaged-out-articles section,
+unchanged. This supersedes the "mirror, not merge" recommendation this document originally made.</li>
+<li><strong>Tooltip hint extends to the bulk-action toolbar too</strong> (§7's suggestion, confirmed
+rather than deferred): the same <code>transitionHints.archived</code> string renders as the
+<code>title</code> on both the per-row button and the toolbar's bulk "Archivieren" button.</li>
+</ol>
+</div>
+
+<h2 id="backend">5. Backend changes (as shipped)</h2>
+<table>
+  <tr><th>File</th><th>Change</th></tr>
+  <tr>
+    <td><code>backend/app/api/signals.py</code></td>
+    <td><code>list_signals</code>: when <code>status_filter</code> is <code>None</code>, filter to
+    <code>Signal.status.in_([SignalStatus.NEW, SignalStatus.REVIEWED])</code> instead of leaving the
+    query unfiltered. No "all" sentinel was needed — with "Verwerfen" gone and archived/dismissed moved
+    to their own page, the main feed's dropdown no longer needs a literal-everything option at all
+    (see §6); <code>status=archived</code> and <code>status=dismissed</code> still work as explicit
+    filters for the Archive page to use.</td>
+  </tr>
+  <tr>
+    <td><code>backend/app/api/dashboard.py</code></td>
+    <td>Added <code>archived_signal_count = followed_query.filter(Signal.status ==
+    SignalStatus.ARCHIVED).count()</code> next to the existing <code>dismissed_signal_count</code>
+    line, and included it in the <code>DashboardSummary</code> response.</td>
+  </tr>
+  <tr>
+    <td><code>backend/app/schemas/dashboard.py</code></td>
+    <td><code>DashboardSummary</code> gained <code>archived_signal_count: int</code>.</td>
+  </tr>
+  <tr>
+    <td><code>backend/tests/test_signals_api.py</code></td>
+    <td>Added <code>test_list_signals_default_excludes_archived_and_dismissed</code>: default
+    <code>GET /signals</code> returns only the active signal; explicit
+    <code>status=archived</code>/<code>status=dismissed</code> each return exactly the matching one.</td>
+  </tr>
+  <tr>
+    <td><code>backend/tests/test_dashboard_api.py</code></td>
+    <td>Added <code>archived_signal_count</code> to the empty-state assertion and a new
+    <code>test_dashboard_archived_signal_count_scoped_to_follows</code>, mirroring the existing dismissed
+    test.</td>
+  </tr>
+</table>
+
+<h2 id="frontend">6. Frontend changes (as shipped)</h2>
+<table>
+  <tr><th>File</th><th>Change</th></tr>
+  <tr>
+    <td><code>frontend/src/constants/signalStatus.ts</code></td>
+    <td><code>STATUS_TRANSITION_VALUES</code> changed from <code>["reviewed", "archived", "dismissed"]</code>
+    to <code>["reviewed", "archived"]</code>. Because every transition button in the app (row actions,
+    detail-page actions, bulk-toolbar actions, and the Themes page's topic-match actions, which share
+    this same constant) is generated from this list, removing <code>"dismissed"</code> here removed the
+    "Verwerfen" button everywhere in one change.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/pages/SignalsFeed.tsx</code></td>
+    <td><code>SIGNAL_STATUSES</code> (the status-filter dropdown's options) shrank to
+    <code>["new", "reviewed"]</code> — archived and dismissed are no longer offered as filters here at
+    all, since they now live on the Archive page. The empty-value "Alle Status" default option was kept
+    as-is; it now means "active statuses" because the backend defaults that way. Also removed the dead
+    <code>status === "dismissed"</code> branches from <code>transitionSignal</code>/
+    <code>transitionSelected</code> (unreachable now that "dismissed" is never a transition target from
+    this page) and added the §7 tooltip to the bulk-action toolbar's "Archivieren" button.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/pages/ArchiveFeed.tsx</code> (renamed from <code>SkippedFeed.tsx</code>)</td>
+    <td>Fetches both <code>GET /signals?status=archived</code> and <code>GET /signals?status=dismissed</code>,
+    merges them into one list sorted by recency, and renders it through <code>SignalRow</code> with a
+    filter select (<code>Alle</code> / <code>Archiviert</code> / <code>Verworfen</code>) that narrows the
+    displayed subset client-side. Restoring a signal (via the same <code>SignalRow</code> transition
+    buttons — now just "Geprüft" / "Archivieren", per the constant change above) removes it from the
+    list, same pattern <code>SkippedFeed.transitionSignal</code> used. The admin-only triaged-out-articles
+    section is carried over unchanged beneath it.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/App.tsx</code></td>
+    <td>Route moved from <code>/skipped</code> to <code>/archive</code>; the
+    <code>/settings/review</code> redirect now points at <code>/archive</code>. No redirect shim for the
+    old <code>/skipped</code> path, consistent with this app's existing internal-tool-only convention
+    (see <a href="dashboard-favorites-todos-planning.html">dashboard-favorites-todos-planning.html
+    §9</a>).</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/pages/Dashboard.tsx</code></td>
+    <td>Replaced the conditional "N skipped" stat with an always-visible "Archiv" button/stat linking to
+    <code>/archive</code>, showing <code>archived_signal_count + dismissed_signal_count +
+    skipped_article_count</code> combined — this is the "button on the homepage" the user asked for.</td>
+  </tr>
+  <tr>
+    <td><code>frontend/src/components/SignalRow.tsx</code>,
+    <code>frontend/src/pages/SignalDetail.tsx</code></td>
+    <td>Added a <code>title</code> attribute (native tooltip) to each transition button, reading
+    <code>transitionHints.&lt;status&gt;</code> with an empty-string fallback so "Geprüft" (which has no
+    hint) silently gets no tooltip. Also dropped the now-dead <code>dismissedToast</code> branch from
+    <code>SignalDetail.updateStatus</code>.</td>
+  </tr>
+</table>
+
+<h2 id="copy">7. Copy &amp; i18n (for low-technical users)</h2>
+<p>
+  The single highest-leverage, lowest-risk change here was adding one line of explanatory copy to the
+  archive button — no data model or filtering change needed, and it directly addresses "our users don't
+  know what this does." Shipped additions to
+  <code>frontend/src/i18n/locales/de/signals.json</code> / <code>en/signals.json</code> (the
+  <code>dismissed</code> transition/hint entries were dropped along with the button itself):
+</p>
+<pre><code>"transitions": {
+  "reviewed": "Als geprüft markieren",
+  "archived": "Archivieren"
+},
+"transitionHints": {
+  "archived": "Erledigt, aber aufbewahren — wird aus der aktiven Liste entfernt und im Archiv gespeichert."
+}</code></pre>
+<p>
+  These render as native <code>title</code> tooltips on the button, on both the per-row/detail-page
+  instance and the bulk-action toolbar instance (§4's third confirmed change). If usability feedback
+  later shows a hover tooltip isn't enough for this audience, promoting the hint text to a visible
+  one-line caption under the button is the natural next step — not bundled into this pass.
+</p>
+
+<h2 id="roadmap">8. Implementation roadmap (as shipped)</h2>
+
+<div class="phase">
+<h4><span class="phase-badge">Done</span> Remove "Verwerfen," fix the clutter</h4>
+<p><code>STATUS_TRANSITION_VALUES</code> dropped <code>"dismissed"</code>; <code>GET /signals</code>
+defaults to active statuses only; <code>SignalsFeed.tsx</code>'s filter dropdown shrank to
+new/reviewed. Together these mean archiving a signal (the only remaining transition off the active list)
+makes it disappear from the default table immediately, and there is no longer a UI path to create new
+dismissed signals.</p>
+</div>
+
+<div class="phase">
+<h4><span class="phase-badge">Done</span> Explain the action</h4>
+<p>The §7 tooltip, on both the per-row/detail button and the bulk-toolbar button.</p>
+</div>
+
+<div class="phase">
+<h4><span class="phase-badge">Done</span> Give archived (and legacy dismissed) a home</h4>
+<p><code>ArchiveFeed.tsx</code> at <code>/archive</code> (renamed from <code>SkippedFeed.tsx</code> /
+<code>/skipped</code>), combining archived + dismissed signals with a filter, plus the always-visible
+"Archiv" button on the Dashboard homepage and the <code>archived_signal_count</code> it depends on.</p>
+</div>
+
+<h2 id="assumptions">9. Resolved questions</h2>
+<p>The three open questions this document originally raised were resolved directly by the stakeholder
+before implementation (2026-08-13):</p>
+
+<div class="decision"><strong>Where does the Archive view live? — merged, not mirrored.</strong> Contrary
+to this document's original (b)-leaning recommendation, the confirmed answer combined archived and
+dismissed signals into <em>one</em> renamed page (<code>/archive</code>, replacing "Übersprungen") with a
+filter to switch between "Alle" / "Archiviert" / "Verworfen," rather than giving archived its own separate
+page. See §4's third confirmed decision.</div>
+
+<div class="decision"><strong>Should "Archivieren"/"Verwerfen" be renamed? — narrower than either option
+this document posed.</strong> Neither "keep both labels" nor "rename both" — "Verwerfen" is removed as an
+action entirely, and "Archivieren" keeps its existing label unchanged. The historical <code>dismissed</code>
+status itself keeps its "Verworfen" label wherever it's still displayed (the status badge, the Archive
+page's filter), since that's describing data, not offering an action.</div>
+
+<div class="decision"><strong>Bulk action bar wording — confirmed as suggested.</strong> The tooltip
+treatment from §7 extends to the bulk toolbar's "Archivieren" button, per the recommendation this document
+made.</div>
+
+<footer>
+  NewsAtlas — planning document. Written to answer "what's the difference between Archivieren and
+  Verwerfen," to close the gap between what the two statuses were supposed to mean and what the Signals
+  table actually showed, and — after stakeholder confirmation — implemented directly from §4–§7 above.
+</footer>
+
+</body>
+</html>

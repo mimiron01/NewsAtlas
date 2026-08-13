@@ -54,6 +54,35 @@ def test_list_signals_excludes_muted_companies(client, db_session):
     assert resp.json() == []
 
 
+def test_list_signals_default_excludes_archived_and_dismissed(client, db_session):
+    headers, user_id = signup(client)
+    active = make_signal(db_session, company_name="Acme Corp")
+    active_article = db_session.get(Article, active.article_id)
+    follow_company(db_session, user_id, active_article.target_company_id)
+
+    archived = make_signal(db_session, company_name="ArchivedCo")
+    archived.status = SignalStatus.ARCHIVED
+    archived_article = db_session.get(Article, archived.article_id)
+    follow_company(db_session, user_id, archived_article.target_company_id)
+
+    dismissed = make_signal(db_session, company_name="DismissedCo")
+    dismissed.status = SignalStatus.DISMISSED
+    dismissed_article = db_session.get(Article, dismissed.article_id)
+    follow_company(db_session, user_id, dismissed_article.target_company_id)
+    db_session.commit()
+
+    resp = client.get("/signals", headers=headers)
+    assert resp.status_code == 200
+    ids = [s["id"] for s in resp.json()]
+    assert ids == [str(active.id)]
+
+    archived_resp = client.get("/signals?status=archived", headers=headers)
+    assert [s["id"] for s in archived_resp.json()] == [str(archived.id)]
+
+    dismissed_resp = client.get("/signals?status=dismissed", headers=headers)
+    assert [s["id"] for s in dismissed_resp.json()] == [str(dismissed.id)]
+
+
 def test_filter_signals_by_company_and_status(client, db_session):
     headers, user_id = signup(client)
     acme = make_signal(db_session, company_name="Acme Corp")
