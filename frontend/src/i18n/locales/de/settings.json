@@ -59,6 +59,7 @@
     "sourceAllowlistPlaceholder": "Domain eingeben (z. B. techcrunch.com) und Enter drücken",
     "sourceAllowlistHint": "Ergänzt die workspace-weite Liste vertrauenswürdiger Quellen für Google News RSS, ersetzt sie nicht.",
     "addTargetCompany": "Zielunternehmen hinzufügen",
+    "addButton": "Unternehmen hinzufügen",
     "trackedCompanies": "Verfolgte Unternehmen ({{count}})",
     "noCompaniesYet": "Noch keine Zielunternehmen.",
     "muted": "Stummgeschaltet",
