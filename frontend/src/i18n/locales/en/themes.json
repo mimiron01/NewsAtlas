@@ -144,6 +144,7 @@
     "updateFailed": "Failed to update digest setting"
   },
   "toolbar": {
+    "searchLabel": "Search",
     "searchPlaceholder": "Search topics…",
     "sortLabel": "Sort",
     "sortName": "Name",
