@@ -140,6 +140,15 @@ export default function ThemesPage() {
   const googleNewsDisabled = publicSettings !== null && !publicSettings.google_news_rss_enabled;
   const cooldownSeconds = publicSettings?.manual_trigger_cooldown_seconds ?? 60;
 
+  // Sources/Region & language start collapsed in the edit form too, unless the topic
+  // being edited already has a non-default value in there — otherwise editing a topic
+  // that deliberately overrides its sources would hide that override on every visit
+  // (docs/platform-usability-onboarding-review.html F3). A brand-new topic (the create
+  // form) always starts collapsed, since it can't have a non-default value yet.
+  const editHasNonDefaultSources =
+    editSourceAllowlist !== null || editSourceDenylist.length > 0 || editNewsSources !== null;
+  const editHasNonDefaultRegion = editCountry !== "" || editLanguage !== "";
+
   const createPreview = useThemeQueryPreview({
     queryTerms,
     excludeTerms,
@@ -672,8 +681,8 @@ export default function ThemesPage() {
                 googleNewsDisabled={googleNewsDisabled}
               />
             </div>
-            <div className="form-section">
-              <h3 className="form-section-heading">{t("themes:addTheme.sections.sources")}</h3>
+            <details className="form-section">
+              <summary className="form-section-heading">{t("themes:addTheme.sections.sources")}</summary>
               <ThemeSourceSelector value={newsSources} onChange={setNewsSources} />
               <SourceAllowlistField subject="topic" value={sourceAllowlist} onChange={setSourceAllowlist} />
               <label>
@@ -687,9 +696,9 @@ export default function ThemesPage() {
                   placeholder={t("themes:addTheme.sourceDenylistPlaceholder")}
                 />
               </label>
-            </div>
-            <div className="form-section">
-              <h3 className="form-section-heading">{t("themes:addTheme.sections.region")}</h3>
+            </details>
+            <details className="form-section">
+              <summary className="form-section-heading">{t("themes:addTheme.sections.region")}</summary>
               <div className="field-row">
                 <label>
                   <span className="label-text">
@@ -710,7 +719,7 @@ export default function ThemesPage() {
                   />
                 </label>
               </div>
-            </div>
+            </details>
             {duplicateConflict && (
               <div className="panel-card warning-banner">
                 <strong>{t("themes:duplicate.title")}</strong>
@@ -841,8 +850,8 @@ export default function ThemesPage() {
                       googleNewsDisabled={googleNewsDisabled}
                     />
                   </div>
-                  <div className="form-section">
-                    <h3 className="form-section-heading">{t("themes:addTheme.sections.sources")}</h3>
+                  <details className="form-section" open={editHasNonDefaultSources}>
+                    <summary className="form-section-heading">{t("themes:addTheme.sections.sources")}</summary>
                     <ThemeSourceSelector value={editNewsSources} onChange={setEditNewsSources} />
                     <SourceAllowlistField
                       subject="topic"
@@ -860,9 +869,9 @@ export default function ThemesPage() {
                         placeholder={t("themes:addTheme.sourceDenylistPlaceholder")}
                       />
                     </label>
-                  </div>
-                  <div className="form-section">
-                    <h3 className="form-section-heading">{t("themes:addTheme.sections.region")}</h3>
+                  </details>
+                  <details className="form-section" open={editHasNonDefaultRegion}>
+                    <summary className="form-section-heading">{t("themes:addTheme.sections.region")}</summary>
                     <div className="field-row">
                       <label>
                         <span className="label-text">
@@ -883,7 +892,7 @@ export default function ThemesPage() {
                         />
                       </label>
                     </div>
-                  </div>
+                  </details>
                   <div className="actions">
                     <button type="submit" disabled={pendingId === theme.id || editQueryTerms.length === 0}>
                       {t("themes:save")}
