@@ -316,6 +316,9 @@ export interface IngestionRunStatus {
   // Set only for a single-topic run started from the Themes page; null for an ordinary
   // full run over every company and topic.
   theme_watch_id: string | null;
+  // Set only for a run scoped to one or more companies from the "My companies" table's
+  // per-row or multi-select "fetch now" action; null otherwise.
+  target_company_ids: string[] | null;
   started_at: string;
   finished_at: string | null;
   progress_percent: number;

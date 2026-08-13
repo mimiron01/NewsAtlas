@@ -118,8 +118,6 @@
     "buttonCooldown": "Fetch now ({{seconds}}s)",
     "startedToast": "Fetching news for “{{name}}”.",
     "failed": "Could not start the fetch",
-    "progressTheme": "Fetching topic “{{name}}”…",
-    "progressGeneric": "Fetch in progress…",
     "blockedSourceDisabled": "Google News RSS is disabled — topics cannot fetch anything.",
     "blockedPaused": "This topic is paused. Resume it to fetch news.",
     "blockedRunning": "A fetch is already running. Wait for it to finish.",

@@ -49,6 +49,12 @@ class IngestionRun(Base, UUIDPrimaryKeyMixin):
     theme_watch_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("theme_watches.id", ondelete="SET NULL"), nullable=True
     )
+    # Set only for a run scoped to one or more companies from the "My companies" table's
+    # per-row "Fetch now" or multi-select bulk action (POST /target-companies/{id}/run-now
+    # or /target-companies/run-now). NULL means the ordinary full run or a theme-scoped run.
+    # Stored as plain strings (not a join table) since a scoped run's target set is a
+    # point-in-time snapshot, not a live relationship that needs to track company deletes.
+    target_company_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
 
     # --- Live progress, updated in place while status == "running" (see ProgressTracker) ---
     companies_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

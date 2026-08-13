@@ -127,16 +127,23 @@ def run_ingestion(
     newsdata_client: NewsDataClient | None = None,
     progress: IngestionProgress | None = None,
     theme_watch_id: uuid.UUID | None = None,
+    target_company_ids: list[uuid.UUID] | None = None,
 ) -> IngestionRunResult:
     """Full run by default: every active target company, then every active theme watch.
 
     Passing theme_watch_id scopes the run down to that single theme and skips the company
     loop entirely — this is what the Themes page's per-theme "fetch now" button triggers
-    (see api/theme_watches.py). Default None keeps every existing caller (the scheduler,
-    the workspace-wide manual trigger) on exactly the previous behavior.
+    (see api/theme_watches.py). Passing target_company_ids scopes the run down to just
+    those companies and skips the theme loop entirely, the mirror image — this is what the
+    "My companies" table's per-row or multi-select "fetch now" triggers (see
+    api/target_companies.py). The two scoping params are mutually exclusive; callers only
+    ever set one, since each comes from a different button. Default None on both keeps
+    every existing caller (the scheduler, the workspace-wide manual trigger) on exactly the
+    previous behavior.
     """
     progress = progress or _NULL_PROGRESS
     scoped_to_theme = theme_watch_id is not None
+    scoped_to_companies = target_company_ids is not None
     app_settings = get_settings()
     workspace_settings = get_or_create_workspace_settings(db)
     refresh_feedback_note(db, workspace_settings)
@@ -189,16 +196,29 @@ def run_ingestion(
 
     # A theme-scoped run never touches companies, so the company loop below iterates an
     # empty list rather than being wrapped in a conditional — keeps the counter/progress
-    # bookkeeping that follows on exactly one code path.
-    target_companies = (
-        []
-        if scoped_to_theme
-        else db.query(TargetCompany).filter(TargetCompany.is_active.is_(True)).all()
-    )
-    theme_watches_query = db.query(ThemeWatch).filter(ThemeWatch.is_active.is_(True))
+    # bookkeeping that follows on exactly one code path. A company-scoped run still filters
+    # to is_active, same as the full run — a company paused after being selected shouldn't
+    # silently get fetched anyway.
     if scoped_to_theme:
-        theme_watches_query = theme_watches_query.filter(ThemeWatch.id == theme_watch_id)
-    theme_watches = theme_watches_query.all()
+        target_companies = []
+    elif scoped_to_companies:
+        target_companies = (
+            db.query(TargetCompany)
+            .filter(TargetCompany.id.in_(target_company_ids), TargetCompany.is_active.is_(True))
+            .all()
+        )
+    else:
+        target_companies = db.query(TargetCompany).filter(TargetCompany.is_active.is_(True)).all()
+
+    # The mirror image: a company-scoped run never touches themes, so the theme loop below
+    # also iterates an empty list rather than a conditional.
+    if scoped_to_companies:
+        theme_watches = []
+    else:
+        theme_watches_query = db.query(ThemeWatch).filter(ThemeWatch.is_active.is_(True))
+        if scoped_to_theme:
+            theme_watches_query = theme_watches_query.filter(ThemeWatch.id == theme_watch_id)
+        theme_watches = theme_watches_query.all()
     progress.update(companies_total=len(target_companies), themes_total=len(theme_watches))
 
     articles_fetched = 0
