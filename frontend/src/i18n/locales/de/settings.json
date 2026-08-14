@@ -107,6 +107,7 @@
     "removeTag": "{{tag}} entfernen",
     "columnCompany": "Unternehmen",
     "columnStatus": "Status",
+    "columnTrackedFrom": "Verfolgt seit",
     "columnActions": "Aktionen",
     "statusActive": "Aktiv",
     "statusPaused": "Pausiert",

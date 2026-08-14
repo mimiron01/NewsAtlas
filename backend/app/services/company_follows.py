@@ -136,6 +136,7 @@ def to_response(
         google_news_require_name_in_title=company.google_news_require_name_in_title,
         created_by=company.created_by,
         is_muted=follow.is_muted if follow is not None else None,
+        followed_at=follow.created_at if follow is not None else None,
         follower_count=follower_count(db, company.id),
         backfilled_at=company.backfilled_at,
     )

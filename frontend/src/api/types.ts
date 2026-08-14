@@ -215,6 +215,9 @@ export interface TargetCompany {
   google_news_require_name_in_title: boolean;
   created_by: string | null;
   is_muted: boolean | null;
+  // When the current user started tracking this company; null only for an admin viewing
+  // via ?scope=all without following it themselves (mirrors is_muted).
+  followed_at: string | null;
   follower_count: number;
   backfilled_at: string | null;
 }

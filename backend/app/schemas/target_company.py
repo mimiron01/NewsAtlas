@@ -122,6 +122,9 @@ class TargetCompanyResponse(BaseModel):
     # Per-follow fields: None when the requester (an admin using ?scope=all) doesn't
     # themselves follow this company.
     is_muted: bool | None = None
+    # When the requester started tracking this company (their CompanyFollow.created_at).
+    # None under the same ?scope=all condition as is_muted.
+    followed_at: datetime | None = None
     follower_count: int
     # Set once a NewsData.io historical archive backfill has run for this company; None
     # means either backfill isn't configured/enabled, or it hasn't completed yet — the

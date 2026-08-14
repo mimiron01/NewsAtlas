@@ -19,6 +19,7 @@ import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useIngestionStatus } from "../hooks/useIngestionStatus";
 import { useIsAdmin } from "../hooks/useIsAdmin";
+import { useLocaleFormat } from "../hooks/useLocaleFormat";
 import { usePageTitle } from "../hooks/usePageTitle";
 
 export default function SettingsTargets() {
@@ -27,6 +28,7 @@ export default function SettingsTargets() {
   const { showToast } = useToast();
   const { user } = useAuth();
   const isAdmin = useIsAdmin();
+  const { formatDate } = useLocaleFormat();
   const [companies, setCompanies] = useState<TargetCompany[]>([]);
   const [name, setName] = useState("");
   const [aliases, setAliases] = useState<string[]>([]);
@@ -327,9 +329,8 @@ export default function SettingsTargets() {
     })
     .sort((a, b) => {
       if (sortBy === "name") return a.name.localeCompare(b.name);
-      // "created": no created_at on TargetCompany — approximate with list order (the API
-      // already returns newest-first), so this is a no-op stable sort.
-      return 0;
+      // "created": newest tracked first, by the current user's own follow date.
+      return (b.followed_at ?? "").localeCompare(a.followed_at ?? "");
     });
 
   return (
@@ -466,6 +467,7 @@ export default function SettingsTargets() {
                   </th>
                   <th>{t("targets.columnCompany")}</th>
                   <th>{t("targets.columnStatus")}</th>
+                  <th>{t("targets.columnTrackedFrom")}</th>
                   <th>{t("targets.columnActions")}</th>
                 </tr>
               </thead>
@@ -473,7 +475,7 @@ export default function SettingsTargets() {
                 {visibleCompanies.map((company) =>
                   editingId === company.id ? (
                     <tr key={company.id} className="editing">
-                      <td colSpan={4}>
+                      <td colSpan={5}>
                         <form className="target-edit-form" onSubmit={(e) => saveEdit(e, company)}>
                           <div className="field-row">
                             <label>
@@ -553,6 +555,9 @@ export default function SettingsTargets() {
                         )}
                       </td>
                       <td>{company.is_active ? t("targets.statusActive") : t("targets.statusPaused")}</td>
+                      <td>
+                        {company.followed_at ? formatDate(company.followed_at, { dateStyle: "medium" }) : "—"}
+                      </td>
                       <td>
                         <div className="actions">
                           <button
