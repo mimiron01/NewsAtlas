@@ -459,6 +459,16 @@ button.danger { background: var(--danger-solid); }
   color: var(--muted);
 }
 
+/* Lighter-weight than .form-section-heading — for grouping a couple of fields inside an
+   already-labeled section (e.g. "Domain filters" under "Sources") without competing with
+   it visually. */
+.form-section-subheading {
+  margin: 16px 0 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 .feed-toolbar {
   display: flex;
   align-items: center;

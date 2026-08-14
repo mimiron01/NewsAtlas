@@ -684,6 +684,7 @@ export default function ThemesPage() {
             <details className="form-section">
               <summary className="form-section-heading">{t("themes:addTheme.sections.sources")}</summary>
               <ThemeSourceSelector value={newsSources} onChange={setNewsSources} />
+              <h4 className="form-section-subheading">{t("themes:addTheme.sections.domainFilters")}</h4>
               <SourceAllowlistField subject="topic" value={sourceAllowlist} onChange={setSourceAllowlist} />
               <label>
                 <span className="label-text">
@@ -853,6 +854,7 @@ export default function ThemesPage() {
                   <details className="form-section" open={editHasNonDefaultSources}>
                     <summary className="form-section-heading">{t("themes:addTheme.sections.sources")}</summary>
                     <ThemeSourceSelector value={editNewsSources} onChange={setEditNewsSources} />
+                    <h4 className="form-section-subheading">{t("themes:addTheme.sections.domainFilters")}</h4>
                     <SourceAllowlistField
                       subject="topic"
                       value={editSourceAllowlist}
