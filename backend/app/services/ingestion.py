@@ -118,6 +118,26 @@ def _record_error(errors: list[str], progress: IngestionProgress, message: str) 
     progress.append_error(message)
 
 
+# The only NewsClientError message shape that's actionable from the UI alone rather than
+# a server log — everything else (rate limits, timeouts, malformed responses) keeps its
+# raw exception text, since a wrong plain-language guess is worse than a technical detail
+# for a genuinely unexpected failure (docs/platform-usability-onboarding-review.html F4).
+_SOURCE_NOT_CONFIGURED_MESSAGES = {
+    ArticleSource.NEWSAPI: "NewsAPI is turned on but has no API key set. Add one in "
+    "Settings > News sources, or turn NewsAPI off.",
+    ArticleSource.NEWSDATA: "NewsData.io is turned on but has no API key set. Add one in "
+    "Settings > News sources, or turn NewsData.io off.",
+}
+
+
+def _fetch_error_detail(source: ArticleSource, exc: NewsClientError) -> str:
+    if "is not configured" in str(exc):
+        friendly = _SOURCE_NOT_CONFIGURED_MESSAGES.get(source)
+        if friendly:
+            return friendly
+    return f"{source.value} fetch failed: {exc}"
+
+
 def run_ingestion(
     db: Session,
     news_client: NewsClient | None = None,
@@ -301,7 +321,7 @@ def run_ingestion(
                 _record_error(
                     errors,
                     progress,
-                    f"[theme:{theme_watch.name}] skipped: none of the news sources this "
+                    f"[{theme_watch.name}] skipped: none of the news sources this "
                     "topic may use are enabled for the workspace. Check Settings > News "
                     "sources and the topic's own source selection.",
                 )
@@ -435,7 +455,7 @@ def _ingest_target_company(
             result = _fetch_from_source(source, client, workspace_settings, target_company, since)
         except NewsClientError as exc:
             _record_error(
-                outcome.errors, progress, f"[{target_company.name}] {source.value} fetch failed: {exc}"
+                outcome.errors, progress, f"[{target_company.name}] {_fetch_error_detail(source, exc)}"
             )
             continue
 
@@ -892,7 +912,7 @@ def _ingest_theme_watch(
             _record_error(
                 outcome.errors,
                 progress,
-                f"[theme:{theme_watch.name}] skipped {source.value}: this run's theme "
+                f"[{theme_watch.name}] skipped {source.value}: this run's theme "
                 "request budget for that source is exhausted "
                 "(Settings > News sources > max theme requests per run).",
             )
@@ -921,7 +941,7 @@ def _ingest_theme_watch(
             _record_error(
                 outcome.errors,
                 progress,
-                f"[theme:{theme_watch.name}] skipped {source.value}: rate limit reached.",
+                f"[{theme_watch.name}] skipped {source.value}: rate limit reached.",
             )
             continue
 
@@ -931,7 +951,7 @@ def _ingest_theme_watch(
             )
         except NewsClientError as exc:
             _record_error(
-                outcome.errors, progress, f"[theme:{theme_watch.name}] {source.value} fetch failed: {exc}"
+                outcome.errors, progress, f"[{theme_watch.name}] {_fetch_error_detail(source, exc)}"
             )
             continue
 
@@ -1100,7 +1120,7 @@ def _process_new_theme_matches(
             match.embedding = vector
         db.commit()
     except AIClientError as exc:
-        _record_error(errors, progress, f"[theme:{theme_watch.name}] embedding failed: {exc}")
+        _record_error(errors, progress, f"[{theme_watch.name}] embedding failed: {exc}")
 
     new_match_ids = {m.id for m in new_matches}
     candidates = (
@@ -1151,7 +1171,7 @@ def _process_new_theme_matches(
                 _record_error(
                     errors,
                     progress,
-                    f"[theme:{theme_watch.name}] triage failed for {match.url}: {exc} "
+                    f"[{theme_watch.name}] triage failed for {match.url}: {exc} "
                     "(proceeding to full summarization without the cost-saving triage filter)",
                 )
                 triage = None
@@ -1178,7 +1198,7 @@ def _process_new_theme_matches(
         except AIClientError as exc:
             _skip_theme_match(db, match, "ai_error")
             _record_error(
-                errors, progress, f"[theme:{theme_watch.name}] summarization failed for {match.url}: {exc}"
+                errors, progress, f"[{theme_watch.name}] summarization failed for {match.url}: {exc}"
             )
             progress.update(articles_processed_this_company=position + 1)
             continue

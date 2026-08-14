@@ -404,7 +404,10 @@ def test_theme_ingestion_not_run_when_google_news_rss_disabled(db_session):
     # enabled" can now be true for one topic and false for another.
     assert len(result.errors) == 1
     assert "none of the news sources this topic may use are enabled" in result.errors[0]
-    assert "[theme:Automotive]" in result.errors[0]
+    # Uses the same "[Name]" format a company's errors do — no leaked "theme:" internal
+    # identifier prefix (docs/platform-usability-onboarding-review.html F4).
+    assert "[Automotive]" in result.errors[0]
+    assert "[theme:Automotive]" not in result.errors[0]
 
 
 def test_no_google_news_disabled_error_when_there_are_no_themes(db_session):
