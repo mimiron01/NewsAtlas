@@ -104,6 +104,13 @@
   .badge-medium { background: var(--medium-bg); color: var(--medium); }
   .badge-low { background: var(--low-bg); color: var(--low); }
   .badge-ok { background: #e9f9f1; color: var(--ok); }
+  .badge-fixed { background: #e9f9f1; color: var(--ok); }
+
+  .remediation {
+    margin-top: 10px;
+    font-size: 0.9rem;
+  }
+  .remediation strong { color: var(--ok); }
 
   .recommendation {
     border-left: 4px solid var(--accent);
@@ -269,6 +276,16 @@
   permission gating.
 </div>
 
+<div class="update-banner">
+  <strong>Update — all 7 findings have been implemented.</strong> F1 through F7 were built
+  following the implementation guidance below, each in its own commit on
+  <code>claude/platform-usability-review-u5bkcu</code>. Every finding section now has a green
+  "Fixed" note describing what shipped and where. Verified with the full backend test suite,
+  a clean frontend typecheck/build, and a live Playwright-driven walkthrough of the running
+  app for every fix. Re-run a fresh review after any further significant frontend or
+  ingestion changes.
+</div>
+
 <nav class="toc">
   <h2>Contents</h2>
   <ol>
@@ -311,21 +328,21 @@
   comparison.
 </p>
 <p>
-  The three calls this review originally flagged as open questions are now resolved (see
-  <a href="#decisions">Decisions</a>), and every finding F1–F7 below carries concrete
-  implementation guidance — file paths, line numbers, and a definition of done — so this doc
-  now doubles as the backlog for the follow-up implementation pass.
+  The three calls this review originally flagged as open questions are resolved (see
+  <a href="#decisions">Decisions</a>), and all 7 findings (F1–F7) have since been implemented —
+  each finding below carries a green "Fixed" remediation note describing what shipped, alongside
+  the original implementation guidance for reference.
 </p>
 
 <table class="summary-table">
-  <tr><th>#</th><th>Impact</th><th>Finding</th></tr>
-  <tr><td>F1</td><td><span class="badge badge-critical">Critical</span></td><td>Checklist completes fully, "Fetch new signals" runs, and nothing happens — the real cause (no news source enabled) is never surfaced where the checklist lives</td></tr>
-  <tr><td>F2</td><td><span class="badge badge-high">High</span></td><td>"Company profile" page mixes 2 simple identity fields with 5 unexplained numeric AI/digest tuning parameters, all equally weighted</td></tr>
-  <tr><td>F3</td><td><span class="badge badge-high">High</span></td><td>Manual "Add topic" form shows ~9 fields across 3 sections at once, even though only 1 is required</td></tr>
-  <tr><td>F4</td><td><span class="badge badge-medium">Medium</span></td><td>Run-history error text says <code>[theme:Automotive]</code> instead of the "Topic" language used everywhere else in the UI</td></tr>
-  <tr><td>F5</td><td><span class="badge badge-medium">Medium</span></td><td>Sign-up's "Invite code" field has zero explanation of what it is or where to get one</td></tr>
-  <tr><td>F6</td><td><span class="badge badge-medium">Medium</span></td><td>AI configuration tab reads as equally mandatory as Company/News sources, but is raw ML parameters a beginner shouldn't need to touch</td></tr>
-  <tr><td>F7</td><td><span class="badge badge-low">Low</span></td><td>"Trusted sources," "News sources," and "Blocked sources" are three near-identically-worded controls in one modal</td></tr>
+  <tr><th>#</th><th>Impact</th><th>Finding</th><th>Status</th></tr>
+  <tr><td>F1</td><td><span class="badge badge-critical">Critical</span></td><td>Checklist completes fully, "Fetch new signals" runs, and nothing happens — the real cause (no news source enabled) is never surfaced where the checklist lives</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F2</td><td><span class="badge badge-high">High</span></td><td>"Company profile" page mixes 2 simple identity fields with 5 unexplained numeric AI/digest tuning parameters, all equally weighted</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F3</td><td><span class="badge badge-high">High</span></td><td>Manual "Add topic" form shows ~9 fields across 3 sections at once, even though only 1 is required</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F4</td><td><span class="badge badge-medium">Medium</span></td><td>Run-history error text says <code>[theme:Automotive]</code> instead of the "Topic" language used everywhere else in the UI</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F5</td><td><span class="badge badge-medium">Medium</span></td><td>Sign-up's "Invite code" field has zero explanation of what it is or where to get one</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F6</td><td><span class="badge badge-medium">Medium</span></td><td>AI configuration tab reads as equally mandatory as Company/News sources, but is raw ML parameters a beginner shouldn't need to touch</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
+  <tr><td>F7</td><td><span class="badge badge-low">Low</span></td><td>"Trusted sources," "News sources," and "Blocked sources" are three near-identically-worded controls in one modal</td><td><span class="badge badge-fixed">Fixed</span></td></tr>
 </table>
 
 <h2 id="decisions">Decisions</h2>
@@ -592,6 +609,15 @@
     <p><strong>3. Stop leaking internal identifiers into the messages that remain.</strong> Tracked
       separately as its own fix in <a href="#f4">F4</a>, since it applies to run-history text
       generally, not only the no-source case.</p>
+    <div class="remediation"><strong>Fixed:</strong> <code>google_news_rss_enabled</code> now
+      defaults to <code>true</code> and <code>newsapi_enabled</code> to <code>false</code> for new
+      workspaces (<code>workspace_settings.py</code>); <code>GET /settings/public</code> now
+      returns <code>any_news_source_enabled</code>, computed as an OR across all three provider
+      toggles; Dashboard, Signals feed, and My companies (bulk and per-row) all fetch it, show a
+      warning banner with a direct link to Settings → News sources, and disable their fetch/run
+      buttons whenever it's false. Verified live: a fresh signup can add a company and fetch real
+      results with zero configuration, and manually disabling every source correctly shows the
+      banner and disables every fetch/run control across all three pages.</div>
     <p class="dod"><strong>Definition of done:</strong> a brand-new self-hosted install can add a
       company or a topic and fetch real results with zero configuration beyond the invite code.
       If an admin later turns every source off, "Fetch new signals" (and every per-row/bulk run
@@ -656,6 +682,13 @@
         never has them hidden.
       </li>
     </ol>
+    <div class="remediation"><strong>Fixed:</strong> the "Digest &amp; limits" section in
+      <code>CompanyTab.tsx</code> is now a <code>&lt;details&gt;</code>, collapsed by default and
+      only opening automatically when a value in it already differs from the shipped default; the
+      summary text was updated to "Digest &amp; limits (defaults are fine for most workspaces)" in
+      both English and German. Verified live: a fresh workspace's Company profile shows exactly
+      Company name, Offering description, Main language, and Save, with the digest fields hidden
+      until the disclosure is opened.</div>
     <p class="dod"><strong>Definition of done:</strong> a first-time visit to Company profile
       shows Company name, Offering description, Main language, and Save — nothing else — until
       the admin actively opens "Digest &amp; limits."</p>
@@ -711,6 +744,13 @@
         is intentional, since Search terms is the one required field.
       </li>
     </ol>
+    <div class="remediation"><strong>Fixed:</strong> Sources and Region &amp; language are now
+      <code>&lt;details&gt;</code> in both the create and edit topic forms in
+      <code>ThemesPage.tsx</code>. The create form always starts collapsed; the edit form opens a
+      section by default only when the topic being edited already has a non-default value there
+      (<code>editHasNonDefaultSources</code> / <code>editHasNonDefaultRegion</code>). Verified
+      live: a fresh "Add topic" modal shows only Topic name, Industry, and Search criteria, and a
+      topic saved with default sources/region still opens collapsed when edited.</div>
     <p class="dod"><strong>Definition of done:</strong> opening "Add topic" on a fresh workspace
       shows 3 controls (Topic name, Industry, Search terms) instead of ~9, with everything else
       one click away behind clearly-labeled disclosures.</p>
@@ -766,6 +806,15 @@
         the better failure mode than a wrong plain-language guess.
       </li>
     </ol>
+    <div class="remediation"><strong>Fixed:</strong> all 8 <code>[theme:Name]</code> sites in
+      <code>ingestion.py</code> now use <code>[Name]</code>, matching the company format exactly.
+      A new <code>_fetch_error_detail()</code> helper maps the "is not configured" failure shape
+      to a plain sentence with a next step ("NewsAPI is turned on but has no API key set. Add one
+      in Settings &gt; News sources, or turn NewsAPI off.") for both NewsAPI and NewsData.io;
+      every other <code>NewsClientError</code> keeps its raw text. Verified live: running
+      ingestion with NewsAPI enabled and no key set produces exactly that sentence, with no
+      <code>[theme:</code> or raw <code>NEWSAPI_API_KEY is not configured</code> text anywhere on
+      the page.</div>
     <p class="dod"><strong>Definition of done:</strong> every string in the run-history/ingestion
       status panel that names a topic uses the same "[Name]" format a company does, and the two
       "not configured" failure modes read as an instruction, not a stack-trace fragment.</p>
@@ -812,6 +861,12 @@
         existing <code>"inviteCode": "Invite code"</code> / <code>"Einladungscode"</code> keys.
       </li>
     </ol>
+    <div class="remediation"><strong>Fixed:</strong> added
+      <code>&lt;span className="field-hint"&gt;{t("inviteCodeHint")}&lt;/span&gt;</code> under the
+      field in <code>Login.tsx</code>, with the hint text added to both
+      <code>en/auth.json</code> and <code>de/auth.json</code>. Verified live: the hint ("Ask
+      whoever set up NewsAtlas for your workspace for this code.") renders under the field on
+      first load of the sign-up form, no interaction required.</div>
     <p class="dod"><strong>Definition of done:</strong> the invite-code field has a visible hint
       under it on first render, with no interaction required to see it — matching every other
       field on the form.</p>
@@ -858,6 +913,11 @@
         <code>&lt;select&gt;</code> would trade that flexibility away for marginal extra safety.
       </li>
     </ol>
+    <div class="remediation"><strong>Fixed:</strong> added a one-line notice ("Defaults work well
+      for most workspaces — only change these if you know what you're doing.") right below the
+      subtitle in <code>AITab.tsx</code>, in both languages. The tab stays reachable by every
+      admin, per the decision above; the model-suggestion datalists were left as-is. Verified
+      live: the notice renders on first load of AI configuration, above every field.</div>
     <p class="dod"><strong>Definition of done:</strong> the tab remains reachable by every admin,
       but visibly signals on first glance that its defaults are safe to leave alone.</p>
   </div>
@@ -908,6 +968,16 @@
         separate denylist field there.
       </li>
     </ol>
+    <div class="remediation"><strong>Fixed:</strong> added a "Domain filters" subheading
+      (<code>.form-section-subheading</code>, new CSS) directly before
+      <code>&lt;SourceAllowlistField&gt;</code> in both the create and edit topic forms, and a
+      worked domain example to <code>allowlistCustomHint</code> and
+      <code>sourceDenylistHint</code>, in both languages. The company-form step was deliberately
+      skipped: <code>SettingsTargets.tsx</code>'s form has no sections at all and no competing
+      "News sources" control to confuse its one field with, so an orphan subheading over a single
+      field would have looked worse, not better. Verified live: expanding "Sources" in Add topic
+      shows News sources, then a distinct "Domain filters" heading bracketing Trusted + Blocked
+      sources.</div>
     <p class="dod"><strong>Definition of done:</strong> "News sources" (providers) and "Domain
       filters" (Trusted/Blocked) read as two visually distinct groups, each with at least one
       concrete example in its hint text.</p>
@@ -951,13 +1021,16 @@
   <tr><td>7</td><td>F7 — add worked examples to the three source-filter controls</td><td>Low effort, narrow but real clarity improvement</td></tr>
 </table>
 
+<p>All 7 items above are now <span class="badge badge-fixed">Fixed</span> — see each finding's remediation note for what shipped and where.</p>
+
 <footer>
   Prepared via a live, scripted walkthrough of the running app (fresh Postgres + backend +
   frontend, real signup, real setup flow) with screenshots captured at each step, cross-checked
-  against the source. All three open questions from the first pass are resolved — see
-  <a href="#decisions">Decisions</a> — and every finding above now carries concrete
-  implementation guidance. No changes have been made to the codebase yet; this is the backlog
-  for that follow-up pass.
+  against the source. All three open questions from the first pass were resolved (see
+  <a href="#decisions">Decisions</a>), and all 7 findings (F1–F7) were then implemented, each in
+  its own commit, and verified with the full backend test suite, a clean frontend
+  typecheck/build, and a live Playwright-driven walkthrough of the running app. Re-run a fresh
+  review after any further significant frontend or ingestion changes.
 </footer>
 
 </body>
