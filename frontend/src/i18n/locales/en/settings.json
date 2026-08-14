@@ -248,6 +248,7 @@
   "ai": {
     "title": "AI configuration",
     "subtitle": "Controls how Mistral is used to summarize articles — which models are called, how aggressively duplicate coverage is filtered, and which API key is used.",
+    "advancedNotice": "Defaults work well for most workspaces — only change these if you know what you're doing.",
     "summarizationModel": "Summarization model",
     "triageModel": "Triage model",
     "preFilterLabel": "Pre-filter articles with the triage model before full summarization (recommended — cuts cost by skipping low-value articles before the expensive call)",

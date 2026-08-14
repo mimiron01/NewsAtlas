@@ -87,6 +87,7 @@ export default function AITab() {
       <div className="panel-card">
         <h2>{t("ai.title")}</h2>
         <p className="subtitle">{t("ai.subtitle")}</p>
+        <p className="subtitle">{t("ai.advancedNotice")}</p>
 
         <div className="field-row">
           <label>
