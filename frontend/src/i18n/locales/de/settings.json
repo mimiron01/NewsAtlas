@@ -21,7 +21,7 @@
     "subtitle": "Diese Beschreibung wird dem KI-Modell zur Verfügung gestellt, damit es erklären kann, warum jedes News-Signal für Ihr Unternehmen relevant ist, und passende Kontakt-Textbausteine entwerfen kann.",
     "sections": {
       "identity": "Identität",
-      "digestAndLimits": "Digest & Limits"
+      "digestAndLimits": "Digest & Limits (Standardwerte passen für die meisten Workspaces)"
     },
     "companyName": "Firmenname",
     "offeringDescription": "Angebotsbeschreibung",
@@ -249,6 +249,7 @@
   "ai": {
     "title": "KI-Konfiguration",
     "subtitle": "Steuert, wie Mistral zur Zusammenfassung von Artikeln verwendet wird — welche Modelle aufgerufen werden, wie aggressiv doppelte Berichterstattung gefiltert wird und welcher API-Schlüssel verwendet wird.",
+    "advancedNotice": "Die Standardwerte funktionieren für die meisten Workspaces gut — ändern Sie diese nur, wenn Sie wissen, was Sie tun.",
     "summarizationModel": "Zusammenfassungsmodell",
     "triageModel": "Triage-Modell",
     "preFilterLabel": "Artikel mit dem Triage-Modell vorfiltern, bevor die vollständige Zusammenfassung erfolgt (empfohlen — spart Kosten, indem wenig wertvolle Artikel vor dem teuren Aufruf übersprungen werden)",

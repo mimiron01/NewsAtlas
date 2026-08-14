@@ -19,7 +19,7 @@
     "allowlistCustom": "Only these sources",
     "allowlistInheritHint": "Follows the trusted sources set under Settings → News sources.",
     "allowlistAllHint": "Ignores the workspace default and searches all of Google News for this topic.",
-    "allowlistCustomHint": "Replaces the workspace default. Only these domains are searched for this topic.",
+    "allowlistCustomHint": "Replaces the workspace default. Only these domains are searched for this topic (e.g. reuters.com, your local trade press).",
     "addButton": "Add topic",
     "country": "Country (optional)",
     "language": "Language (optional)",
@@ -31,7 +31,7 @@
     "excludeTermsHint": "Words that mean an article isn't what this topic is about. A topic's search is broad, so this is usually the most effective way to tighten it.",
     "sourceDenylist": "Blocked sources (optional)",
     "sourceDenylistPlaceholder": "Type a domain to block and press Enter",
-    "sourceDenylistHint": "Added to the workspace-wide blocked list — it can't remove entries from it.",
+    "sourceDenylistHint": "Added to the workspace-wide blocked list — it can't remove entries from it (e.g. a competitor's blog, or a low-quality aggregator).",
     "newsSources": "News sources for this topic",
     "newsSourcesInherit": "Use the workspace default",
     "newsSourcesCustom": "Choose sources",
@@ -39,6 +39,7 @@
     "sections": {
       "criteria": "Search criteria",
       "sources": "Sources",
+      "domainFilters": "Domain filters",
       "region": "Region & language"
     }
   },

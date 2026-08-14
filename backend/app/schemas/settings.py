@@ -16,6 +16,11 @@ class PublicWorkspaceSettingsResponse(BaseModel):
     google_news_rss_enabled: bool
     google_news_rss_country: str
     google_news_rss_language: str
+    # True if newsapi/google_news_rss/newsdata is enabled — i.e. whether an ingestion run
+    # can fetch anything at all right now. Companies check every enabled provider (not
+    # just NewsAPI), so this has to be an OR across all three, not a proxy for any single
+    # one (see docs/platform-usability-onboarding-review.html F1).
+    any_news_source_enabled: bool
     # Not a workspace setting but a deployment constant (app config) — surfaced here
     # because the frontend renders the per-topic fetch cooldown as a live countdown, and
     # hardcoding the duration would silently drift from the server's real limit.
@@ -102,11 +107,11 @@ class WorkspaceSettingsUpdate(BaseModel):
     # Any other value = set/replace the in-app override.
     mistral_api_key: str | None = Field(default=None, max_length=200)
 
-    # --- News sources ---
-    newsapi_enabled: bool = True
+    # --- News sources --- (defaults mirror WorkspaceSettings' column defaults, see there)
+    newsapi_enabled: bool = False
     newsapi_max_requests_per_day: int = Field(ge=1, le=100_000)
 
-    google_news_rss_enabled: bool = False
+    google_news_rss_enabled: bool = True
     google_news_rss_country: str = Field(min_length=2, max_length=8)
     google_news_rss_language: str = Field(min_length=2, max_length=8)
     google_news_rss_max_requests_per_minute: int = Field(ge=1, le=1000)

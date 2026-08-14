@@ -23,5 +23,12 @@
       "label": "Fetch your first signals",
       "body": "Click \"Fetch new signals\" below once you've added a company or a topic."
     }
+  },
+  "noNewsSource": {
+    "title": "No news source is turned on",
+    "bodyAdmin": "Nothing can be fetched until at least one news source is enabled.",
+    "bodyMember": "Nothing can be fetched until at least one news source is enabled. Please ask an admin to turn one on.",
+    "link": "Go to news sources",
+    "blockedTooltip": "No news source is turned on yet — nothing to fetch."
   }
 }

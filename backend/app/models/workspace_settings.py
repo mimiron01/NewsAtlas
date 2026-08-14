@@ -82,10 +82,16 @@ class WorkspaceSettings(Base, UUIDPrimaryKeyMixin):
     # Every source (including NewsAPI.org, for symmetry) gets an enable toggle and a
     # per-minute/per-day request ceiling that services/news_rate_limiter.py actually
     # enforces before a call goes out, not just an after-the-fact usage log.
-    newsapi_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Off by default for new workspaces: it needs an API key nobody has yet at signup time
+    # (see google_news_rss_enabled below, which is the source a fresh workspace can
+    # actually use with zero setup).
+    newsapi_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     newsapi_max_requests_per_day: Mapped[int] = mapped_column(Integer, nullable=False, default=100)
 
-    google_news_rss_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # On by default for new workspaces: no API key required, and it's the only source
+    # topics can use — a fresh workspace can fetch real results with zero source
+    # configuration (docs/platform-usability-onboarding-review.html F1).
+    google_news_rss_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     google_news_rss_country: Mapped[str] = mapped_column(String(8), nullable=False, default="US")
     google_news_rss_language: Mapped[str] = mapped_column(String(8), nullable=False, default="en")
     # Google publishes no official quota for this feed — this is a self-imposed politeness

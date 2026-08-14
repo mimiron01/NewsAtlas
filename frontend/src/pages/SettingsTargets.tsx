@@ -1,10 +1,12 @@
 import { FormEvent, useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
 import type {
   BackfillTriggerResult,
   IngestionRunStatus,
+  PublicWorkspaceSettings,
   TargetCompany,
   TargetCompanyBulkDeleteResult,
   WorkspaceSettings,
@@ -71,6 +73,7 @@ export default function SettingsTargets() {
   // indicator and the manual trigger button) is admin-only — a regular user has no way
   // to know whether NewsData.io backfill is configured, and asking would just 403.
   const [backfillEnabled, setBackfillEnabled] = useState(false);
+  const [publicSettings, setPublicSettings] = useState<PublicWorkspaceSettings | null>(null);
 
   function loadCompanies() {
     api
@@ -96,6 +99,16 @@ export default function SettingsTargets() {
       .then((settings) => setBackfillEnabled(settings.newsdata_enabled && settings.newsdata_backfill_days > 0))
       .catch(() => undefined);
   }, [isAdmin]);
+
+  useEffect(() => {
+    // Readable by every user (unlike /settings above), so every user — not just admins —
+    // learns whether a fetch can produce anything at all right now.
+    api.get<PublicWorkspaceSettings>("/settings/public").then(setPublicSettings).catch(() => undefined);
+  }, []);
+
+  // Treated as available until the flags load, so the UI doesn't flash a warning it may
+  // immediately retract (same reasoning as ThemesPage's googleNewsDisabled).
+  const noSourceEnabled = publicSettings !== null && !publicSettings.any_news_source_enabled;
 
   async function handleAdd(event: FormEvent) {
     event.preventDefault();
@@ -347,6 +360,22 @@ export default function SettingsTargets() {
         </div>
       </div>
 
+      {noSourceEnabled && (
+        <div className="panel-card warning-banner">
+          <strong>{t("noNewsSource.title", { ns: "common" })}</strong>
+          <p className="subtitle">
+            {isAdmin
+              ? t("noNewsSource.bodyAdmin", { ns: "common" })
+              : t("noNewsSource.bodyMember", { ns: "common" })}
+          </p>
+          {isAdmin && (
+            <Link to="/settings/sources" className="link-button">
+              {t("noNewsSource.link", { ns: "common" })} →
+            </Link>
+          )}
+        </div>
+      )}
+
       <IngestionStatusPanel status={ingestionStatus} isAdmin={isAdmin} onCancel={handleCancelIngestion} />
 
       {isAddModalOpen && (
@@ -403,8 +432,14 @@ export default function SettingsTargets() {
               <span className="subtitle">{t("targets.selectedCount", { count: selectedIds.size })}</span>
               <button
                 type="button"
-                disabled={isBulkRunning || isRunningIngestion}
-                title={isRunningIngestion ? t("targets.runNowBlockedRunning") : undefined}
+                disabled={isBulkRunning || isRunningIngestion || noSourceEnabled}
+                title={
+                  noSourceEnabled
+                    ? t("noNewsSource.blockedTooltip", { ns: "common" })
+                    : isRunningIngestion
+                      ? t("targets.runNowBlockedRunning")
+                      : undefined
+                }
                 onClick={handleBulkRunNow}
               >
                 {t("targets.bulkRunNow", { count: selectedIds.size })}
@@ -563,13 +598,20 @@ export default function SettingsTargets() {
                           <button
                             type="button"
                             className="secondary"
-                            disabled={pendingId === company.id || isRunningIngestion || !company.is_active}
+                            disabled={
+                              pendingId === company.id ||
+                              isRunningIngestion ||
+                              !company.is_active ||
+                              noSourceEnabled
+                            }
                             title={
-                              !company.is_active
-                                ? t("targets.runNowBlockedPaused")
-                                : isRunningIngestion
-                                  ? t("targets.runNowBlockedRunning")
-                                  : t("targets.runNow")
+                              noSourceEnabled
+                                ? t("noNewsSource.blockedTooltip", { ns: "common" })
+                                : !company.is_active
+                                  ? t("targets.runNowBlockedPaused")
+                                  : isRunningIngestion
+                                    ? t("targets.runNowBlockedRunning")
+                                    : t("targets.runNow")
                             }
                             onClick={() => runCompanyNow(company)}
                           >

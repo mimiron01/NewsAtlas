@@ -84,6 +84,7 @@ export default function Login() {
               required
               autoComplete="off"
             />
+            <span className="field-hint">{t("inviteCodeHint")}</span>
           </label>
         )}
 

@@ -11,6 +11,10 @@ roadmap, [`docs/security-review.html`](docs/security-review.html) for the
 security posture and remediation history,
 [`docs/ui-ux-review.html`](docs/ui-ux-review.html) for a usability/UX review
 of the current frontend with a prioritized improvement roadmap,
+[`docs/platform-usability-onboarding-review.html`](docs/platform-usability-onboarding-review.html)
+for a follow-up review of the live app focused specifically on how easily a
+non-technical admin can set up companies and topics, checked against Nielsen's
+heuristics, *The Design of Everyday Things*, and the Laws of UX,
 [`docs/mistral-ai-roadmap.html`](docs/mistral-ai-roadmap.html) for an analysis
 of the current Mistral AI integration and a phased roadmap for deepening it, and
 [`docs/news-source-expansion-planning.html`](docs/news-source-expansion-planning.html)

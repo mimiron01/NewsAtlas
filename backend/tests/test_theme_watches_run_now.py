@@ -117,9 +117,14 @@ def test_run_now_returns_the_in_flight_run_instead_of_starting_a_second(
     assert second.json()["id"] == first.json()["id"]
 
 
-def test_run_now_rejects_when_google_news_rss_is_disabled(client, monkeypatch):
+def test_run_now_rejects_when_google_news_rss_is_disabled(client, db_session, monkeypatch):
     headers = auth_headers(client)
-    theme = _create_theme(client, headers)  # google_news_rss_enabled defaults to False
+    theme = _create_theme(client, headers)
+    # google_news_rss_enabled now defaults to True for new workspaces (see F1 in
+    # docs/platform-usability-onboarding-review.html), so disable it explicitly here.
+    settings = get_or_create_workspace_settings(db_session)
+    settings.google_news_rss_enabled = False
+    db_session.commit()
     monkeypatch.setattr("app.api.theme_watches.execute_ingestion_run", lambda run_id: None)
 
     resp = client.post(f"/theme-watches/{theme['id']}/run-now", headers=headers)

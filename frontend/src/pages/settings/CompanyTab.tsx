@@ -51,6 +51,18 @@ export default function CompanyTab() {
     ? settings.offering_description.trim().split(/\s+/).length
     : 0;
 
+  // Starts collapsed unless something in here already differs from the shipped default —
+  // a first-time visitor shouldn't have to read 5 numeric tuning fields to find the 2
+  // identity fields the "Describe your company" checklist step actually promised
+  // (docs/platform-usability-onboarding-review.html F2). Once true this can't flip back to
+  // false from further edits in this section, so it never fights a manual re-open.
+  const hasNonDefaultDigestSettings =
+    settings.digest_send_time !== "07:00" ||
+    settings.max_articles_per_company_per_run !== 10 ||
+    settings.max_articles_per_theme_per_run !== 10 ||
+    settings.max_active_theme_watches !== 10 ||
+    settings.theme_match_min_relevance_score !== 3;
+
   return (
     <form onSubmit={handleSubmit}>
       <div className="panel-card">
@@ -106,8 +118,8 @@ export default function CompanyTab() {
           </label>
         </div>
 
-        <div className="form-section">
-          <h3 className="form-section-heading">{t("company.sections.digestAndLimits")}</h3>
+        <details className="form-section" open={hasNonDefaultDigestSettings}>
+          <summary className="form-section-heading">{t("company.sections.digestAndLimits")}</summary>
           <label>
             {t("company.digestSendTime")}
             <input
@@ -173,7 +185,7 @@ export default function CompanyTab() {
             />
             <span className="field-hint">{t("company.themeMatchMinRelevanceScoreHint")}</span>
           </label>
-        </div>
+        </details>
       </div>
 
       <button type="submit" disabled={isSaving}>

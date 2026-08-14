@@ -23,5 +23,12 @@
       "label": "Ihre ersten Signale abrufen",
       "body": "Klicken Sie unten auf „Neue Signale abrufen“, sobald Sie ein Unternehmen oder ein Thema hinzugefügt haben."
     }
+  },
+  "noNewsSource": {
+    "title": "Keine Nachrichtenquelle ist aktiviert",
+    "bodyAdmin": "Es kann nichts abgerufen werden, solange keine Nachrichtenquelle aktiviert ist.",
+    "bodyMember": "Es kann nichts abgerufen werden, solange keine Nachrichtenquelle aktiviert ist. Bitte wenden Sie sich an einen Admin.",
+    "link": "Zu den Nachrichtenquellen",
+    "blockedTooltip": "Noch keine Nachrichtenquelle aktiviert — nichts zum Abrufen."
   }
 }

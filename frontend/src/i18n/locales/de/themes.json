@@ -19,7 +19,7 @@
     "allowlistCustom": "Nur diese Quellen",
     "allowlistInheritHint": "Folgt den vertrauenswürdigen Quellen aus Einstellungen → Nachrichtenquellen.",
     "allowlistAllHint": "Ignoriert den Workspace-Standard und durchsucht für dieses Thema ganz Google News.",
-    "allowlistCustomHint": "Ersetzt den Workspace-Standard. Für dieses Thema werden nur diese Domains durchsucht.",
+    "allowlistCustomHint": "Ersetzt den Workspace-Standard. Für dieses Thema werden nur diese Domains durchsucht (z. B. reuters.com, Ihre lokale Fachpresse).",
     "addButton": "Thema hinzufügen",
     "country": "Land (optional)",
     "language": "Sprache (optional)",
@@ -31,7 +31,7 @@
     "excludeTermsHint": "Wörter, die anzeigen, dass ein Artikel nicht zum Thema gehört. Die Suche eines Themas ist breit — das ist meist der wirksamste Weg, sie einzugrenzen.",
     "sourceDenylist": "Gesperrte Quellen (optional)",
     "sourceDenylistPlaceholder": "Domain zum Sperren eingeben und Enter drücken",
-    "sourceDenylistHint": "Ergänzt die workspaceweite Sperrliste — Einträge daraus lassen sich hier nicht entfernen.",
+    "sourceDenylistHint": "Ergänzt die workspaceweite Sperrliste — Einträge daraus lassen sich hier nicht entfernen (z. B. der Blog eines Wettbewerbers oder ein minderwertiger Aggregator).",
     "newsSources": "Nachrichtenquellen für dieses Thema",
     "newsSourcesInherit": "Workspace-Standard verwenden",
     "newsSourcesCustom": "Quellen auswählen",
@@ -39,6 +39,7 @@
     "sections": {
       "criteria": "Suchkriterien",
       "sources": "Quellen",
+      "domainFilters": "Domain-Filter",
       "region": "Region & Sprache"
     }
   },

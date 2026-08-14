@@ -6,6 +6,7 @@ import { api, ApiError } from "../api/client";
 import type {
   DashboardSummary,
   IngestionRunStatus,
+  PublicWorkspaceSettings,
   Signal,
   TargetCompany,
   ThemeMatch,
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const [companies, setCompanies] = useState<TargetCompany[]>([]);
   const [themes, setThemes] = useState<ThemeWatch[]>([]);
   const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
+  const [publicSettings, setPublicSettings] = useState<PublicWorkspaceSettings | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -53,12 +55,19 @@ export default function Dashboard() {
     // Topics count as fetchable work too — a user tracking only topics must still be able
     // to start a run (see hasSomethingToFetch below).
     api.get<ThemeWatch[]>("/theme-watches").then(setThemes).catch(() => undefined);
+    // Readable by every user (unlike /settings below), so every user — not just admins —
+    // learns whether a fetch can produce anything at all right now.
+    api.get<PublicWorkspaceSettings>("/settings/public").then(setPublicSettings).catch(() => undefined);
     // /settings is admin-only; regular users can't view or fix the company profile anyway,
     // so skip the call rather than eat a 403 on every page load.
     if (isAdmin) {
       api.get<WorkspaceSettings>("/settings").then(setSettings).catch(() => undefined);
     }
   }, [isAdmin]);
+
+  // Treated as available until the flags load, so the UI doesn't flash a warning it may
+  // immediately retract (same reasoning as ThemesPage's googleNewsDisabled).
+  const noSourceEnabled = publicSettings !== null && !publicSettings.any_news_source_enabled;
 
   // Resumes tracking a run already in flight (e.g. the page was reloaded mid-fetch, or a
   // scheduled run happens to be running) instead of only ever reacting to this browser's
@@ -186,6 +195,22 @@ export default function Dashboard() {
 
   return (
     <div>
+      {noSourceEnabled && (
+        <div className="panel-card warning-banner">
+          <strong>{t("noNewsSource.title", { ns: "common" })}</strong>
+          <p className="subtitle">
+            {isAdmin
+              ? t("noNewsSource.bodyAdmin", { ns: "common" })
+              : t("noNewsSource.bodyMember", { ns: "common" })}
+          </p>
+          {isAdmin && (
+            <Link to="/settings/sources" className="link-button">
+              {t("noNewsSource.link", { ns: "common" })} →
+            </Link>
+          )}
+        </div>
+      )}
+
       <div className="panel-card feed-toolbar">
         <div>
           <h2>{t("title")}</h2>
@@ -194,8 +219,14 @@ export default function Dashboard() {
         <button
           type="button"
           onClick={handleRunIngestion}
-          disabled={isRunningIngestion || !hasSomethingToFetch}
-          title={hasSomethingToFetch ? undefined : t("feed.addCompanyOrThemeFirst", { ns: "signals" })}
+          disabled={isRunningIngestion || !hasSomethingToFetch || noSourceEnabled}
+          title={
+            noSourceEnabled
+              ? t("noNewsSource.blockedTooltip", { ns: "common" })
+              : hasSomethingToFetch
+                ? undefined
+                : t("feed.addCompanyOrThemeFirst", { ns: "signals" })
+          }
         >
           {isRunningIngestion
             ? t("feed.fetching", { ns: "signals", percent: ingestionStatus?.progress_percent ?? 0 })

@@ -391,7 +391,10 @@ def test_theme_ingestion_respects_max_articles_per_theme_per_run_cap(db_session)
 
 def test_theme_ingestion_not_run_when_google_news_rss_disabled(db_session):
     _make_theme(db_session, name="Automotive")
-    # google_news_rss_enabled defaults to False, and no google_news_client is injected.
+    # google_news_rss_enabled now defaults to True for new workspaces (see F1 in
+    # docs/platform-usability-onboarding-review.html), so disable it explicitly here — no
+    # google_news_client is injected either.
+    _enable_sources(db_session, google_news_rss_enabled=False)
     result = run_ingestion(db_session, ai_client=FakeThemeAIClient())
 
     assert result.theme_matches_created == 0
@@ -401,7 +404,10 @@ def test_theme_ingestion_not_run_when_google_news_rss_disabled(db_session):
     # enabled" can now be true for one topic and false for another.
     assert len(result.errors) == 1
     assert "none of the news sources this topic may use are enabled" in result.errors[0]
-    assert "[theme:Automotive]" in result.errors[0]
+    # Uses the same "[Name]" format a company's errors do — no leaked "theme:" internal
+    # identifier prefix (docs/platform-usability-onboarding-review.html F4).
+    assert "[Automotive]" in result.errors[0]
+    assert "[theme:Automotive]" not in result.errors[0]
 
 
 def test_no_google_news_disabled_error_when_there_are_no_themes(db_session):

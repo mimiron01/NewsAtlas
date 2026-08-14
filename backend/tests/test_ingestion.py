@@ -8,8 +8,19 @@ from app.models.target_company import TargetCompany
 from app.services.ai_client import AISummaryResult, MistralUsage, TriageResult
 from app.services.ingestion import run_ingestion
 from app.services.news_client import NewsArticle
+from app.services.workspace_settings import get_or_create_workspace_settings
 
 USAGE = MistralUsage(prompt_tokens=100, completion_tokens=50, total_tokens=150)
+
+
+def _disable_google_news_rss(db_session) -> None:
+    """These tests inject only a NewsAPI fake client and assert on the resulting error
+    list — Google News RSS now defaults to enabled (see F1 in
+    docs/platform-usability-onboarding-review.html), so without this it would also be
+    queried for real over the network and pollute the assertions below."""
+    settings = get_or_create_workspace_settings(db_session)
+    settings.google_news_rss_enabled = False
+    db_session.commit()
 
 
 def _default_vector(title: str) -> list[float]:
@@ -143,6 +154,7 @@ def _article(title, url, description="desc"):
 
 
 def test_ingestion_creates_articles_and_signals(db_session):
+    _disable_google_news_rss(db_session)
     tc = _make_target_company(db_session)
     news = FakeNewsClient(
         {"Acme Corp": [_article("Acme raises $10M", "https://example.com/acme-funding")]}
@@ -354,6 +366,7 @@ def test_ingestion_skips_inactive_target_companies(db_session):
 
 
 def test_ingestion_continues_after_news_fetch_error(db_session):
+    _disable_google_news_rss(db_session)
     _make_target_company(db_session, name="Broken Co")
     _make_target_company(db_session, name="Working Co")
 
@@ -484,6 +497,7 @@ def test_ingestion_cap_disabled_when_zero(db_session):
 
 
 def test_ingestion_continues_after_ai_failure(db_session):
+    _disable_google_news_rss(db_session)
     _make_target_company(db_session)
     news = FakeNewsClient(
         {"Acme Corp": [_article("Acme raises $10M", "https://example.com/acme-funding")]}

@@ -359,6 +359,9 @@ export interface PublicWorkspaceSettings {
   google_news_rss_enabled: boolean;
   google_news_rss_country: string;
   google_news_rss_language: string;
+  // Whether any provider (NewsAPI/Google News RSS/NewsData) is enabled at all — i.e.
+  // whether an ingestion run can fetch anything right now.
+  any_news_source_enabled: boolean;
   manual_trigger_cooldown_seconds: number;
 }
 
