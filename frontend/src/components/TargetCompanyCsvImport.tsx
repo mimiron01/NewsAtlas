@@ -88,14 +88,14 @@ export default function TargetCompanyCsvImport({ onImported }: TargetCompanyCsvI
 
   if (!isOpen) {
     return (
-      <button type="button" className="secondary" onClick={openPanel}>
+      <button type="button" onClick={openPanel}>
         {t("targets.import.openButton")}
       </button>
     );
   }
 
   return (
-    <div className="panel-card">
+    <div className="panel-card csv-import-panel">
       <h3>{t("targets.import.title")}</h3>
       <p className="subtitle">{t("targets.import.subtitle")}</p>
 
