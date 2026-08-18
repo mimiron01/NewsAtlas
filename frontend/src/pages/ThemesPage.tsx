@@ -1060,7 +1060,7 @@ export default function ThemesPage() {
                         {t("signals:limitedDetail")}
                       </span>
                     )}
-                    <div>
+                    <div className="signal-row-content">
                       <strong>{match.theme_watch_name}</strong>
                       <div className="signal-title-row">
                         <span

@@ -8,6 +8,7 @@ import type {
   IngestionRunStatus,
   PublicWorkspaceSettings,
   Signal,
+  SignalStatus,
   TargetCompany,
   ThemeMatch,
   ThemeWatch,
@@ -23,6 +24,10 @@ import { useToast } from "../context/ToastContext";
 import { useIngestionStatus } from "../hooks/useIngestionStatus";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { usePageTitle } from "../hooks/usePageTitle";
+
+// Mirrors the backend's RECENT_FAVORITES_LIMIT (app/api/dashboard.py) so the optimistic
+// update caps the list the same way a reload from the server would.
+const RECENT_FAVORITES_LIMIT = 5;
 
 export default function Dashboard() {
   const { t } = useTranslation(["dashboard", "signals"]);
@@ -99,10 +104,25 @@ export default function Dashboard() {
   async function handleFavoriteToggle(signal: Signal) {
     const nextFavorited = !signal.is_favorited;
     const optimistic = { ...signal, is_favorited: nextFavorited };
+    // recent_favorites only ever reflects entries already loaded from the server, so
+    // toggling a favorite on this page never added/removed it from that list — snapshot
+    // the prior membership here so a failed request can restore it exactly.
+    const previousRecentFavorites = summary?.recent_favorites ?? [];
     patchSignalInLists(signal.id, optimistic);
-    setSummary((prev) =>
-      prev ? { ...prev, favorite_count: prev.favorite_count + (nextFavorited ? 1 : -1) } : prev
-    );
+    setSummary((prev) => {
+      if (!prev) return prev;
+      const recentFavorites = nextFavorited
+        ? [optimistic, ...prev.recent_favorites.filter((s) => s.id !== signal.id)].slice(
+            0,
+            RECENT_FAVORITES_LIMIT
+          )
+        : prev.recent_favorites.filter((s) => s.id !== signal.id);
+      return {
+        ...prev,
+        recent_favorites: recentFavorites,
+        favorite_count: prev.favorite_count + (nextFavorited ? 1 : -1),
+      };
+    });
     try {
       const updated = nextFavorited
         ? await api.post<Signal>(`/signals/${signal.id}/favorite`)
@@ -111,9 +131,31 @@ export default function Dashboard() {
     } catch (err) {
       patchSignalInLists(signal.id, signal);
       setSummary((prev) =>
-        prev ? { ...prev, favorite_count: prev.favorite_count + (nextFavorited ? -1 : 1) } : prev
+        prev
+          ? {
+              ...prev,
+              recent_favorites: previousRecentFavorites,
+              favorite_count: prev.favorite_count + (nextFavorited ? -1 : 1),
+            }
+          : prev
       );
       showToast(err instanceof ApiError ? err.message : t("favoriteUpdateFailed"), "error");
+    }
+  }
+
+  async function transitionSignal(id: string, status: SignalStatus) {
+    const previousStatus = summary?.top_signals.find((s) => s.id === id)?.status;
+    try {
+      const updated = await api.patch<Signal>(`/signals/${id}`, { status });
+      patchSignalInLists(id, updated);
+      if (status === "archived" && previousStatus) {
+        showToast(t("archivedToast", { ns: "signals" }), "success", {
+          label: t("undo", { ns: "signals" }),
+          onClick: () => transitionSignal(id, previousStatus),
+        });
+      }
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("statusUpdateFailed", { ns: "signals" }), "error");
     }
   }
 
@@ -283,7 +325,12 @@ export default function Dashboard() {
         ) : (
           <ul className="signal-list">
             {summary.top_signals.map((signal) => (
-              <SignalRow key={signal.id} signal={signal} onFavoriteToggle={handleFavoriteToggle} />
+              <SignalRow
+                key={signal.id}
+                signal={signal}
+                onFavoriteToggle={handleFavoriteToggle}
+                onTransition={transitionSignal}
+              />
             ))}
           </ul>
         )}

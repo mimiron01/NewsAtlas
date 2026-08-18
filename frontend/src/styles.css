@@ -118,6 +118,24 @@ button.danger { background: var(--danger-solid); }
 .link-button:hover:not(:disabled) { text-decoration: underline; transform: none; }
 .link-button:visited { color: var(--accent); }
 
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--panel);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-weight: 600;
+  text-decoration: none;
+  margin-bottom: 14px;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.back-link:visited { color: var(--fg); }
+.back-link:hover { background: var(--bg); border-color: var(--muted); text-decoration: none; }
+.back-link svg { flex-shrink: 0; }
+
 .field-row {
   display: flex;
   flex-wrap: wrap;
@@ -131,7 +149,7 @@ button.danger { background: var(--danger-solid); }
    its own override. */
 .field-row--wide { max-width: none; }
 
-.field-hint { font-size: 0.75rem; color: var(--muted); }
+.field-hint { font-size: 0.875rem; color: var(--muted); }
 
 /* A label's own text and a following inline element (e.g. HelpTooltip) must be wrapped in
    a single <span> to sit next to each other. Because label is a flex column, each of its
@@ -167,7 +185,7 @@ button.danger { background: var(--danger-solid); }
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 8px 10px;
-  font-size: 0.75rem;
+  font-size: 0.875rem;
   font-weight: 400;
   line-height: 1.4;
   color: var(--fg);
@@ -508,6 +526,7 @@ button.danger { background: var(--danger-solid); }
 .signal-list li:last-child { border-bottom: none; }
 .signal-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 10px;
   padding: 14px 4px;
@@ -525,11 +544,20 @@ button.danger { background: var(--danger-solid); }
 }
 .signal-row-link:hover { background: var(--bg); }
 .signal-row-main { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+/* Forces the title/summary block onto its own line below the badges rather than beside
+   the last badge when the row's other content (e.g. a missing summary) leaves it narrow
+   enough to fit on the same flex-wrap line. */
+.signal-row-content { flex: 1 1 100%; min-width: 0; }
+/* Actions render below the entry (a full-width row) rather than as a right-hand column —
+   flex-basis: 100% forces them onto their own line within the wrapping .signal-row. */
 .signal-row-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
+  flex-basis: 100%;
   gap: 6px;
-  padding-top: 2px;
+  padding-top: 8px;
+  padding-left: 34px; /* aligns with signal-row-link's content, past the favorite button */
 }
 .signal-row-actions > button { font-size: 0.78rem; padding: 5px 10px; white-space: nowrap; }
 
@@ -573,21 +601,6 @@ button.danger { background: var(--danger-solid); }
   margin-bottom: 2px;
 }
 .signal-title-toggle:hover:not(:disabled) { text-decoration: underline; transform: none; }
-
-@media (max-width: 640px) {
-  /* Below this width, the fixed-width actions column has less room than its buttons'
-     natural (nowrap) width, which visually overlapped the signal title instead of
-     just shrinking (see docs/v1-release-roadmap.html §5 stabilization item). Wrapping
-     the row moves actions onto their own line below the title instead. */
-  .signal-row { flex-wrap: wrap; }
-  .signal-row-actions {
-    flex-direction: row;
-    flex-wrap: wrap;
-    flex-basis: 100%;
-    padding-top: 8px;
-    padding-left: 34px; /* aligns with signal-row-link's content, past the favorite button */
-  }
-}
 
 .feed-select-all {
   display: flex;
@@ -1025,7 +1038,7 @@ button.secondary {
   border-bottom: 1px solid var(--border);
 }
 .profile-popover .profile-info strong { font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.profile-popover .profile-info span { font-size: 0.75rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-popover .profile-info span { font-size: 0.875rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profile-popover button {
   display: flex;
   align-items: center;
@@ -1156,7 +1169,7 @@ button.secondary {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.7rem;
+  font-size: 0.75rem;
 }
 .usage-query-cell .field-hint { display: block; }
 
