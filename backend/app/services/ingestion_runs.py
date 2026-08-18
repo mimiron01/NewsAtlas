@@ -89,6 +89,7 @@ def create_run(
     trigger: str,
     triggered_by_user_id: uuid.UUID | None = None,
     theme_watch_id: uuid.UUID | None = None,
+    theme_watch_ids: list[uuid.UUID] | None = None,
     target_company_ids: list[uuid.UUID] | None = None,
 ) -> IngestionRun:
     # A best-effort initial estimate — run_ingestion() re-confirms both totals via
@@ -98,10 +99,18 @@ def create_run(
     # company-scoped run is the mirror image: no themes, and only the (active subset of
     # the) selected companies — counted here rather than trusting len(target_company_ids)
     # so a paused company in the selection doesn't inflate the total run_ingestion() will
-    # never actually process.
+    # never actually process. theme_watch_ids (a bulk "fetch all my Themen" run) mirrors
+    # target_company_ids: no companies, and only the active subset of the selection.
     if theme_watch_id is not None:
         companies_total = 0
         themes_total = 1
+    elif theme_watch_ids is not None:
+        companies_total = 0
+        themes_total = (
+            db.query(ThemeWatch)
+            .filter(ThemeWatch.id.in_(theme_watch_ids), ThemeWatch.is_active.is_(True))
+            .count()
+        )
     elif target_company_ids is not None:
         companies_total = (
             db.query(TargetCompany)
@@ -117,6 +126,9 @@ def create_run(
         status=STATUS_RUNNING,
         triggered_by_user_id=triggered_by_user_id,
         theme_watch_id=theme_watch_id,
+        theme_watch_ids=(
+            [str(theme_id) for theme_id in theme_watch_ids] if theme_watch_ids is not None else None
+        ),
         target_company_ids=(
             [str(company_id) for company_id in target_company_ids]
             if target_company_ids is not None
@@ -146,8 +158,8 @@ def execute_ingestion_run(run_id: uuid.UUID) -> None:
         tracker = ProgressTracker(db, run_id)
         # Read off the row rather than passed in, so both entry points (the manual-trigger
         # background task and the scheduled job) stay single-argument.
-        scoped_theme_id, scoped_company_ids = (
-            db.query(IngestionRun.theme_watch_id, IngestionRun.target_company_ids)
+        scoped_theme_id, scoped_theme_ids, scoped_company_ids = (
+            db.query(IngestionRun.theme_watch_id, IngestionRun.theme_watch_ids, IngestionRun.target_company_ids)
             .filter(IngestionRun.id == run_id)
             .one()
         )
@@ -156,6 +168,11 @@ def execute_ingestion_run(run_id: uuid.UUID) -> None:
                 db,
                 progress=tracker,
                 theme_watch_id=scoped_theme_id,
+                theme_watch_ids=(
+                    [uuid.UUID(theme_id) for theme_id in scoped_theme_ids]
+                    if scoped_theme_ids is not None
+                    else None
+                ),
                 target_company_ids=(
                     [uuid.UUID(company_id) for company_id in scoped_company_ids]
                     if scoped_company_ids is not None
@@ -236,6 +253,11 @@ def to_status_response(run: IngestionRun) -> IngestionRunStatusResponse:
         cancel_requested=run.cancel_requested,
         trigger=run.trigger,
         theme_watch_id=run.theme_watch_id,
+        theme_watch_ids=(
+            [uuid.UUID(theme_id) for theme_id in run.theme_watch_ids]
+            if run.theme_watch_ids is not None
+            else None
+        ),
         target_company_ids=(
             [uuid.UUID(company_id) for company_id in run.target_company_ids]
             if run.target_company_ids is not None

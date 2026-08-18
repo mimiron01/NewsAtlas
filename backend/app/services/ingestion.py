@@ -147,22 +147,25 @@ def run_ingestion(
     newsdata_client: NewsDataClient | None = None,
     progress: IngestionProgress | None = None,
     theme_watch_id: uuid.UUID | None = None,
+    theme_watch_ids: list[uuid.UUID] | None = None,
     target_company_ids: list[uuid.UUID] | None = None,
 ) -> IngestionRunResult:
     """Full run by default: every active target company, then every active theme watch.
 
     Passing theme_watch_id scopes the run down to that single theme and skips the company
     loop entirely — this is what the Themes page's per-theme "fetch now" button triggers
-    (see api/theme_watches.py). Passing target_company_ids scopes the run down to just
-    those companies and skips the theme loop entirely, the mirror image — this is what the
-    "My companies" table's per-row or multi-select "fetch now" triggers (see
-    api/target_companies.py). The two scoping params are mutually exclusive; callers only
-    ever set one, since each comes from a different button. Default None on both keeps
-    every existing caller (the scheduler, the workspace-wide manual trigger) on exactly the
-    previous behavior.
+    (see api/theme_watches.py). Passing theme_watch_ids is the multi-theme version of the
+    same scoping (skips the company loop the same way) — the "Alle Themen-Signale abrufen"
+    button, which always means every Theme the triggering user follows, not a selection.
+    Passing target_company_ids scopes the run down to just those companies and skips the
+    theme loop entirely, the mirror image — this is what the "My companies" table's
+    per-row or multi-select "fetch now" triggers (see api/target_companies.py). The
+    scoping params are mutually exclusive; callers only ever set one, since each comes
+    from a different button. Default None on all keeps every existing caller (the
+    scheduler, the workspace-wide manual trigger) on exactly the previous behavior.
     """
     progress = progress or _NULL_PROGRESS
-    scoped_to_theme = theme_watch_id is not None
+    scoped_to_theme = theme_watch_id is not None or theme_watch_ids is not None
     scoped_to_companies = target_company_ids is not None
     app_settings = get_settings()
     workspace_settings = get_or_create_workspace_settings(db)
@@ -236,8 +239,10 @@ def run_ingestion(
         theme_watches = []
     else:
         theme_watches_query = db.query(ThemeWatch).filter(ThemeWatch.is_active.is_(True))
-        if scoped_to_theme:
+        if theme_watch_id is not None:
             theme_watches_query = theme_watches_query.filter(ThemeWatch.id == theme_watch_id)
+        elif theme_watch_ids is not None:
+            theme_watches_query = theme_watches_query.filter(ThemeWatch.id.in_(theme_watch_ids))
         theme_watches = theme_watches_query.all()
     progress.update(companies_total=len(target_companies), themes_total=len(theme_watches))
 

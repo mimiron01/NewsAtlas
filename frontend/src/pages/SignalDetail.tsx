@@ -37,7 +37,7 @@ export default function SignalDetail() {
       .then(setSignal)
       .catch((err) => {
         if (err instanceof ApiError && err.status === 404) {
-          navigate("/signals", { replace: true });
+          navigate("/settings/targets", { replace: true });
           return;
         }
         setLoadError(err instanceof ApiError ? err.message : t("loadFailed"));
@@ -155,7 +155,7 @@ export default function SignalDetail() {
 
   return (
     <div>
-      <Link to="/signals" className="back-link">
+      <Link to="/settings/targets" className="back-link">
         <ArrowLeftIcon />
         {t("backToSignals")}
       </Link>

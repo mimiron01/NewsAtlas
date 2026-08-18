@@ -49,6 +49,11 @@ class IngestionRun(Base, UUIDPrimaryKeyMixin):
     theme_watch_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("theme_watches.id", ondelete="SET NULL"), nullable=True
     )
+    # Set only for a run scoped to every Theme the triggering user follows (POST
+    # /theme-watches/run-now, the Themen page's "Alle Themen-Signale abrufen" button).
+    # Mirrors target_company_ids below (a point-in-time snapshot, not a live relationship)
+    # rather than reusing theme_watch_id, which stays singular for the one-theme case above.
+    theme_watch_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     # Set only for a run scoped to one or more companies from the "My companies" table's
     # per-row "Fetch now" or multi-select bulk action (POST /target-companies/{id}/run-now
     # or /target-companies/run-now). NULL means the ordinary full run or a theme-scoped run.

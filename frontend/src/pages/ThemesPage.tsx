@@ -16,7 +16,6 @@ import type {
 } from "../api/types";
 import FavoriteButton from "../components/FavoriteButton";
 import HelpTooltip from "../components/HelpTooltip";
-import { ExternalLinkIcon } from "../components/icons/NavIcons";
 import IngestionStatusPanel from "../components/IngestionStatusPanel";
 import Modal from "../components/Modal";
 import OverflowMenu from "../components/OverflowMenu";
@@ -258,6 +257,16 @@ export default function ThemesPage() {
       showToast(err instanceof ApiError ? err.message : t("themes:run.failed"), "error");
     } finally {
       setPendingId(null);
+    }
+  }
+
+  async function runFollowedThemes() {
+    try {
+      const result = await api.post<IngestionRunStatus>("/theme-watches/run-now");
+      setIngestionStatus(result);
+      showToast(t("themes:run.allStartedToast"), "success");
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("themes:run.allFailed"), "error");
     }
   }
 
@@ -620,6 +629,9 @@ export default function ThemesPage() {
             <p className="subtitle">{t("themes:subtitle")}</p>
           </div>
           <div className="actions">
+            <button type="button" onClick={() => setIsAddThemeModalOpen(true)}>
+              {t("themes:addTheme.addButton")}
+            </button>
             <button
               type="button"
               className="secondary"
@@ -629,9 +641,6 @@ export default function ThemesPage() {
               }}
             >
               {t("themes:browseTemplates")}
-            </button>
-            <button type="button" onClick={() => setIsAddThemeModalOpen(true)}>
-              {t("themes:addTheme.addButton")}
             </button>
           </div>
         </div>
@@ -751,23 +760,35 @@ export default function ThemesPage() {
         <h3>{t("themes:trackedThemes", { count: themes.length })}</h3>
         {themes.length === 0 && <p className="subtitle">{t("themes:noThemesYet")}</p>}
         {themes.length > 0 && (
-          <div className="field-row">
-            <label>
-              {t("themes:toolbar.searchLabel")}
-              <input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t("themes:toolbar.searchPlaceholder")}
-              />
-            </label>
-            <label>
-              {t("themes:toolbar.sortLabel")}
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
-                <option value="name">{t("themes:toolbar.sortName")}</option>
-                <option value="lastMatch">{t("themes:toolbar.sortLastMatch")}</option>
-                <option value="created">{t("themes:toolbar.sortCreated")}</option>
-              </select>
-            </label>
+          <div className="feed-toolbar">
+            <div className="field-row">
+              <label>
+                {t("themes:toolbar.searchLabel")}
+                <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t("themes:toolbar.searchPlaceholder")}
+                />
+              </label>
+              <label>
+                {t("themes:toolbar.sortLabel")}
+                <select value={sortBy} onChange={(e) => setSortBy(e.target.value as typeof sortBy)}>
+                  <option value="name">{t("themes:toolbar.sortName")}</option>
+                  <option value="lastMatch">{t("themes:toolbar.sortLastMatch")}</option>
+                  <option value="created">{t("themes:toolbar.sortCreated")}</option>
+                </select>
+              </label>
+            </div>
+            <button
+              type="button"
+              onClick={runFollowedThemes}
+              disabled={isRunningIngestion || googleNewsDisabled}
+              title={googleNewsDisabled ? t("themes:sourceDisabled.title") : undefined}
+            >
+              {isRunningIngestion
+                ? t("signals:feed.fetching", { percent: ingestionStatus?.progress_percent ?? 0 })
+                : t("themes:run.allButton")}
+            </button>
           </div>
         )}
         {visibleThemes.length > 0 && (
@@ -1063,8 +1084,11 @@ export default function ThemesPage() {
                     <div className="signal-row-content">
                       <strong>{match.theme_watch_name}</strong>
                       <div className="signal-title-row">
-                        <span
+                        <a
                           className="signal-title"
+                          href={match.url}
+                          target="_blank"
+                          rel="noreferrer"
                           ref={(el) => {
                             if (el) titleRefs.current.set(match.id, el);
                             else titleRefs.current.delete(match.id);
@@ -1072,16 +1096,6 @@ export default function ThemesPage() {
                           data-expanded={expandedMatchIds.has(match.id) ? "" : undefined}
                         >
                           {match.title}
-                        </span>
-                        <a
-                          className="signal-title-link"
-                          href={match.url}
-                          target="_blank"
-                          rel="noreferrer"
-                          aria-label={t("themes:matches.openArticle")}
-                          title={t("themes:matches.openArticle")}
-                        >
-                          <ExternalLinkIcon />
                         </a>
                       </div>
                       {overflowingMatchIds.has(match.id) && (
@@ -1095,7 +1109,7 @@ export default function ThemesPage() {
                             : t("themes:matches.showMore")}
                         </button>
                       )}
-                      <div className="subtitle">{match.summary}</div>
+                      {match.summary && <div className="subtitle">{match.summary}</div>}
                       {match.extracted_company_name && (
                         <div className="field-hint">
                           {match.matched_target_company_id

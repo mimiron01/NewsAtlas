@@ -1,3 +1,7 @@
+from datetime import datetime
+from typing import Literal
+from uuid import UUID
+
 from pydantic import BaseModel
 
 from app.schemas.signal import SignalResponse
@@ -5,11 +9,27 @@ from app.schemas.signal_todo import SignalTodoWithContext
 from app.schemas.theme_match import ThemeMatchResponse
 
 
+class RecentFavoriteResponse(BaseModel):
+    """A single entry in the dashboard's "Zuletzt favorisiert" list. Signal and
+    ThemeMatch favorites are two different underlying models with different shapes (an
+    internal detail page vs. an external article URL), so this flattens both into one
+    small, renderer-friendly shape rather than exposing a Signal/ThemeMatch union."""
+
+    kind: Literal["signal", "theme_match"]
+    id: UUID
+    title: str
+    subtitle: str
+    # Set only for kind="theme_match" (opens the article in a new tab); a "signal" entry
+    # links internally via /signals/{id} instead, which the frontend builds from id.
+    url: str | None
+    favorited_at: datetime
+
+
 class DashboardSummary(BaseModel):
     top_signals: list[SignalResponse]
     new_signal_count: int
     favorite_count: int
-    recent_favorites: list[SignalResponse]
+    recent_favorites: list[RecentFavoriteResponse]
     open_todo_count: int
     open_todos: list[SignalTodoWithContext]
     # Counts backing the "N archived — view them" dashboard card (see

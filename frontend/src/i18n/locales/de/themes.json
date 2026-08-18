@@ -122,7 +122,10 @@
     "blockedSourceDisabled": "Google News RSS ist deaktiviert — Themen können nichts abrufen.",
     "blockedPaused": "Dieses Thema ist pausiert. Setzen Sie es fort, um Nachrichten abzurufen.",
     "blockedRunning": "Es läuft bereits ein Abruf. Bitte warten Sie, bis er abgeschlossen ist.",
-    "blockedCooldown": "Bitte warten Sie noch {{seconds}}s, bevor Sie dieses Thema erneut abrufen."
+    "blockedCooldown": "Bitte warten Sie noch {{seconds}}s, bevor Sie dieses Thema erneut abrufen.",
+    "allButton": "Alle Themen-Signale abrufen",
+    "allStartedToast": "Abruf für alle verfolgten Themen gestartet.",
+    "allFailed": "Abruf konnte nicht gestartet werden"
   },
   "templates": {
     "title": "Themenvorlagen",

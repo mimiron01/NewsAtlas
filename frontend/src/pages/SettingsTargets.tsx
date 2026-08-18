@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "../api/client";
@@ -7,16 +7,24 @@ import type {
   BackfillTriggerResult,
   IngestionRunStatus,
   PublicWorkspaceSettings,
+  Signal,
+  SignalStatus,
   TargetCompany,
   TargetCompanyBulkDeleteResult,
+  ThemeWatch,
   WorkspaceSettings,
 } from "../api/types";
+import EmptyStateIllustration from "../components/icons/EmptyStateIllustration";
 import IngestionStatusPanel from "../components/IngestionStatusPanel";
 import Modal from "../components/Modal";
 import OverflowMenu from "../components/OverflowMenu";
+import SetupChecklist from "../components/SetupChecklist";
+import SignalRow from "../components/SignalRow";
+import Skeleton from "../components/Skeleton";
 import SourceAllowlistField from "../components/SourceAllowlistField";
 import TagInput from "../components/TagInput";
 import TargetCompanyCsvImport from "../components/TargetCompanyCsvImport";
+import { STATUS_TRANSITION_VALUES } from "../constants/signalStatus";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useIngestionStatus } from "../hooks/useIngestionStatus";
@@ -24,13 +32,26 @@ import { useIsAdmin } from "../hooks/useIsAdmin";
 import { useLocaleFormat } from "../hooks/useLocaleFormat";
 import { usePageTitle } from "../hooks/usePageTitle";
 
+// Verfolgte Unternehmen only ever shows this many rows by default (see
+// TRACKED_COMPANIES_COLLAPSED_LIMIT below) — a table that already has its own
+// search/sort doesn't need every row visible at once, and collapsing keeps a workspace
+// with dozens of companies from pushing the merged-in Signale section far down the page.
+const TRACKED_COMPANIES_COLLAPSED_LIMIT = 5;
+
+// Archived/dismissed signals live on the dedicated Archive page (see
+// docs/archive-dismiss-ux-planning.html) instead of cluttering this default working list,
+// so the filter here only ever offers the active statuses.
+const SIGNAL_STATUSES: SignalStatus[] = ["new", "reviewed"];
+type SignalSortOrder = "newest" | "oldest" | "relevance";
+
 export default function SettingsTargets() {
-  const { t } = useTranslation("settings");
+  const { t } = useTranslation(["settings", "signals"]);
   usePageTitle(t("targets.title"));
   const { showToast } = useToast();
   const { user } = useAuth();
   const isAdmin = useIsAdmin();
   const { formatDate } = useLocaleFormat();
+  const [searchParams] = useSearchParams();
   const [companies, setCompanies] = useState<TargetCompany[]>([]);
   const [name, setName] = useState("");
   const [aliases, setAliases] = useState<string[]>([]);
@@ -52,9 +73,13 @@ export default function SettingsTargets() {
   const [isBulkRunning, setIsBulkRunning] = useState(false);
   // Resumes tracking a run already in flight (page reloaded mid-fetch, a scheduled run
   // happens to be going, or another user started one) rather than only reacting to this
-  // browser's own click — same pattern as the Themes/Signals pages.
-  const { ingestionStatus, setIngestionStatus, isRunning: isRunningIngestion } =
-    useIngestionStatus();
+  // browser's own click — same pattern as the Themes page. One shared instance for the
+  // whole merged page (companies + Signale), refreshing both lists once a watched run
+  // settles rather than the two separate instances each section had as standalone pages.
+  const { ingestionStatus, setIngestionStatus, isRunning: isRunningIngestion } = useIngestionStatus(() => {
+    loadCompanies();
+    loadSignals();
+  });
   const [editName, setEditName] = useState("");
   const [editAliases, setEditAliases] = useState<string[]>([]);
   const [editContextTerms, setEditContextTerms] = useState<string[]>([]);
@@ -65,15 +90,37 @@ export default function SettingsTargets() {
   // reasoning as there: the list is small and there's no server-side paging for it.
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"name" | "created">("name");
+  // Verfolgte Unternehmen shows at most TRACKED_COMPANIES_COLLAPSED_LIMIT rows until the
+  // user opts into seeing the rest.
+  const [companiesExpanded, setCompaniesExpanded] = useState(false);
+
+  // --- Signale: this page absorbed the former standalone /signals route (see item 8 of
+  // the Themen-page-fixes request) — its state/handlers below are otherwise unchanged
+  // from that page, just relocated and prefixed with "signal" where a name would
+  // otherwise collide with the company-table state above. ---
+  const [themes, setThemes] = useState<ThemeWatch[]>([]);
+  const [signals, setSignals] = useState<Signal[]>([]);
+  const [signalCompanyFilter, setSignalCompanyFilter] = useState("");
+  const [signalStatusFilter, setSignalStatusFilter] = useState<SignalStatus | "">(
+    (searchParams.get("status") as SignalStatus | null) ?? ""
+  );
+  const [signalFavoritedOnly, setSignalFavoritedOnly] = useState(searchParams.get("favorited") === "true");
+  const [signalSearchQuery, setSignalSearchQuery] = useState("");
+  const [signalSortOrder, setSignalSortOrder] = useState<SignalSortOrder>("newest");
+  const [selectedSignalIds, setSelectedSignalIds] = useState<Set<string>>(new Set());
+  const [signalsLoadError, setSignalsLoadError] = useState<string | null>(null);
+  const [isSignalsLoading, setIsSignalsLoading] = useState(true);
 
   function canEdit(company: TargetCompany): boolean {
     return isAdmin || (user !== null && company.created_by === user.id);
   }
-  // Only admins can read /settings, so backfill-related UI (the "backfilling..."
-  // indicator and the manual trigger button) is admin-only — a regular user has no way
-  // to know whether NewsData.io backfill is configured, and asking would just 403.
-  const [backfillEnabled, setBackfillEnabled] = useState(false);
   const [publicSettings, setPublicSettings] = useState<PublicWorkspaceSettings | null>(null);
+  // Full workspace settings, admin-only (a regular user can't view or fix the company
+  // profile anyway, so skip the call rather than eat a 403 on every page load). Backs
+  // both the backfill-availability check below and the Signale checklist's
+  // hasCompanyProfile check.
+  const [settings, setSettings] = useState<WorkspaceSettings | null>(null);
+  const backfillEnabled = Boolean(settings?.newsdata_enabled && settings.newsdata_backfill_days > 0);
 
   function loadCompanies() {
     api
@@ -82,7 +129,27 @@ export default function SettingsTargets() {
       .catch((err) => showToast(err instanceof ApiError ? err.message : t("targets.loadFailed"), "error"));
   }
 
+  function loadSignals() {
+    setIsSignalsLoading(true);
+    const params = new URLSearchParams();
+    if (signalCompanyFilter) params.set("company_id", signalCompanyFilter);
+    if (signalStatusFilter) params.set("status", signalStatusFilter);
+    if (signalFavoritedOnly) params.set("favorited", "true");
+    const query = params.toString();
+    api
+      .get<Signal[]>(`/signals${query ? `?${query}` : ""}`)
+      .then((result) => {
+        setSignals(result);
+        setSignalsLoadError(null);
+      })
+      .catch((err) =>
+        setSignalsLoadError(err instanceof ApiError ? err.message : t("feed.loadFailed", { ns: "signals" }))
+      )
+      .finally(() => setIsSignalsLoading(false));
+  }
+
   useEffect(loadCompanies, [t]);
+  useEffect(loadSignals, [signalCompanyFilter, signalStatusFilter, signalFavoritedOnly]);
 
   useEffect(() => {
     const validIds = new Set(companies.map((c) => c.id));
@@ -93,17 +160,22 @@ export default function SettingsTargets() {
   }, [companies]);
 
   useEffect(() => {
+    setSelectedSignalIds(new Set());
+  }, [signals]);
+
+  useEffect(() => {
     if (!isAdmin) return;
-    api
-      .get<WorkspaceSettings>("/settings")
-      .then((settings) => setBackfillEnabled(settings.newsdata_enabled && settings.newsdata_backfill_days > 0))
-      .catch(() => undefined);
+    api.get<WorkspaceSettings>("/settings").then(setSettings).catch(() => undefined);
   }, [isAdmin]);
 
   useEffect(() => {
     // Readable by every user (unlike /settings above), so every user — not just admins —
     // learns whether a fetch can produce anything at all right now.
     api.get<PublicWorkspaceSettings>("/settings/public").then(setPublicSettings).catch(() => undefined);
+    // Topics count as fetchable work too (see hasSomethingToFetch below) — a user
+    // tracking only topics must still be able to start a run from this page's Signale
+    // section.
+    api.get<ThemeWatch[]>("/theme-watches").then(setThemes).catch(() => undefined);
   }, []);
 
   // Treated as available until the flags load, so the UI doesn't flash a warning it may
@@ -236,8 +308,10 @@ export default function SettingsTargets() {
   }
 
   function toggleSelectAll() {
+    // Scoped to the currently displayed (collapsed-or-expanded) rows, not every row
+    // matching the search — selecting something not currently visible would be confusing.
     setSelectedIds((prev) =>
-      prev.size === visibleCompanies.length ? new Set() : new Set(visibleCompanies.map((c) => c.id))
+      prev.size === displayedCompanies.length ? new Set() : new Set(displayedCompanies.map((c) => c.id))
     );
   }
 
@@ -345,6 +419,133 @@ export default function SettingsTargets() {
       // "created": newest tracked first, by the current user's own follow date.
       return (b.followed_at ?? "").localeCompare(a.followed_at ?? "");
     });
+  const displayedCompanies = companiesExpanded
+    ? visibleCompanies
+    : visibleCompanies.slice(0, TRACKED_COMPANIES_COLLAPSED_LIMIT);
+
+  // --- Signale handlers (relocated from the former standalone /signals page) ---
+
+  async function handleRunIngestion() {
+    try {
+      const result = await api.post<IngestionRunStatus>("/ingestion/run-now");
+      setIngestionStatus(result);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("feed.ingestionStartFailed", { ns: "signals" }), "error");
+    }
+  }
+
+  async function handleFavoriteToggle(signal: Signal) {
+    const nextFavorited = !signal.is_favorited;
+    setSignals((prev) => prev.map((s) => (s.id === signal.id ? { ...s, is_favorited: nextFavorited } : s)));
+    try {
+      const updated = nextFavorited
+        ? await api.post<Signal>(`/signals/${signal.id}/favorite`)
+        : await api.delete<Signal>(`/signals/${signal.id}/favorite`);
+      setSignals((prev) => prev.map((s) => (s.id === signal.id ? updated : s)));
+    } catch (err) {
+      setSignals((prev) =>
+        prev.map((s) => (s.id === signal.id ? { ...s, is_favorited: signal.is_favorited } : s))
+      );
+      showToast(err instanceof ApiError ? err.message : t("feed.favoriteUpdateFailed", { ns: "signals" }), "error");
+    }
+  }
+
+  async function transitionSignal(id: string, status: SignalStatus) {
+    const previousStatus = signals.find((s) => s.id === id)?.status;
+    try {
+      const updated = await api.patch<Signal>(`/signals/${id}`, { status });
+      setSignals((prev) => prev.map((s) => (s.id === id ? updated : s)));
+      if (status === "archived" && previousStatus) {
+        showToast(t("archivedToast", { ns: "signals" }), "success", {
+          label: t("undo", { ns: "signals" }),
+          onClick: () => transitionSignal(id, previousStatus),
+        });
+      }
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("feed.signalUpdateFailed", { ns: "signals" }), "error");
+    }
+  }
+
+  async function transitionSelectedSignals(status: SignalStatus) {
+    const ids = [...selectedSignalIds];
+    // Captured before the mutation so an undo can restore each signal's own prior
+    // status, not one shared value — a bulk selection can span multiple statuses.
+    const previousById = new Map(ids.map((id) => [id, signals.find((s) => s.id === id)?.status]));
+    try {
+      const updates = await Promise.all(ids.map((id) => api.patch<Signal>(`/signals/${id}`, { status })));
+      setSignals((prev) => prev.map((s) => updates.find((updated) => updated.id === s.id) ?? s));
+      setSelectedSignalIds(new Set());
+      if (status === "archived") {
+        showToast(t("feed.bulkUpdated", { ns: "signals", count: ids.length }), "success", {
+          label: t("undo", { ns: "signals" }),
+          onClick: async () => {
+            const reverted = await Promise.all(
+              ids.map((id) => {
+                const previous = previousById.get(id);
+                return previous ? api.patch<Signal>(`/signals/${id}`, { status: previous }) : null;
+              })
+            );
+            setSignals((prev) => prev.map((s) => reverted.find((updated) => updated?.id === s.id) ?? s));
+          },
+        });
+      } else {
+        showToast(t("feed.bulkUpdated", { ns: "signals", count: ids.length }), "success");
+      }
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : t("feed.bulkUpdateFailed", { ns: "signals" }), "error");
+    }
+  }
+
+  function toggleSignalSelected(id: string) {
+    setSelectedSignalIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleSignalSelectAll() {
+    setSelectedSignalIds((prev) =>
+      prev.size === visibleSignals.length ? new Set() : new Set(visibleSignals.map((s) => s.id))
+    );
+  }
+
+  const visibleSignals = useMemo(() => {
+    const query = signalSearchQuery.trim().toLowerCase();
+    const filtered = query
+      ? signals.filter(
+          (s) =>
+            s.article_title.toLowerCase().includes(query) ||
+            s.summary.toLowerCase().includes(query) ||
+            s.target_company_name.toLowerCase().includes(query)
+        )
+      : signals;
+    const sorted = [...filtered].sort((a, b) => {
+      if (signalSortOrder === "relevance") {
+        const diff = (b.relevance_score ?? 0) - (a.relevance_score ?? 0);
+        if (diff !== 0) return diff;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }
+      const diff = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      return signalSortOrder === "newest" ? -diff : diff;
+    });
+    return sorted;
+  }, [signals, signalSearchQuery, signalSortOrder]);
+
+  // Non-admins can't view or fix the company profile (admin-only), so treat it as
+  // satisfied for them rather than gating the checklist on data they'll never fetch.
+  const hasCompanyProfile = isAdmin ? Boolean(settings?.offering_description.trim()) : true;
+  const hasTargetCompany = companies.length > 0;
+  // A run covers companies *and* topics, so either alone is enough to fetch. Gating on
+  // companies left a topics-only user unable to start a run at all.
+  const hasSomethingToFetch = hasTargetCompany || themes.length > 0;
+  const settingsReady = !isAdmin || settings !== null;
+  const showSignalsChecklist =
+    settingsReady && (!hasCompanyProfile || !hasSomethingToFetch || signals.length === 0);
 
   return (
     <div>
@@ -499,7 +700,7 @@ export default function SettingsTargets() {
                   <th className="checkbox-cell">
                     <input
                       type="checkbox"
-                      checked={selectedIds.size === visibleCompanies.length}
+                      checked={selectedIds.size === displayedCompanies.length}
                       onChange={toggleSelectAll}
                       aria-label={t("targets.selectAll")}
                     />
@@ -511,7 +712,7 @@ export default function SettingsTargets() {
                 </tr>
               </thead>
               <tbody>
-                {visibleCompanies.map((company) =>
+                {displayedCompanies.map((company) =>
                   editingId === company.id ? (
                     <tr key={company.id} className="editing">
                       <td colSpan={5}>
@@ -688,9 +889,179 @@ export default function SettingsTargets() {
                     </tr>
                   )
                 )}
+                {visibleCompanies.length > TRACKED_COMPANIES_COLLAPSED_LIMIT && (
+                  <tr className="table-toggle-row">
+                    <td colSpan={5}>
+                      <button
+                        type="button"
+                        className="link-button"
+                        onClick={() => setCompaniesExpanded((expanded) => !expanded)}
+                      >
+                        {companiesExpanded
+                          ? t("targets.collapseCompanies")
+                          : t("targets.expandCompanies", {
+                              count: visibleCompanies.length - TRACKED_COMPANIES_COLLAPSED_LIMIT,
+                            })}
+                      </button>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
+        )}
+      </div>
+
+      <div className="panel-card feed-toolbar">
+        <div>
+          <h2>{t("signals:feed.title")}</h2>
+          <p className="subtitle">{t("signals:feed.subtitle")}</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleRunIngestion}
+          disabled={isRunningIngestion || !hasSomethingToFetch || noSourceEnabled}
+          title={
+            noSourceEnabled
+              ? t("noNewsSource.blockedTooltip", { ns: "common" })
+              : hasSomethingToFetch
+                ? undefined
+                : t("signals:feed.addCompanyOrThemeFirst")
+          }
+        >
+          {isRunningIngestion
+            ? t("signals:feed.fetching", { percent: ingestionStatus?.progress_percent ?? 0 })
+            : t("signals:feed.fetchNewSignals")}
+        </button>
+      </div>
+
+      {showSignalsChecklist && (
+        <SetupChecklist
+          hasCompanyProfile={hasCompanyProfile}
+          hasTargetCompany={hasSomethingToFetch}
+          hasSignals={signals.length > 0}
+        />
+      )}
+
+      <div className="panel-card">
+        <div className="field-row">
+          <label>
+            {t("signals:feed.targetCompany")}
+            <select value={signalCompanyFilter} onChange={(e) => setSignalCompanyFilter(e.target.value)}>
+              <option value="">{t("signals:feed.allCompanies")}</option>
+              {companies.map((company) => (
+                <option key={company.id} value={company.id}>
+                  {company.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {t("signals:feed.statusLabel")}
+            <select
+              value={signalStatusFilter}
+              onChange={(e) => setSignalStatusFilter(e.target.value as SignalStatus | "")}
+            >
+              <option value="">{t("signals:status.all")}</option>
+              {SIGNAL_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {t(`signals:status.${status}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="checkbox-label favorites-filter">
+            <input
+              type="checkbox"
+              checked={signalFavoritedOnly}
+              onChange={(e) => setSignalFavoritedOnly(e.target.checked)}
+            />
+            {t("signals:feed.favoritesOnly")}
+          </label>
+        </div>
+        <div className="field-row">
+          <label>
+            {t("signals:feed.search")}
+            <input
+              value={signalSearchQuery}
+              onChange={(e) => setSignalSearchQuery(e.target.value)}
+              placeholder={t("signals:feed.searchPlaceholder")}
+            />
+          </label>
+          <label>
+            {t("signals:feed.sort")}
+            <select value={signalSortOrder} onChange={(e) => setSignalSortOrder(e.target.value as SignalSortOrder)}>
+              <option value="newest">{t("signals:feed.sortNewest")}</option>
+              <option value="oldest">{t("signals:feed.sortOldest")}</option>
+              <option value="relevance">{t("signals:feed.sortRelevance")}</option>
+            </select>
+          </label>
+        </div>
+
+        {signalsLoadError && <p className="error-text">{signalsLoadError}</p>}
+        {isSignalsLoading && <Skeleton rows={4} />}
+        {!isSignalsLoading && !signalsLoadError && visibleSignals.length === 0 && signals.length === 0 && signalFavoritedOnly && (
+          <div className="empty-state">
+            <EmptyStateIllustration />
+            <p className="subtitle">{t("signals:feed.noFavoritesYet")}</p>
+          </div>
+        )}
+        {!isSignalsLoading && !signalsLoadError && visibleSignals.length === 0 && signals.length === 0 && !signalFavoritedOnly && (
+          <div className="empty-state">
+            <EmptyStateIllustration />
+            <p className="subtitle">{t("signals:feed.noSignalsYet")}</p>
+          </div>
+        )}
+        {!isSignalsLoading && !signalsLoadError && visibleSignals.length === 0 && signals.length > 0 && (
+          <p className="subtitle">{t("signals:feed.noSearchMatches")}</p>
+        )}
+
+        {!isSignalsLoading && visibleSignals.length > 0 && (
+          <>
+            <div className="feed-select-all">
+              <label className="checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={selectedSignalIds.size === visibleSignals.length}
+                  onChange={toggleSignalSelectAll}
+                />
+                {t("signals:feed.selectAll")}
+              </label>
+              {selectedSignalIds.size > 0 && (
+                <div className="bulk-actions">
+                  <span className="subtitle">
+                    {t("signals:feed.selectedCount", { count: selectedSignalIds.size })}
+                  </span>
+                  {STATUS_TRANSITION_VALUES.map((status) => (
+                    <button
+                      type="button"
+                      key={status}
+                      className="secondary"
+                      title={t(`signals:transitionHints.${status}`, { defaultValue: "" })}
+                      onClick={() => transitionSelectedSignals(status)}
+                    >
+                      {t(`signals:transitions.${status}`)}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <ul className="signal-list">
+              {visibleSignals.map((signal) => (
+                <SignalRow
+                  key={signal.id}
+                  signal={signal}
+                  onFavoriteToggle={handleFavoriteToggle}
+                  selection={{
+                    checked: selectedSignalIds.has(signal.id),
+                    onToggle: () => toggleSignalSelected(signal.id),
+                  }}
+                  onTransition={transitionSignal}
+                />
+              ))}
+            </ul>
+          </>
         )}
       </div>
     </div>

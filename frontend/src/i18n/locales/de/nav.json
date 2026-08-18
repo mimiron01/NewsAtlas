@@ -3,8 +3,7 @@
   "toggleNav": "Navigation umschalten",
   "links": {
     "dashboard": "Übersicht",
-    "signals": "Signale",
-    "targets": "Meine Unternehmen",
+    "targets": "Unternehmen",
     "themes": "Themen"
   },
   "theme": {

@@ -1,10 +1,12 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.models.article import Article, ArticleSource
 from app.models.company_follow import CompanyFollow
 from app.models.signal import Signal, SignalStatus
+from app.models.signal_favorite import SignalFavorite
 from app.models.target_company import TargetCompany
 from app.models.theme_match import ThemeMatch
+from app.models.theme_match_favorite import ThemeMatchFavorite
 from app.models.theme_watch import ThemeWatch
 
 from tests.conftest import follow_company, follow_theme, signup
@@ -126,7 +128,56 @@ def test_dashboard_recent_favorites_and_favorite_count(client, db_session):
     assert body["favorite_count"] == 1
     assert len(body["recent_favorites"]) == 1
     assert body["recent_favorites"][0]["id"] == str(signal.id)
-    assert body["recent_favorites"][0]["is_favorited"] is True
+    assert body["recent_favorites"][0]["kind"] == "signal"
+
+
+def test_dashboard_recent_favorites_includes_theme_matches(client, db_session):
+    """A favorited Themen-Signal shows up in "Zuletzt favorisiert" alongside favorited
+    Signals — recent_favorites used to only ever hold Signal favorites, leaving a
+    favorited theme match with nowhere to appear."""
+    headers, user_id = signup(client)
+    match = _make_theme_match(db_session, title="A German startup raised a Series B")
+    follow_theme(db_session, user_id, match.theme_watch_id)
+
+    client.post(f"/theme-matches/{match.id}/favorite", headers=headers)
+
+    resp = client.get("/dashboard", headers=headers)
+    body = resp.json()
+    # favorite_count stays Signal-only (see docs/dashboard-favorites-todos-planning.html)
+    assert body["favorite_count"] == 0
+    assert len(body["recent_favorites"]) == 1
+    entry = body["recent_favorites"][0]
+    assert entry["kind"] == "theme_match"
+    assert entry["id"] == str(match.id)
+    assert entry["title"] == match.title
+    assert entry["subtitle"] == "Startups DE"
+    assert entry["url"] == match.url
+
+
+def test_dashboard_recent_favorites_merges_signals_and_theme_matches_by_recency(client, db_session):
+    headers, user_id = signup(client)
+    signal = _make_signal(db_session)
+    article = db_session.get(Article, signal.article_id)
+    follow_company(db_session, user_id, article.target_company_id)
+    match = _make_theme_match(db_session, title="A German startup raised a Series B")
+    follow_theme(db_session, user_id, match.theme_watch_id)
+
+    client.post(f"/signals/{signal.id}/favorite", headers=headers)
+    client.post(f"/theme-matches/{match.id}/favorite", headers=headers)
+
+    # Backdate the signal favorite so the merge's recency ordering doesn't depend on the
+    # two requests above happening to land in different timestamp ticks.
+    signal_favorite = db_session.query(SignalFavorite).filter(SignalFavorite.signal_id == signal.id).one()
+    theme_favorite = (
+        db_session.query(ThemeMatchFavorite).filter(ThemeMatchFavorite.theme_match_id == match.id).one()
+    )
+    signal_favorite.created_at = theme_favorite.created_at - timedelta(minutes=5)
+    db_session.commit()
+
+    body = client.get("/dashboard", headers=headers).json()
+    # The theme match was favorited more recently, so it's the more recent entry.
+    kinds = [entry["kind"] for entry in body["recent_favorites"]]
+    assert kinds == ["theme_match", "signal"]
 
 
 def test_dashboard_open_todos_and_count(client, db_session):

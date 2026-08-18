@@ -7,6 +7,7 @@ import type {
   DashboardSummary,
   IngestionRunStatus,
   PublicWorkspaceSettings,
+  RecentFavorite,
   Signal,
   SignalStatus,
   TargetCompany,
@@ -91,14 +92,22 @@ export default function Dashboard() {
 
   function patchSignalInLists(id: string, updated: Signal) {
     setSummary((prev) =>
-      prev
-        ? {
-            ...prev,
-            top_signals: prev.top_signals.map((s) => (s.id === id ? updated : s)),
-            recent_favorites: prev.recent_favorites.map((s) => (s.id === id ? updated : s)),
-          }
-        : prev
+      prev ? { ...prev, top_signals: prev.top_signals.map((s) => (s.id === id ? updated : s)) } : prev
     );
+  }
+
+  // Keeps "Zuletzt favorisiert" in sync when favoriting/unfavoriting a Signal or a
+  // Themen-Signal on this page: removes any existing entry for this id/kind, then (if
+  // now favorited) reinserts it at the front and caps the list — same recency-capped
+  // shape the backend itself returns.
+  function updateRecentFavorites(
+    prev: DashboardSummary,
+    kind: RecentFavorite["kind"],
+    id: string,
+    entry: RecentFavorite | null
+  ): RecentFavorite[] {
+    const withoutEntry = prev.recent_favorites.filter((f) => !(f.kind === kind && f.id === id));
+    return entry ? [entry, ...withoutEntry].slice(0, RECENT_FAVORITES_LIMIT) : withoutEntry;
   }
 
   async function handleFavoriteToggle(signal: Signal) {
@@ -111,15 +120,19 @@ export default function Dashboard() {
     patchSignalInLists(signal.id, optimistic);
     setSummary((prev) => {
       if (!prev) return prev;
-      const recentFavorites = nextFavorited
-        ? [optimistic, ...prev.recent_favorites.filter((s) => s.id !== signal.id)].slice(
-            0,
-            RECENT_FAVORITES_LIMIT
-          )
-        : prev.recent_favorites.filter((s) => s.id !== signal.id);
+      const recentEntry: RecentFavorite | null = nextFavorited
+        ? {
+            kind: "signal",
+            id: signal.id,
+            title: signal.article_title,
+            subtitle: signal.target_company_name,
+            url: null,
+            favorited_at: new Date().toISOString(),
+          }
+        : null;
       return {
         ...prev,
-        recent_favorites: recentFavorites,
+        recent_favorites: updateRecentFavorites(prev, "signal", signal.id, recentEntry),
         favorite_count: prev.favorite_count + (nextFavorited ? 1 : -1),
       };
     });
@@ -169,7 +182,22 @@ export default function Dashboard() {
 
   async function handleThemeMatchFavoriteToggle(match: ThemeMatch) {
     const nextFavorited = !match.is_favorited;
+    const previousRecentFavorites = summary?.recent_favorites ?? [];
     patchThemeMatchInLists(match.id, { ...match, is_favorited: nextFavorited });
+    setSummary((prev) => {
+      if (!prev) return prev;
+      const recentEntry: RecentFavorite | null = nextFavorited
+        ? {
+            kind: "theme_match",
+            id: match.id,
+            title: match.title,
+            subtitle: match.theme_watch_name,
+            url: match.url,
+            favorited_at: new Date().toISOString(),
+          }
+        : null;
+      return { ...prev, recent_favorites: updateRecentFavorites(prev, "theme_match", match.id, recentEntry) };
+    });
     try {
       const updated = nextFavorited
         ? await api.post<ThemeMatch>(`/theme-matches/${match.id}/favorite`)
@@ -177,6 +205,7 @@ export default function Dashboard() {
       patchThemeMatchInLists(match.id, updated);
     } catch (err) {
       patchThemeMatchInLists(match.id, match);
+      setSummary((prev) => (prev ? { ...prev, recent_favorites: previousRecentFavorites } : prev));
       showToast(err instanceof ApiError ? err.message : t("favoriteUpdateFailed"), "error");
     }
   }
@@ -279,11 +308,11 @@ export default function Dashboard() {
       <IngestionStatusPanel status={ingestionStatus} isAdmin={isAdmin} />
 
       <div className="dashboard-stats">
-        <Link to="/signals?status=new" className="dashboard-stat">
+        <Link to="/settings/targets?status=new" className="dashboard-stat">
           <strong>{summary.new_signal_count}</strong>
           <span>{t("stats.newSignals")}</span>
         </Link>
-        <Link to="/signals?favorited=true" className="dashboard-stat">
+        <Link to="/settings/targets?favorited=true" className="dashboard-stat">
           <strong>{summary.favorite_count}</strong>
           <span>{t("stats.favorites")}</span>
         </Link>
@@ -334,7 +363,7 @@ export default function Dashboard() {
             ))}
           </ul>
         )}
-        <Link to="/signals" className="link-button dashboard-panel-footer-link">
+        <Link to="/settings/targets" className="link-button dashboard-panel-footer-link">
           {t("viewAllSignals")}
         </Link>
       </div>
@@ -383,10 +412,16 @@ export default function Dashboard() {
             <p className="subtitle">{t("noFavoritesYet")}</p>
           ) : (
             <ul className="dashboard-mini-list">
-              {summary.recent_favorites.map((signal) => (
-                <li key={signal.id}>
-                  <Link to={`/signals/${signal.id}`}>{signal.article_title}</Link>
-                  <span className="subtitle">{signal.target_company_name}</span>
+              {summary.recent_favorites.map((favorite) => (
+                <li key={`${favorite.kind}-${favorite.id}`}>
+                  {favorite.kind === "signal" ? (
+                    <Link to={`/signals/${favorite.id}`}>{favorite.title}</Link>
+                  ) : (
+                    <a href={favorite.url ?? undefined} target="_blank" rel="noreferrer">
+                      {favorite.title}
+                    </a>
+                  )}
+                  <span className="subtitle">{favorite.subtitle}</span>
                 </li>
               ))}
             </ul>

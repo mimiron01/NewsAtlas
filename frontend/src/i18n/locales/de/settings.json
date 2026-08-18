@@ -48,7 +48,7 @@
     "themeMatchMinRelevanceScoreHint": "Themen-Treffer, die die KI niedriger bewertet, werden ausgeblendet statt angezeigt — das behebt, dass Themenvorlagen allgemeine Branchen-News statt firmenspezifischer Signale liefern. 5 = streng, nur eindeutige Kaufsignale mit Bezug zu Ihrem Angebot; 1 = alles anzeigen, was die Basisprüfung besteht."
   },
   "targets": {
-    "title": "Meine Unternehmen",
+    "title": "Unternehmen",
     "subtitle": "Fügen Sie die Unternehmen hinzu, für die Sie News-Signale erhalten möchten. Schlüsselwörter/Aliasse helfen, mehr Artikel zuzuordnen.",
     "companyName": "Firmenname",
     "industryOptional": "Branche (optional)",
@@ -154,7 +154,9 @@
     "allowlistCustom": "Nur diese Quellen",
     "allowlistInheritHint": "Folgt den vertrauenswürdigen Quellen aus Einstellungen → Nachrichtenquellen.",
     "allowlistAllHint": "Ignoriert den Workspace-Standard und durchsucht für dieses Unternehmen ganz Google News.",
-    "allowlistCustomHint": "Ersetzt den Workspace-Standard. Für dieses Unternehmen werden nur diese Domains durchsucht."
+    "allowlistCustomHint": "Ersetzt den Workspace-Standard. Für dieses Unternehmen werden nur diese Domains durchsucht.",
+    "expandCompanies": "{{count}} weitere anzeigen",
+    "collapseCompanies": "Einklappen"
   },
   "sources": {
     "title": "Nachrichtenquellen",

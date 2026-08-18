@@ -122,7 +122,10 @@
     "blockedSourceDisabled": "Google News RSS is disabled — topics cannot fetch anything.",
     "blockedPaused": "This topic is paused. Resume it to fetch news.",
     "blockedRunning": "A fetch is already running. Wait for it to finish.",
-    "blockedCooldown": "Please wait {{seconds}}s before fetching this topic again."
+    "blockedCooldown": "Please wait {{seconds}}s before fetching this topic again.",
+    "allButton": "Fetch all Themen-Signale",
+    "allStartedToast": "Fetching news for all followed topics.",
+    "allFailed": "Could not start the fetch"
   },
   "templates": {
     "title": "Topic templates",
