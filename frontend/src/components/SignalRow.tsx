@@ -46,7 +46,7 @@ export default function SignalRow({ signal, onFavoriteToggle, selection, onTrans
             {signal.open_todo_count > 0 && (
               <span className="todo-pill">{t("openTasks", { count: signal.open_todo_count })}</span>
             )}
-            <div>
+            <div className="signal-row-content">
               <strong>{signal.target_company_name}</strong>
               <div className="signal-title">{signal.article_title}</div>
               <div className="subtitle">{signal.summary}</div>

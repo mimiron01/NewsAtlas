@@ -26,7 +26,7 @@
     "markIncomplete": "„{{text}}“ als offen markieren",
     "delete": "„{{text}}“ löschen"
   },
-  "backToSignals": "← Zurück zu den Signalen",
+  "backToSignals": "Zurück zu den Signalen",
   "loadFailed": "Signal konnte nicht geladen werden",
   "statusUpdateFailed": "Status konnte nicht aktualisiert werden",
   "favoriteUpdateFailed": "Favorit konnte nicht aktualisiert werden",

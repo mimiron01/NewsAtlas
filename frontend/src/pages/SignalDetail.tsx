@@ -6,6 +6,7 @@ import { api, ApiError } from "../api/client";
 import { ARTICLE_SOURCE_LABELS } from "../api/types";
 import type { Signal, SignalStatus, SignalTodo } from "../api/types";
 import FavoriteButton from "../components/FavoriteButton";
+import { ArrowLeftIcon } from "../components/icons/NavIcons";
 import Skeleton from "../components/Skeleton";
 import TodoList from "../components/TodoList";
 import { STATUS_TRANSITION_VALUES } from "../constants/signalStatus";
@@ -154,7 +155,8 @@ export default function SignalDetail() {
 
   return (
     <div>
-      <Link to="/signals" className="link-button">
+      <Link to="/signals" className="back-link">
+        <ArrowLeftIcon />
         {t("backToSignals")}
       </Link>
 
