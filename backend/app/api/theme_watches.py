@@ -55,6 +55,7 @@ from app.services.theme_follows import (
 from app.services.theme_watch_stats import get_theme_watch_stats
 from app.services.topic_templates import list_active_templates
 from app.services.workspace_settings import (
+    enforce_manual_trigger_cooldown,
     enforce_trigger_cooldown,
     get_or_create_workspace_settings,
     resolve_mistral_api_key,
@@ -436,6 +437,81 @@ def bulk_delete_theme_watches(
         deleted += 1
     db.commit()
     return ThemeWatchBulkDeleteResult(deleted=deleted, not_found=not_found)
+
+
+@router.post("/run-now", response_model=IngestionRunStatusResponse, status_code=202)
+@limiter.limit("10/hour")
+def run_followed_themes_now(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> IngestionRunStatusResponse:
+    """Fetches news for every active Theme this user follows in one go — the Themen
+    page's "Alle Themen-Signale abrufen" button. Unlike POST /target-companies/run-now
+    this takes no selection: it always means "all of mine", the same scope the per-theme
+    button already covers one theme at a time (POST /{theme_watch_id}/run-now above).
+    Muted follows and paused themes are excluded rather than failing the request — same
+    tolerant style as the bulk-delete/bulk-run-now endpoints elsewhere.
+    """
+    eligible_ids = [
+        row[0]
+        for row in db.query(ThemeFollow.theme_watch_id)
+        .join(ThemeWatch, ThemeWatch.id == ThemeFollow.theme_watch_id)
+        .filter(
+            ThemeFollow.user_id == current_user.id,
+            ThemeFollow.is_muted.is_(False),
+            ThemeWatch.is_active.is_(True),
+        )
+        .all()
+    ]
+    if not eligible_ids:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You aren't following any active Themen to fetch.",
+        )
+
+    workspace_settings = get_or_create_workspace_settings(db)
+    if not workspace_settings.google_news_rss_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Google News RSS is disabled for this workspace, and it is the only news "
+                "source themes can use. Enable it under Settings > News sources."
+            ),
+        )
+
+    # A run already in flight (a theme's, a company's, or a full one) is handed back as-is
+    # rather than started alongside — same rule as POST /ingestion/run-now. Checked before
+    # the cooldown is stamped so a click that merely joins an existing run doesn't burn
+    # this workspace's clock.
+    existing_run = get_running_run(db)
+    if existing_run is not None:
+        return to_status_response(existing_run)
+
+    # Workspace-wide clock, not the per-theme one enforce_trigger_cooldown uses for a
+    # single theme below: this button fetches every one of the caller's themes at once,
+    # so it's costed and throttled like the other workspace-wide triggers (the full run,
+    # the companies bulk run-now).
+    enforce_manual_trigger_cooldown(
+        db, workspace_settings, "last_manual_ingestion_at", get_settings().manual_trigger_cooldown_seconds
+    )
+
+    run = create_run(
+        db,
+        trigger=TRIGGER_MANUAL,
+        triggered_by_user_id=current_user.id,
+        theme_watch_ids=eligible_ids,
+    )
+    background_tasks.add_task(execute_ingestion_run, run.id)
+    log_event(
+        "themes_manual_run_triggered",
+        request=request,
+        actor_id=str(current_user.id),
+        theme_count=len(eligible_ids),
+        run_id=str(run.id),
+    )
+    return to_status_response(run)
 
 
 @router.post("/{theme_watch_id}/mute", response_model=ThemeWatchResponse)

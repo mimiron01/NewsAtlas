@@ -48,7 +48,7 @@
     "themeMatchMinRelevanceScoreHint": "Topic matches the AI scores below this are hidden from the feed instead of shown — the fix for topic templates surfacing generic industry news instead of company-specific signals. 5 = strict, only clear buying triggers tied to your offering; 1 = show everything that passes the basic relevance check."
   },
   "targets": {
-    "title": "My companies",
+    "title": "Companies",
     "subtitle": "Add the companies you want news signals for. Keywords/aliases help match more articles.",
     "companyName": "Company name",
     "industryOptional": "Industry (optional)",
@@ -154,7 +154,9 @@
     "allowlistCustom": "Only these sources",
     "allowlistInheritHint": "Follows the trusted sources set under Settings → News sources.",
     "allowlistAllHint": "Ignores the workspace default and searches all of Google News for this company.",
-    "allowlistCustomHint": "Replaces the workspace default. Only these domains are searched for this company."
+    "allowlistCustomHint": "Replaces the workspace default. Only these domains are searched for this company.",
+    "expandCompanies": "Show {{count}} more",
+    "collapseCompanies": "Collapse"
   },
   "sources": {
     "title": "News sources",

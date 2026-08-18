@@ -14,7 +14,6 @@ import UsageTab from "./pages/settings/UsageTab";
 import UsersTab from "./pages/settings/UsersTab";
 import SettingsTargets from "./pages/SettingsTargets";
 import SignalDetail from "./pages/SignalDetail";
-import SignalsFeed from "./pages/SignalsFeed";
 import ArchiveFeed from "./pages/ArchiveFeed";
 import ThemesPage from "./pages/ThemesPage";
 
@@ -29,7 +28,6 @@ export default function App() {
       />
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/signals" element={<SignalsFeed />} />
         <Route path="/signals/:signalId" element={<SignalDetail />} />
         <Route path="/archive" element={<ArchiveFeed />} />
         <Route path="/settings/targets" element={<SettingsTargets />} />

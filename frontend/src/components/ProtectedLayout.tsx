@@ -6,7 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { useIsAdmin } from "../hooks/useIsAdmin";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useTheme } from "../hooks/useTheme";
-import { HomeIcon, MenuIcon, SignalsIcon, TargetsIcon, ThemeIcon } from "./icons/NavIcons";
+import { HomeIcon, MenuIcon, TargetsIcon, ThemeIcon } from "./icons/NavIcons";
 import ProfileMenu from "./ProfileMenu";
 
 export default function ProtectedLayout() {
@@ -55,9 +55,6 @@ export default function ProtectedLayout() {
           >
             <NavLink to="/" end>
               <HomeIcon /> {t("nav:links.dashboard")}
-            </NavLink>
-            <NavLink to="/signals">
-              <SignalsIcon /> {t("nav:links.signals")}
             </NavLink>
             <NavLink to="/settings/targets">
               <TargetsIcon /> {t("nav:links.targets")}

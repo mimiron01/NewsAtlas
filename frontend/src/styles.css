@@ -505,6 +505,7 @@ button.danger { background: var(--danger-solid); }
   gap: 16px;
 }
 .feed-toolbar h2 { margin: 0 0 4px; }
+.feed-toolbar .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .toolbar-actions {
   display: flex;
   flex-wrap: wrap;
@@ -543,7 +544,13 @@ button.danger { background: var(--danger-solid); }
   transition: background-color 150ms ease;
 }
 .signal-row-link:hover { background: var(--bg); }
-.signal-row-main { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
+/* min-width: 0 lets this shrink to the space left by the favorite button instead of the
+   browser's default flex min-width (its content's min-content size, driven by the
+   longest unbreakable content — e.g. a long title/many badges). Without it, a wide-enough
+   row pushes past the available width and wraps onto its own line flush against the
+   list's left edge — below, not beside, the favorite button — instead of shrinking, which
+   is what produced the inconsistent left indent between rows depending on their content. */
+.signal-row-main { display: flex; flex: 1 1 0%; min-width: 0; flex-wrap: wrap; gap: 12px; align-items: flex-start; }
 /* Forces the title/summary block onto its own line below the badges rather than beside
    the last badge when the row's other content (e.g. a missing summary) leaves it narrow
    enough to fit on the same flex-wrap line. */
@@ -562,34 +569,24 @@ button.danger { background: var(--danger-solid); }
 .signal-row-actions > button { font-size: 0.78rem; padding: 5px 10px; white-space: nowrap; }
 
 .signal-title-row { display: flex; align-items: flex-start; gap: 6px; margin: 2px 0; }
-/* Plain text, not a link — the article title used to be the <a> itself, which inherited
-   the global bold/underlined/accent-colored link look and made every row's height
-   depend on how the browser happened to wrap that title. Clamped to 2 lines so row
-   height stays predictable regardless of title length; "open article" moved to its own
-   icon button (signal-title-link below) since the title itself no longer navigates. */
+/* Shared by a plain <div> (SignalRow, whose whole row is already a Link) and an <a>
+   (ThemesPage's Treffer table, which links straight to the article) — the color/weight
+   reset here keeps both looking identical instead of the <a> picking up the global
+   bold/underlined/accent-colored link look. Clamped to 2 lines so row height stays
+   predictable regardless of title length. */
 .signal-title {
   flex: 1;
   min-width: 0;
   font-weight: 600;
   color: var(--fg);
+  text-decoration: none;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 .signal-title[data-expanded] { -webkit-line-clamp: unset; overflow: visible; }
-.signal-title-link {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  margin-top: 1px;
-  color: var(--muted);
-  text-decoration: none;
-}
-.signal-title-link:hover { color: var(--accent); }
+a.signal-title:hover { color: var(--accent); text-decoration: underline; }
 .signal-title-toggle {
   display: inline-block;
   background: none;

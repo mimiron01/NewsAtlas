@@ -288,11 +288,24 @@ export interface SignalTodoWithContext extends SignalTodo {
   target_company_name: string;
 }
 
+// A single entry in the dashboard's "Zuletzt favorisiert" list. Signal and ThemeMatch
+// favorites are flattened into this one shape server-side (see RecentFavoriteResponse in
+// app/schemas/dashboard.py) since they render almost identically but link differently: a
+// "signal" entry opens /signals/{id}; a "theme_match" entry opens `url` in a new tab.
+export interface RecentFavorite {
+  kind: "signal" | "theme_match";
+  id: string;
+  title: string;
+  subtitle: string;
+  url: string | null;
+  favorited_at: string;
+}
+
 export interface DashboardSummary {
   top_signals: Signal[];
   new_signal_count: number;
   favorite_count: number;
-  recent_favorites: Signal[];
+  recent_favorites: RecentFavorite[];
   open_todo_count: number;
   open_todos: SignalTodoWithContext[];
   archived_signal_count: number;
@@ -319,6 +332,9 @@ export interface IngestionRunStatus {
   // Set only for a single-topic run started from the Themes page; null for an ordinary
   // full run over every company and topic.
   theme_watch_id: string | null;
+  // Set only for the "Alle Themen-Signale abrufen" bulk run over every topic the
+  // triggering user follows; null otherwise.
+  theme_watch_ids: string[] | null;
   // Set only for a run scoped to one or more companies from the "My companies" table's
   // per-row or multi-select "fetch now" action; null otherwise.
   target_company_ids: string[] | null;

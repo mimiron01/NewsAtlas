@@ -20,7 +20,7 @@ def test_run_now_invokes_ingestion_pipeline(client, monkeypatch):
     )
     monkeypatch.setattr(
         "app.services.ingestion_runs.run_ingestion",
-        lambda db, progress=None, theme_watch_id=None, target_company_ids=None: fake_result,
+        lambda db, progress=None, theme_watch_id=None, theme_watch_ids=None, target_company_ids=None: fake_result,
     )
 
     resp = client.post("/ingestion/run-now", headers=headers)

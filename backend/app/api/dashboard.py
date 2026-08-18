@@ -9,8 +9,9 @@ from app.models.signal_favorite import SignalFavorite
 from app.models.signal_todo import SignalTodo
 from app.models.target_company import TargetCompany
 from app.models.theme_match import ThemeMatch
+from app.models.theme_match_favorite import ThemeMatchFavorite
 from app.models.user import User, UserRole
-from app.schemas.dashboard import DashboardSummary
+from app.schemas.dashboard import DashboardSummary, RecentFavoriteResponse
 from app.schemas.signal_todo import SignalTodoWithContext
 from app.services.signal_queries import base_signal_query, scope_to_follows, signal_row_to_response
 from app.services.theme_match_queries import (
@@ -71,11 +72,64 @@ def get_dashboard(
     ).join(SignalFavorite, SignalFavorite.signal_id == Signal.id)
     favorite_rows = (
         favorites_query.filter(SignalFavorite.user_id == current_user.id)
+        .add_columns(SignalFavorite.created_at)
         .order_by(SignalFavorite.created_at.desc())
         .limit(RECENT_FAVORITES_LIMIT)
         .all()
     )
-    recent_favorites = [signal_row_to_response(*row) for row in favorite_rows]
+    recent_signal_favorites = []
+    for *row, favorited_at in favorite_rows:
+        signal = signal_row_to_response(*row)
+        recent_signal_favorites.append(
+            RecentFavoriteResponse(
+                kind="signal",
+                id=signal.id,
+                title=signal.article_title,
+                subtitle=signal.target_company_name,
+                url=None,
+                favorited_at=favorited_at,
+            )
+        )
+
+    # Theme-match equivalent of the favorites query above, so a favorited "Top
+    # Themen-Signale" entry shows up in "Zuletzt favorisiert" too, not just favorited
+    # Signals (previously the only kind recent_favorites could ever contain).
+    theme_favorites_query = (
+        scope_to_theme_follows(
+            base_theme_match_query(db, current_user), db, current_user, include_muted=False
+        )
+        .filter(ThemeMatch.skip_reason.is_(None))
+        .join(ThemeMatchFavorite, ThemeMatchFavorite.theme_match_id == ThemeMatch.id)
+    )
+    theme_favorite_rows = (
+        theme_favorites_query.filter(ThemeMatchFavorite.user_id == current_user.id)
+        .add_columns(ThemeMatchFavorite.created_at)
+        .order_by(ThemeMatchFavorite.created_at.desc())
+        .limit(RECENT_FAVORITES_LIMIT)
+        .all()
+    )
+    recent_theme_favorites = []
+    for *row, favorited_at in theme_favorite_rows:
+        match = theme_match_row_to_response(*row)
+        recent_theme_favorites.append(
+            RecentFavoriteResponse(
+                kind="theme_match",
+                id=match.id,
+                title=match.title,
+                subtitle=match.theme_watch_name,
+                url=match.url,
+                favorited_at=favorited_at,
+            )
+        )
+
+    # Merge both sources by recency and cap at RECENT_FAVORITES_LIMIT overall — each
+    # query above already limits itself to that many, so the combined top N can never
+    # need more than N from either source.
+    recent_favorites = sorted(
+        recent_signal_favorites + recent_theme_favorites,
+        key=lambda entry: entry.favorited_at,
+        reverse=True,
+    )[:RECENT_FAVORITES_LIMIT]
 
     open_todo_count = (
         db.query(SignalTodo)

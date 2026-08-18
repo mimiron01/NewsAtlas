@@ -3,8 +3,7 @@
   "toggleNav": "Toggle navigation",
   "links": {
     "dashboard": "Dashboard",
-    "signals": "Signals",
-    "targets": "My companies",
+    "targets": "Companies",
     "themes": "Topics"
   },
   "theme": {
