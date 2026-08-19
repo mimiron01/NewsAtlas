@@ -98,6 +98,7 @@
     "statusLabel": "Status",
     "loadFailed": "Treffer konnten nicht geladen werden",
     "noMatchesYet": "Noch keine Treffer. Fügen Sie oben ein Thema hinzu und klicken Sie dann in der Themenliste auf „Jetzt abrufen“.",
+  "loadMore": "{{count}} weitere anzeigen",
     "updateFailed": "Treffer konnte nicht aktualisiert werden",
     "trackCompany": "Dieses Unternehmen verfolgen",
     "trackCompanyFailed": "Unternehmen konnte nicht verfolgt werden",

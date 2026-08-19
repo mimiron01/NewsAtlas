@@ -100,6 +100,12 @@ export default function ThemesPage() {
   const [matchStatusFilter, setMatchStatusFilter] = useState<SignalStatus | "">("");
   const [matchesLoading, setMatchesLoading] = useState(true);
   const [matchesError, setMatchesError] = useState<string | null>(null);
+  // The API returns every match for the current filter in one response (no server-side
+  // paging), which can be a long list — so only the most recent MATCHES_PAGE_SIZE are
+  // rendered at a time, with "load more" revealing the next page client-side. Resets to
+  // the first page whenever the underlying list is reloaded (new filter or refresh).
+  const MATCHES_PAGE_SIZE = 50;
+  const [matchesVisibleCount, setMatchesVisibleCount] = useState(MATCHES_PAGE_SIZE);
   const [trackingId, setTrackingId] = useState<string | null>(null);
   // Titles are clamped to 2 lines by default (see .signal-title) so row height stays
   // predictable regardless of title length; the "mehr anzeigen" toggle below only needs
@@ -230,6 +236,7 @@ export default function ThemesPage() {
       .then((result) => {
         setMatches(result);
         setMatchesError(null);
+        setMatchesVisibleCount(MATCHES_PAGE_SIZE);
       })
       .catch((err) => setMatchesError(err instanceof ApiError ? err.message : t("themes:matches.loadFailed")))
       .finally(() => setMatchesLoading(false));
@@ -1062,7 +1069,7 @@ export default function ThemesPage() {
 
         {!matchesLoading && matches.length > 0 && (
           <ul className="signal-list">
-            {matches.map((match) => (
+            {matches.slice(0, matchesVisibleCount).map((match) => (
               <li key={match.id}>
                 <div className="signal-row">
                   <FavoriteButton isFavorited={match.is_favorited} onToggle={() => toggleMatchFavorite(match)} />
@@ -1147,6 +1154,15 @@ export default function ThemesPage() {
               </li>
             ))}
           </ul>
+        )}
+        {!matchesLoading && matches.length > matchesVisibleCount && (
+          <button
+            type="button"
+            className="secondary load-more-button"
+            onClick={() => setMatchesVisibleCount((count) => count + MATCHES_PAGE_SIZE)}
+          >
+            {t("themes:matches.loadMore", { count: matches.length - matchesVisibleCount })}
+          </button>
         )}
       </div>
       </>

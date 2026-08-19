@@ -107,6 +107,7 @@
     "confirmUnfollowShared": "„{{name}}“ nicht mehr folgen? Andere Benutzer, die es verfolgen, sehen es weiterhin.",
     "removeTag": "{{tag}} entfernen",
     "columnCompany": "Unternehmen",
+    "columnIndustry": "Branche",
     "columnStatus": "Status",
     "columnTrackedFrom": "Verfolgt seit",
     "columnActions": "Aktionen",

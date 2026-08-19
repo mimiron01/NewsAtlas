@@ -98,6 +98,7 @@
     "statusLabel": "Status",
     "loadFailed": "Failed to load topic matches",
     "noMatchesYet": "No matches yet. Add a topic above, then click “Fetch now” on it in the list.",
+  "loadMore": "Show {{count}} more",
     "updateFailed": "Failed to update match",
     "trackCompany": "Track this company",
     "trackCompanyFailed": "Failed to track company",

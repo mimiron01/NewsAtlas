@@ -107,6 +107,7 @@
     "confirmUnfollowShared": "Unfollow \"{{name}}\"? Other users tracking it keep seeing it.",
     "removeTag": "Remove {{tag}}",
     "columnCompany": "Company",
+    "columnIndustry": "Industry",
     "columnStatus": "Status",
     "columnTrackedFrom": "Tracked from",
     "columnActions": "Actions",
