@@ -183,12 +183,12 @@
 <body>
 
 <h1>NewsAtlas v2 — Research Plan</h1>
-<p class="subtitle">The taxonomy, the scoring scale, the new entity model and its seed catalogue — defined. One question left open, and one architectural constraint that needs confirming before anything is built.</p>
+<p class="subtitle">The taxonomy, the scoring scale, the new entity model and its seed catalogue — defined, then tested against 31 months of real win/loss data. One decision left for the Geschäftsleitung.</p>
 
 <div class="meta">
-  <div><strong>Status:</strong> Revision 4 (2026-08-28). Adds the researched DACH infrastructure catalogue (§5), the designed 0–10 relevance scale (§6), and a critical look at per-company search tailoring (§7). Open questions are down to one, plus one item that needs a number only you can read.</div>
+  <div><strong>Status:</strong> Revision 5 (2026-08-28). Rewritten against two new inputs: the ProAir win/loss analysis of 1,605 Salesforce opportunities, and the account's real Mistral rate limits. Both change the plan — §2.1 records what the win/loss data settles and what it contradicts, and <a href="#r03">R0.3</a> is now resolved with a concrete pipeline recommendation.</div>
   <div><strong>Codebase grounded against:</strong> commit <code>0374e3b</code> on <code>main</code>. Every claim about current behaviour cites the file it came from.</div>
-  <div><strong>New this revision, and important:</strong> moving to Mistral's free tier makes the <em>request rate</em>, not euros, the binding constraint on the whole pipeline. See <a href="#r03">R0.3</a> — this may require rearchitecting how ingestion runs.</div>
+  <div><strong>Read §2.1 first.</strong> The win/loss analysis raises a question this plan cannot answer on its own: whether generating more leads is the binding constraint on ProAir's revenue at all. Three features in this document point at segments the data shows ProAir systematically loses.</div>
 </div>
 
 <nav class="toc">
@@ -213,6 +213,7 @@
     <li><a href="#sequencing">Sequencing</a></li>
     <li><a href="#cuts">Cut from scope</a></li>
     <li><a href="#open">Open questions</a></li>
+    <li><a href="#appendix">Appendix — running the trigger review</a></li>
   </ol>
 </nav>
 
@@ -248,9 +249,48 @@
   <tr><td>Evidence chain</td><td>Every indirect signal shows the rep the reasoning path in enough detail to verify before calling.</td></tr>
 </table>
 
+<h3 id="winloss">2.1 What the win/loss analysis changes</h3>
+
+<p>The ProAir win/loss review covers 1,605 opportunities across 588 accounts, January 2024 to August 2026. It was not built to answer this plan's questions and explicitly says so — <em>"Zu Anlässen und Presseresonanz enthält der Datensatz keinerlei Information."</em> But it settles a great deal that this plan had been guessing at, and it contradicts three things in it.</p>
+
+<div class="gap">
+  <strong>The uncomfortable finding: lead generation may not be the constraint.</strong> 1,605 opportunities over 31 months is roughly 52 enquiries a month for two reps. Of 880 losses, only <strong>26</strong> are genuine competitive defeats at a comparable offer. The rest are customer cancellations (213), no response at all (181), price (124), a different solution (113), and pure price indications (87). ProAir does not have a shortage of enquiries — it has a qualification and follow-up problem, which is exactly what the report's own four measures address. NewsAtlas produces <em>more</em> enquiries. If the reps are already at capacity, more leads may not convert into revenue.
+</div>
+
+<div class="decision">
+  <strong>What this argues for.</strong> Not abandoning the project — the report itself keeps the press analysis, narrowed to Automotive, Immobilien and Maschinenbau. But it shifts the emphasis: the highest-value use of NewsAtlas may be <strong>context and prioritisation on enquiries already arriving</strong> — an enquiry lands from a tracked account, and the rep immediately sees what is happening there — with outbound discovery aimed only at the segments that actually convert. That is a smaller, sharper product than "find every trigger everywhere", and it fits two reps at capacity far better. Worth deciding explicitly rather than by default.
+</div>
+
+<h4>Three direct contradictions</h4>
+<table>
+  <tr><th style="width:26%">Plan said</th><th style="width:26%">Data says</th><th>Consequence</th></tr>
+  <tr><td>Design for both shipper and forwarder buyers; H2(a) models forwarder exposure as a second hop.</td><td><strong>Logistik und Transport: 301 enquiries, 15.3% win rate</strong>, 50 of them pure price indications. The report states forwarders use ProAir as a price reference and do not belong in the target profile.</td><td><strong>Cut the forwarder second hop from <a href="#h2">H2</a>.</strong> It was the hardest part of the track and it turns out to serve the worst-converting segment.</td></tr>
+  <tr><td><code>major_project</code> and H2(b) contractor discovery on billion-euro projects is the most valuable indirect signal.</td><td><strong>Deals over €150k: 88 enquiries, 8 orders, 9.1%.</strong> Construction 21.2%. The sweet spot is €5k–30k at 59–69%.</td><td><strong>Demote H2(b).</strong> The most exciting feature in this plan points at the segment ProAir systematically loses. Either it is rescoped toward mid-size project cargo, or the business first explains why large deals would go differently.</td></tr>
+  <tr><td><code>tour_or_fixture</code> merges sports fixtures with entertainment tours.</td><td><strong>Sport: 2 orders from 25 enquiries (8.0%)</strong> — the weakest segment in the portfolio. Entertainment sits at 27.3%.</td><td><strong>Split the type.</strong> <code>tour_announcement</code> stays on by default; <code>sports_fixture</code> ships disabled.</td></tr>
+</table>
+
+<h4>What it confirms</h4>
+<ul>
+  <li><strong>Automotive is the anchor:</strong> 258 enquiries at 40.3% — the only segment combining high volume with a good rate. This validates the cargo urgency classes in §3 and argues for weighting automotive trade press heavily in <a href="#e1">E1</a>.</li>
+  <li><strong>Urgency wins.</strong> Same-day ad hoc 57.5%, one to three days 48.7%, falling to 19–31% beyond a week. Cargo's median lead time is 41 days on won deals against 117 on lost ones. The disruption classes in §3.1 are pointed at the right kind of demand.</li>
+  <li><strong>Concentration risk is real:</strong> 54.8% of won volume sits in ten accounts. That is the strongest argument in the report for <a href="#track-h">H4</a>'s prospect discovery — diversification, not volume.</li>
+</ul>
+
+<h4>What it adds that the plan missed</h4>
+<ul>
+  <li><strong>Immobilien wins 44.4% on 54 enquiries</strong> and appears nowhere in §3. Real-estate developer travel and site visits are not covered by <code>executive_travel</code> or <code>major_project</code>. A type is missing; <a href="#a4">A4</a> should define it.</li>
+  <li><strong>Privat und Einzelpersonen is the best-converting segment at 51.1%</strong> (137 enquiries) — and NewsAtlas structurally cannot serve it. Private individuals are not findable through company news. Worth stating plainly so nobody expects coverage there.</li>
+  <li><strong>The third-enquiry threshold:</strong> 23.3% → 29.9% → 41.0%. Existing accounts convert far better than new ones, which cuts against prospect discovery and for the context-on-existing-accounts framing above.</li>
+  <li><strong>Passenger business is value-blind.</strong> The amount field is filled on 100% of won passenger deals but only 5% of lost ones, so no value analysis of that line is possible. <a href="#b1">B1</a>'s cargo/passenger split will be distorted the same way, and "equal effort across both lines" is a strategy decision rather than a data-supported one.</li>
+</ul>
+
+<div class="assumption">
+  <strong>One caution on the lead-time finding.</strong> It measures enquiry-to-flight, not event-to-enquiry, and the report itself flags it as correlation — short lead times may simply come from customers who had already decided. It supports focusing on urgency classes. It is not yet evidence that a 24-hour digest is too slow, so the no-alerting decision stands.
+</div>
+
 <h2 id="taxonomy">3. The charter signal taxonomy <span class="tag">approved</span></h2>
 
-<p>The nine current types (<code>ai_client.py:15</code>) are a B2B software seller's list and name no charter trigger — very likely a direct contributor to the 3/5–4/5 clustering, since the model has no vocabulary for what makes one charter opportunity better than another. The replacement, with each type's default <strong>budget direction</strong> — what the event does to spend in our category, which is what replaces sentiment:</p>
+<p>The nine current types (<code>ai_client.py:15</code>) are a B2B software seller's list and name no charter trigger — very likely a direct contributor to the 3/5–4/5 clustering, since the model has no vocabulary for what makes one charter opportunity better than another. The replacement, with each type's default <strong>budget direction</strong> — what the event does to spend in our category, which is what replaces sentiment. Revised in this revision against §2.1: <code>tour_or_fixture</code> split, <code>property_activity</code> added, <code>sports_fixture</code> shipped disabled.</p>
 
 <h3>3.1 Cargo — urgency</h3>
 <table>
@@ -276,8 +316,10 @@
 <table>
   <tr><th style="width:23%">Type</th><th style="width:11%">Direction</th><th>What it catches</th></tr>
   <tr><td><code>executive_travel</code></td><td>creates</td><td>M&amp;A, roadshow, IPO, board or delegation travel.</td></tr>
+  <tr><td><code>property_activity</code></td><td>creates</td><td>Real-estate transactions, developments and site inspections driving investor and executive travel. Added after §2.1: Immobilien converts at 44.4% and had no type at all.</td></tr>
   <tr><td><code>vip_appearance</code></td><td>creates</td><td>Celebrity, artist or executive appearance; film and TV production.</td></tr>
-  <tr><td><code>tour_or_fixture</code></td><td>creates</td><td>Music tour, sports fixture, tournament qualification, squad travel.</td></tr>
+  <tr><td><code>tour_announcement</code></td><td>creates</td><td>Music and entertainment tours. Entertainment converts at 27.3% — kept on by default.</td></tr>
+  <tr><td><code>sports_fixture</code></td><td>creates</td><td>Fixtures, qualification, squad travel. <strong>Ships disabled:</strong> 2 orders from 25 enquiries over 31 months (§2.1).</td></tr>
   <tr><td><code>group_event</code></td><td>creates</td><td>Corporate event, incentive trip, conference or trade-fair delegation.</td></tr>
   <tr><td><code>airline_disruption</code></td><td>creates</td><td>Carrier insolvency, route cancellation or airline strike leaving a group without capacity.</td></tr>
   <tr><td><code>evacuation</code></td><td>creates</td><td>Crisis evacuation or repatriation — where a German operator with its own AOC has a specific advantage.</td></tr>
@@ -514,13 +556,29 @@
 </div>
 
 <div class="phase">
-<h3 id="r03"><span class="phase-badge">R0.3</span> The free tier's real limits <span class="tag">S</span> <span class="tag">blocking</span></h3>
-<p><strong>Question:</strong> What are this account's actual Mistral rate limits, and can the pipeline run inside them?</p>
-<div class="gap"><strong>This may be the most consequential unknown in the plan.</strong> Public reporting on the free "Experiment" tier describes a generous monthly token allowance alongside a <em>very</em> low request rate — a figure of roughly 2 requests per minute is widely cited. Mistral no longer publishes exact free-tier numbers publicly; the authoritative source is this account's own Admin Console → Limits page, which only you can read (their docs domain is blocked from my environment, so I could not verify it directly). If the request rate really is that low, then <strong>rate, not euros, is the binding constraint</strong>, and it reshapes the pipeline: ingestion makes up to three calls per article (embed, triage, summarize), so a hundred-article run becomes roughly three hundred calls — hours of wall-clock at 2 RPM. The A3 gold-set replay over 150 items would be a similarly long job.</div>
-<p><strong>Method:</strong> Read the Admin Console limits first — requests per second and per minute, tokens per minute, tokens per month, and whether they differ per model. Then model a realistic run against them. Evaluate the mitigations: batching multiple articles into one call, dropping the separate triage call in favour of a single combined call, running ingestion overnight with a queue and backoff, and using the €20 to lift the tier only for the stages that need it. Confirm current paid list prices from the vendor for that last option.</p>
-<p><strong>Deliverable:</strong> The real limits, a run-time model against them, and a recommended pipeline shape.</p>
-<p><strong>Unblocks:</strong> A2, A4, A5, H2 — and possibly the ingestion architecture itself.</p>
-<div class="assumption"><strong>Silver lining:</strong> if the token allowance is genuinely large while the request rate is small, that argues for <em>fewer, richer calls</em> — which is the same direction the score rationale, the larger taxonomy and the evidence chain were already pushing. The constraint and the feature set may point the same way.</div>
+<h3 id="r03"><span class="phase-badge">R0.3</span> The free tier's real limits <span class="tag">resolved</span></h3>
+<div class="ok-box"><strong>Answered, and the news is better than feared.</strong> The alarm in revision 4 rested on a widely-reported "2 requests per minute" figure for the free tier. This account's actual limits are different, and the tier is workable without change to the €20 posture.</div>
+<table>
+  <tr><th style="width:30%">Model</th><th style="width:16%">Req / min</th><th style="width:20%">Tokens / min</th><th>Role</th></tr>
+  <tr><td><code>mistral-large-2512</code></td><td><strong>4.2</strong></td><td>250,000</td><td>Current summarization model. The bottleneck.</td></tr>
+  <tr><td><code>mistral-medium-2508</code></td><td>22.8</td><td>356,250</td><td>5.4× the throughput of large. Prime candidate.</td></tr>
+  <tr><td><code>ministral-8b-2512</code></td><td>187.8</td><td>625,000</td><td>Triage candidate.</td></tr>
+  <tr><td><code>ministral-3b-2512</code></td><td>750</td><td>1,300,000</td><td>Effectively unconstrained.</td></tr>
+  <tr><td><code>mistral-small-2603</code></td><td>49.8</td><td>50,000</td><td>Current triage model.</td></tr>
+  <tr><td><code>mistral-embed-2312</code></td><td>60</td><td>20,000,000</td><td>Embeddings. Tokens effectively unlimited.</td></tr>
+</table>
+<p><strong>Tokens are not the constraint.</strong> Estimating a daily run at 250 embeddings, 250 triage calls and ~70 summarizations gives roughly 470,000 tokens — about 14m a month. Tripling that for themes and infrastructure entries still lands near 40m against a 100m monthly allowance. <strong>The stated 100m per month is comfortably sufficient</strong>, with room for the richer prompts this plan adds.</p>
+<div class="decision">
+  <strong>Requests are the constraint, and the tier's shape tells you the fix.</strong> <code>mistral-large</code> allows 250,000 tokens per minute across 4.2 requests — roughly <strong>59,000 tokens per request</strong>. The tier rewards few large calls, not many small ones. Four changes follow, all of which <a href="#a5">A5</a> should validate against the gold set:
+  <ol>
+    <li><strong>Batch summarization.</strong> Ten articles per call at ~2,500 tokens each is 25,000 tokens, well inside the envelope. Seventy summaries becomes seven requests — roughly 100 seconds instead of 17 minutes. The single largest win available.</li>
+    <li><strong>Move triage to <code>ministral-8b</code></strong> — 188 requests a minute against 50, and 12× the token headroom. Triage is a binary classification; measure whether an 8B model holds.</li>
+    <li><strong>Batch embeddings.</strong> The embeddings API accepts arrays, so 250 embeddings is a handful of requests rather than 250.</li>
+    <li><strong>Test <code>mistral-medium-2508</code> for summarization.</strong> If quality holds against the gold set, that alone is 5.4× the throughput.</li>
+  </ol>
+</div>
+<div class="gap"><strong>One thing to verify before relying on any of this.</strong> The workspace config uses the aliases <code>mistral-large-latest</code> and <code>mistral-small-latest</code>, while the limits are published against dated IDs. The list shows <code>mistral-medium-latest</code> at 25,000 TPM against <code>mistral-medium-2508</code>'s 356,250 — a 14× difference for what reads like the same model. <strong>Aliases may resolve to entirely different limit entries</strong>, so pin dated model IDs in settings rather than trusting an alias to inherit the better numbers.</div>
+<p><strong>Remaining work:</strong> confirm the alias behaviour, then measure a real run against these limits once R0.1 exists. Folded into <a href="#a5">A5</a> rather than kept as a separate blocking item.</p>
 </div>
 
 <h2 id="track-a">9. Track A — Scoring and taxonomy</h2>
@@ -558,8 +616,8 @@
 </div>
 
 <div class="phase">
-<h3><span class="phase-badge">A5</span> Cost-quality parity per stage <span class="tag">M</span></h3>
-<p><strong>Method:</strong> Three models already run (<code>mistral_model</code>, <code>mistral_triage_model</code>, <code>mistral_embed_model</code>). Using A3, sweep each stage — but under R0.3's constraint the question shifts from "cost per token" to "calls per article". Test whether triage and summarization can merge into one call, whether the embedding dedupe pass earns its request budget against the free local title-collapse already in <code>article_scoring.py</code>, and what <code>ai_feedback_note</code> contributes per token. Evaluate prompt caching and shorter system prompts, which matter more now that §3 and the rationale both lengthen the prompt.</p>
+<h3 id="a5"><span class="phase-badge">A5</span> Cost-quality parity per stage <span class="tag">M</span></h3>
+<p><strong>Method:</strong> Three models already run (<code>mistral_model</code>, <code>mistral_triage_model</code>, <code>mistral_embed_model</code>). Using A3, sweep each stage — but per R0.3 the question is "calls per article", not "cost per token", and this item now also carries R0.3's four batching and model-swap recommendations plus the alias-resolution check. Test whether triage and summarization can merge into one call, whether the embedding dedupe pass earns its request budget against the free local title-collapse already in <code>article_scoring.py</code>, and what <code>ai_feedback_note</code> contributes per token. Evaluate prompt caching and shorter system prompts, which matter more now that §3 and the rationale both lengthen the prompt.</p>
 <p><strong>Deliverable:</strong> Per-stage recommendation with measured quality per call, and a configuration that fits the free tier.</p>
 <p><strong>Unblocks:</strong> The envelope for everything else.</p>
 </div>
@@ -568,7 +626,7 @@
 
 <div class="phase">
 <h3 id="b1"><span class="phase-badge">B1</span> What the floor actually yields <span class="tag">S</span> <span class="tag">needs measurement</span></h3>
-<p><strong>Method:</strong> Replay the rule against 90 days of history, before and after A2. Report separately for cargo and passenger, since §7's balance decision depends on it.</p>
+<p><strong>Method:</strong> Replay the rule against 90 days of history, before and after A2. Report separately for cargo and passenger, since §7's balance decision depends on it — noting from §2.1 that passenger value data is unusable, so the split can only be counted by signal volume, never weighted by value.</p>
 <p><strong>Deliverable:</strong> A distribution of daily digest sizes and their line split, including how many days send the empty-state line.</p>
 <p><strong>Unblocks:</strong> Confirmation of the floor at 7, and whether the digest needs per-line balancing.</p>
 </div>
@@ -641,7 +699,7 @@
 
 <div class="phase">
 <h3 id="e1"><span class="phase-badge">E1</span> The curated source list <span class="tag">L</span></h3>
-<p><strong>Method:</strong> Five groups, now anchored on what the reps already read — <code>logistik-heute.de</code>, <code>handelsblatt.com</code> and <code>aviationweek.com</code> are confirmed starting points and set the register for the rest. (1) <em>Logistics trade press:</em> Logistik Heute, DVZ, Verkehrsrundschau, and the English-language air-cargo titles. (2) <em>Aviation trade press:</em> Aviation Week and its peers, plus the charter and business-aviation titles. (3) <em>Automotive trade press</em>, since automotive is a named focus and is where line-down events originate. (4) <em>Generic business press:</em> Handelsblatt and equivalents. (5) <em>Regional and local German press</em>, where a plant fire is reported first and often only — the highest-value and most tedious group, since it is many small outlets. Plus infrastructure operators' and unions' own channels, which feed §5 directly. For each: fetch, parse, and confirm recent well-formed items before accepting the URL — this is the <code>handelsblatt.de</code> versus <code>rss.handelsblatt.com</code> problem, solved per source rather than by guessing patterns. Record canonical site, verified feed URL, update frequency, teaser-only, paywalled.</p>
+<p><strong>Method:</strong> Five groups, now anchored on what the reps already read — <code>logistik-heute.de</code>, <code>handelsblatt.com</code> and <code>aviationweek.com</code> are confirmed starting points and set the register for the rest. (1) <em>Logistics trade press:</em> Logistik Heute, DVZ, Verkehrsrundschau, and the English-language air-cargo titles. (2) <em>Aviation trade press:</em> Aviation Week and its peers, plus the charter and business-aviation titles. (3) <em>Automotive trade press</em> — now the highest-priority group, not merely a named focus: §2.1 shows automotive is the only segment combining high volume with a good win rate (258 enquiries, 40.3%). Add real-estate and Maschinenbau trade press alongside it, per the win/loss report's own recommendation to target Automotive, Immobilien and Maschinenbau. (4) <em>Generic business press:</em> Handelsblatt and equivalents. (5) <em>Regional and local German press</em>, where a plant fire is reported first and often only — the highest-value and most tedious group, since it is many small outlets. Plus infrastructure operators' and unions' own channels, which feed §5 directly. For each: fetch, parse, and confirm recent well-formed items before accepting the URL — this is the <code>handelsblatt.de</code> versus <code>rss.handelsblatt.com</code> problem, solved per source rather than by guessing patterns. Record canonical site, verified feed URL, update frequency, teaser-only, paywalled.</p>
 <p><strong>Deliverable:</strong> A seed catalogue with every feed empirically verified, plus the methodology so it can be extended without me.</p>
 <p><strong>Unblocks:</strong> The section's content and §5's entries.</p>
 <div class="assumption"><strong>Sizing:</strong> L because verification is per-source manual work. Also the most cuttable item here — 25 verified sources beat 100 unverified ones.</div>
@@ -729,8 +787,9 @@
 <div class="phase">
 <h3 id="h2"><span class="phase-badge">H2</span> From event to named prospect <span class="tag">L</span></h3>
 <p><strong>Method:</strong> Two problems; the second is the more valuable.</p>
-<p><em>(a) Exposure of companies we already track.</em> Compare asking the model directly which tracked companies are exposed; a maintained relationship map (§7's trigger profile plus §4's link table, making exposure a lookup); and coarse geographic or sector proximity. Test against H1's events where the right answer is known, and measure hallucination rate explicitly rather than assuming it. Note the forwarder case: when the buyer is a forwarder, exposure runs through <em>their</em> clients, which the link table would have to represent as a second hop.</p>
-<p><em>(b) Discovering companies we do not track — the contractor case.</em> A billion-euro project publishes a site naming its contractors, and those contractors are prospects. Research the chain: from a <code>major_project</code> signal, locate the project's own site, extract named contractors and their roles, present them as candidates with the source page as evidence. Reuse E2's fetch-and-validate discipline and the same SSRF guard.</p>
+<p><em>(a) Exposure of companies we already track.</em> Compare asking the model directly which tracked companies are exposed; a maintained relationship map (§7's trigger profile plus §4's link table, making exposure a lookup); and coarse geographic or sector proximity. Test against H1's events where the right answer is known, and measure hallucination rate explicitly rather than assuming it. <strong>The forwarder second hop is cut</strong> per §2.1 — forwarders convert at 15.3% and are out of the target profile, so exposure only ever has to run one hop, to a shipper we track. This was the hardest part of the track.</p>
+<p><em>(b) Discovering companies we do not track — the contractor case.</em> <span class="tag">demoted</span> A large project publishes a site naming its contractors, and those contractors are prospects. Research the chain: from a <code>major_project</code> signal, locate the project's own site, extract named contractors and their roles, present them as candidates with the source page as evidence. Reuse E2's fetch-and-validate discipline and the same SSRF guard.</p>
+<div class="gap"><strong>Why this is demoted rather than cut.</strong> §2.1 shows deals over €150k convert at 9.1% and construction at 21.2%, so the billion-euro-project framing aims squarely at ProAir's weakest business. The mechanism is still sound — it is the only route to companies nobody is tracking, and concentration risk (54.8% of volume in ten accounts) makes that route valuable. Rescope it toward <em>mid-size</em> project cargo in the €5k–30k sweet spot and toward the converting segments (automotive, Immobilien, Maschinenbau), rather than toward the largest projects findable. Build it after H2(a), not before.</div>
 <p><strong>Deliverable:</strong> Measured precision and recall per approach with request cost per event, and a recommendation. A hybrid is likely: cheap filtering first, model reasoning only on what survives — which R0.3's rate limits make close to mandatory.</p>
 <p><strong>Unblocks:</strong> Whether indirect signals and prospect discovery ship, and in what form.</p>
 <div class="decision"><strong>Evidence chain is mandatory.</strong> Every indirect signal shows the rep the path — this event, this named link or source page, therefore this company — in enough detail to verify before calling. A rep citing an exposure that does not exist costs more credibility than the signal was worth, so a wrong inference must be visibly wrong on screen, not discovered on the phone.</div>
@@ -754,9 +813,8 @@
 
 <table>
   <tr><th style="width:20%">Order</th><th style="width:22%">Items</th><th>Why</th></tr>
-  <tr><td><strong>First, before anything</strong></td><td>R0.3</td><td>Read the Admin Console limits. If the request rate is as low as reported, it changes the ingestion architecture, and everything built before knowing that is built on a guess.</td></tr>
-  <tr><td><strong>Then</strong></td><td>R0.1, R0.2</td><td>No export means no measurement. R0.1 is the only Phase 0 item needing code.</td></tr>
-  <tr><td><strong>In parallel, no code</strong></td><td>Won-deal review → A4 + H1</td><td>The highest information per hour in the plan. Blocked only on open question 1.</td></tr>
+  <tr><td><strong>First</strong></td><td>R0.1, R0.2</td><td>No export means no measurement. R0.1 is the only Phase 0 item needing code. R0.3 is resolved; its recommendations moved into A5.</td></tr>
+  <tr><td><strong>In parallel, no code</strong></td><td>Trigger review → A4 + H1</td><td>Still the highest information per hour available, but now blocked on a management decision rather than on effort — see open question 1.</td></tr>
   <tr><td><strong>Second</strong></td><td>A1 → A3 → A2 → A4 → A5</td><td>Fix the silent-default bug before measuring the prompt; build the gold set before changing anything, or improvement cannot be told from regression.</td></tr>
   <tr><td><strong>Third</strong></td><td>B1 → B2</td><td>Digest calibration only means something once the rubric is settled.</td></tr>
   <tr><td><strong>After A2/A4</strong></td><td>H2 → H4</td><td>Indirect signals and discovery are worthless on top of a score that does not discriminate.</td></tr>
@@ -765,7 +823,7 @@
 </table>
 
 <div class="decision">
-  <strong>Suggested first increment.</strong> R0.3 first, because it may invalidate assumptions elsewhere. Then R0.1 + R0.2 + A1, with the won-deal review running alongside once question 1 clears. A1 may fix a visible chunk of the clustering on its own — a one-line default that turns silence into a middling score is cheap to fix and a satisfying first win.
+  <strong>Suggested first increment.</strong> R0.1 + R0.2 + A1. A1 may fix a visible chunk of the clustering on its own — a one-line default that turns silence into a middling score is cheap to fix and a satisfying first win. In parallel, put the §2.1 framing question to the Geschäftsleitung alongside open question 1, since both change what gets built rather than how.
 </div>
 
 <h2 id="cuts">18. Cut from scope</h2>
@@ -780,20 +838,42 @@
   <tr><td>Alerting</td><td><strong>Cut</strong></td><td>Reps check the daily digest. Removes the alert-fatigue design problem; a strike announced days ahead still reaches the next morning's digest in time.</td></tr>
   <tr><td>Sentiment charts on the timeline</td><td><strong>Cut</strong></td><td>Plain list only.</td></tr>
   <tr><td>Custom per-company search types</td><td><strong>Redirected</strong></td><td>Per §7, into a per-company trigger profile that reuses the taxonomy and the exposure links rather than adding a parallel search mechanism.</td></tr>
+  <tr><td>Forwarder exposure second hop</td><td><strong>Cut</strong></td><td>Per §2.1 — forwarders convert at 15.3% and are outside the target profile. Removes the hardest part of Track H.</td></tr>
+  <tr><td>Sports fixtures as a default signal</td><td><strong>Disabled</strong></td><td>2 orders from 25 enquiries in 31 months. The type exists but ships off.</td></tr>
+  <tr><td>Billion-euro project framing for H2(b)</td><td><strong>Rescoped</strong></td><td>Deals over €150k convert at 9.1%. Aim contractor discovery at mid-size project cargo in the €5k–30k band instead.</td></tr>
 </table>
 
 <h2 id="open">19. Open questions</h2>
 
+<p>Two questions remain, and both are decisions for the business rather than work anyone can do.</p>
+
 <table>
   <tr><th style="width:5%">#</th><th style="width:36%">Question</th><th>Why it matters</th></tr>
-  <tr><td>1</td><td><strong>The won-bookings review</strong> — 12–24 months, what event caused each, and was it in the press. Noted as coming later.</td><td>Blocks A4's backward pass and H1. Everything else can proceed without it; these two cannot start. The taxonomy in §3 stays a well-reasoned proposal until this lands.</td></tr>
-  <tr><td>2</td><td><strong>What are the actual Mistral limits on your account?</strong> Admin Console → Limits: requests per second and per minute, tokens per minute and per month.</td><td>Not a decision, a number — but only you can read it, and it may reshape the ingestion architecture. Worth five minutes before anything else starts. See <a href="#r03">R0.3</a>.</td></tr>
+  <tr><td>1</td><td><strong>Will the Geschäftsleitung release customer names for a one-off trigger analysis?</strong> The win/loss dataset is anonymised, so won deals cannot be matched to press events — the report raises this itself as a decision, proposing a single offline evaluation outside the systems whose only output is the event taxonomy, no customer data.</td><td>Blocks <a href="#a4">A4</a>'s backward pass and <a href="#track-h">H1</a>. Everything else in this plan can proceed. Until it clears, §3's taxonomy stays a reasoned proposal validated against segment performance but not against actual triggers. The method for running it once approved is in <a href="#appendix">§20</a>.</td></tr>
+  <tr><td>2</td><td><strong>Is NewsAtlas meant to generate more enquiries, or to make the existing ones convert better?</strong> §2.1 shows ~52 enquiries a month for two reps and only 26 genuine competitive losses out of 880.</td><td>This is the framing question for the whole of v2. "More leads" and "better context and prioritisation on the leads already arriving" produce different products: the first emphasises Track H discovery, the second emphasises the timeline, the trigger profiles and the digest. Both are buildable from this plan; building for the wrong one wastes the effort.</td></tr>
 </table>
 
-<p>Also worth a glance, though I will proceed on my own proposals unless you say otherwise: §5's catalogue (cut what you would never act on), §6's floor at 7 and the refinement to the definition of 0, and §7's redirect of per-company search tailoring into a trigger profile.</p>
+<p>Everything else is settled or is research I can carry out. I will proceed on my own proposals for §5's catalogue, §6's floor at 7, and §7's trigger profiles unless you say otherwise.</p>
+
+<h2 id="appendix">20. Appendix — running the trigger review</h2>
+
+<p>The method, ready for when question 1 clears. Salesforce records <em>what</em> was sold, not <em>why</em>; the cause lives in the opportunity name, the description, linked activity records, and the reps' memory. So the design minimises rep time, which is the scarce resource.</p>
+
+<ol>
+  <li><strong>One query, one CSV.</strong> Run a <code>describe</code> on Opportunity first and read the custom fields — a charter business almost certainly has route, aircraft-type or charter-type fields carrying more signal than anything standard. Then select the standard set (<code>Name</code>, <code>Account.Name</code>, <code>Account.Industry</code>, <code>Amount</code>, <code>CloseDate</code>, <code>CreatedDate</code>, <code>StageName</code>, <code>Type</code>, <code>LeadSource</code>, <code>Description</code>) over 24 months. Pull linked <code>Task</code> and <code>Event</code> records too — that is where "customer called, line down at Plant 2" gets written down. <code>CreatedDate</code> minus the event date is the detection window, which says how fast NewsAtlas would have had to be.</li>
+  <li><strong>Include Closed Lost.</strong> Roughly doubles the sample at no cost. A4 asks which events <em>create</em> charter demand, and a lost deal had the same triggering event. Flag the outcome in a column and use both.</li>
+  <li><strong>Sample rather than review everything.</strong> All deals above a revenue threshold, plus a random ~50 of the rest, checked for coverage across both business lines and across seasons.</li>
+  <li><strong>Pre-fill with AI, then have reps correct.</strong> Feed name, description and activity text to a model; have it propose the §3 trigger type. Turns a three-minute judgement into a thirty-second confirmation. Check first that those fields carry content — if half the opportunity names are a date and a route code, skip this step.</li>
+  <li><strong>Make the rep pass fixed-choice, never free text.</strong> Six dropdowns: trigger event (the §3 list, which doubles as taxonomy validation); was it in the press (yes / probably / no / unknown); who was named in the coverage (the buyer / a supplier or partner / a place or infrastructure / nobody); lead time from event to enquiry; buyer type; and <strong>how did we hear about it</strong> (inbound enquiry / existing relationship / we spotted it / tender).</li>
+  <li><strong>Archive pass on a subset.</strong> For 20–30 rows with a known trigger and date, search whether contemporaneous coverage existed and whether the buyer was named — that is H1's actual question, and it is desk work the reps should not spend time on.</li>
+</ol>
+
+<div class="decision">
+  <strong>The column that matters most is "how did we hear about it".</strong> §2.1 already suggests the business is heavily inbound; this column measures it precisely, and it is the evidence that settles open question 2. Roughly half a day to build the extract and the pre-filled sheet, about three hours of rep time, and a day for the archive pass.
+</div>
 
 <footer>
-  <p>NewsAtlas v2 research plan, revision 4 — grounded against commit <code>0374e3b</code>. No implementation has begun. Throughput and tonnage figures in §5 are from published 2025 port and airport reporting; every feed URL behind those entries is still to be verified empirically in E1.</p>
+  <p>NewsAtlas v2 research plan, revision 5 — grounded against commit <code>0374e3b</code>, the ProAir win/loss analysis of 1,605 opportunities (Jan 2024 – Aug 2026), and the account's published Mistral rate limits. No implementation has begun. Throughput and tonnage figures in §5 are from published 2025 port and airport reporting; every feed URL behind those entries is still to be verified empirically in E1.</p>
 </footer>
 
 </body>
