@@ -183,12 +183,12 @@
 <body>
 
 <h1>NewsAtlas v2 — Research Plan</h1>
-<p class="subtitle">Everything that has to be settled before an implementation plan can be written — with the charter signal taxonomy and the new entity model now defined rather than deferred.</p>
+<p class="subtitle">The taxonomy, the scoring scale, the new entity model and its seed catalogue — defined. One question left open, and one architectural constraint that needs confirming before anything is built.</p>
 
 <div class="meta">
-  <div><strong>Status:</strong> Revision 3 (2026-08-28), incorporating the third round of feedback. Two items that earlier revisions deferred to research — the charter signal taxonomy (§3) and the third entity type (§4) — are now <em>defined</em> here, because they were asked for as decisions rather than as questions.</div>
+  <div><strong>Status:</strong> Revision 4 (2026-08-28). Adds the researched DACH infrastructure catalogue (§5), the designed 0–10 relevance scale (§6), and a critical look at per-company search tailoring (§7). Open questions are down to one, plus one item that needs a number only you can read.</div>
   <div><strong>Codebase grounded against:</strong> commit <code>0374e3b</code> on <code>main</code>. Every claim about current behaviour cites the file it came from.</div>
-  <div><strong>Purpose of this revision:</strong> close everything that can be closed, and leave exactly one list of open questions — <a href="#open">§16</a> — which is the only thing standing between this and an implementation plan.</div>
+  <div><strong>New this revision, and important:</strong> moving to Mistral's free tier makes the <em>request rate</em>, not euros, the binding constraint on the whole pipeline. See <a href="#r03">R0.3</a> — this may require rearchitecting how ingestion runs.</div>
 </div>
 
 <nav class="toc">
@@ -197,8 +197,11 @@
     <li><a href="#how-to-read">How to read this</a></li>
     <li><a href="#decided">What is now decided</a></li>
     <li><a href="#taxonomy">The charter signal taxonomy</a></li>
-    <li><a href="#entity">The third entity type</a></li>
-    <li><a href="#phase0">Phase 0 — Measurement foundation</a></li>
+    <li><a href="#entity">The Infrastruktur entity type</a></li>
+    <li><a href="#catalogue">Seeded infrastructure catalogue</a></li>
+    <li><a href="#scale">The 0–10 relevance scale</a></li>
+    <li><a href="#both-lines">Serving both business lines</a></li>
+    <li><a href="#phase0">Phase 0 — Measurement and limits</a></li>
     <li><a href="#track-a">Track A — Scoring and taxonomy</a></li>
     <li><a href="#track-b">Track B — The daily digest</a></li>
     <li><a href="#track-c">Track C — Company timeline</a></li>
@@ -209,323 +212,461 @@
     <li><a href="#track-h">Track H — Indirect signals and prospect discovery</a></li>
     <li><a href="#sequencing">Sequencing</a></li>
     <li><a href="#cuts">Cut from scope</a></li>
-    <li><a href="#open">Open questions — the only blockers left</a></li>
+    <li><a href="#open">Open questions</a></li>
   </ol>
 </nav>
 
 <h2 id="how-to-read">1. How to read this</h2>
 
-<p>Research items keep the same four parts, because a research task that does not name the decision it unblocks is just reading: <strong>Question</strong>, <strong>Method</strong>, <strong>Deliverable</strong>, <strong>Unblocks</strong>. Sizes are research sizes, not implementation sizes: <span class="tag">S</span> under a day, <span class="tag">M</span> one to three days, <span class="tag">L</span> more than three days.</p>
+<p>Research items keep four parts, because a research task that does not name the decision it unblocks is just reading: <strong>Question</strong>, <strong>Method</strong>, <strong>Deliverable</strong>, <strong>Unblocks</strong>. Sizes are research sizes: <span class="tag">S</span> under a day, <span class="tag">M</span> one to three days, <span class="tag">L</span> more than three days.</p>
 
-<p>Sections 3 and 4 are different — they are proposals to approve or correct, not questions. Everything in them is actionable as written.</p>
+<p>Sections 3 to 7 are not research — they are decisions and proposals, actionable as written. §5 and §6 are new and want your review; §7 is a challenge to an idea you raised.</p>
 
 <h2 id="decided">2. What is now decided</h2>
 
 <table class="status-table">
-  <tr><th style="width:26%">Area</th><th>Decision</th></tr>
-  <tr><td>What ProAir sells</td><td>Air charter brokerage and operation. <strong>Cargo:</strong> oversized freight and urgent long-distance shipments, brokered on third-party freighters. <strong>Passenger:</strong> VIP and large-group travel, part own fleet (~25 light and very light jets, own AOC), part brokered. Edge is operational excellence and global procedural knowledge, explicitly not price.</td></tr>
-  <tr><td>Audience</td><td>Internal tool. 2 users. Single-tenant stays; no multi-tenancy, billing or self-serve onboarding.</td></tr>
-  <tr><td>AI budget</td><td>€20 / month, Mistral. The binding constraint on every AI-touching decision below.</td></tr>
-  <tr><td>Sentiment</td><td>Not built as a <code>++</code>&nbsp;…&nbsp;<code>--</code> axis. Replaced by event type (§3) plus a budget-direction field, in the same call.</td></tr>
-  <tr><td>Signal taxonomy</td><td>Extended with charter-specific types (§3). Admin-selectable in Settings. Charter types on by default; the nine legacy types off by default but retained, since existing rows reference them.</td></tr>
-  <tr><td>Score scale</td><td>Stays 1–5 for now. A move to 1–10 is held in reserve if 1–5 proves too coarse — see <a href="#a2">A2</a> and open question 8.</td></tr>
-  <tr><td>Score transparency</td><td>The model must state <em>why</em> it scored as it did, stored and shown to the rep. New requirement this revision; makes tuning possible and the score trustworthy.</td></tr>
-  <tr><td>Digest rule</td><td>Top 10, hard floor 4/5. On a day with nothing above the bar, send the email anyway with an explicit "nothing above the bar today" line.</td></tr>
-  <tr><td>Alerting</td><td>None. Reps check the daily digest and act on it. No push, no interrupt channel.</td></tr>
-  <tr><td>Company timeline</td><td>Plain reverse-chronological list. Whatever data exists points to a "good time / bad time" read; no charts.</td></tr>
-  <tr><td>Outreach</td><td>Prepare-only. Rep copies formatted text out of NewsAtlas and sends from their own client. No sending infrastructure, no §7 UWG consent machinery.</td></tr>
-  <tr><td>Contact data</td><td>No data broker. CSV import only, legally cleared by ProAir. apollo.io rebuild is out.</td></tr>
+  <tr><th style="width:24%">Area</th><th>Decision</th></tr>
+  <tr><td>What ProAir sells</td><td>Air charter brokerage and operation. <strong>Cargo:</strong> oversized and urgent freight, brokered on third-party freighters. <strong>Passenger:</strong> VIP and large-group travel, part own fleet (~25 light and very light jets, own AOC), part brokered. Edge is operational excellence and global procedural knowledge, explicitly not price.</td></tr>
+  <tr><td>Business lines</td><td><strong>Equal effort.</strong> Every feature must work for cargo and passenger alike. See §7 for what that actually requires.</td></tr>
+  <tr><td>Cargo buyer</td><td>Both the shipper's own logistics department and freight forwarders, with a tendency toward shippers. The design must serve both — see §7 and <a href="#h2">H2</a>.</td></tr>
+  <tr><td>Audience</td><td>Internal tool. 2 users. Single-tenant stays.</td></tr>
+  <tr><td>AI budget</td><td><strong>Mistral free tier as the target</strong>, with €20/month available if needed. Expansion possible on the road to v3. This makes rate limits, not cost, the design constraint — see <a href="#r03">R0.3</a>.</td></tr>
+  <tr><td>Sentiment</td><td>Not built as a <code>++</code>&nbsp;…&nbsp;<code>--</code> axis. Replaced by event type (§3) plus budget direction, in the same call.</td></tr>
+  <tr><td>Signal taxonomy</td><td>§3 approved. Admin-selectable in Settings; charter types on by default, the nine legacy types retained but off.</td></tr>
+  <tr><td>Score scale</td><td><strong>0–10</strong>, designed in §6. 10 is reserved and rare; 7–9 is the meaningful band; 0 means no alignment at all.</td></tr>
+  <tr><td>Score transparency</td><td>The model states why it scored as it did. Stored, shown to the rep, and used for tuning.</td></tr>
+  <tr><td>Digest rule</td><td>Top 10, hard floor — <strong>proposed as 7 on the new scale</strong> (§6), restating the previously agreed 4/5. Always send, with an explicit "nothing above the bar today" line on empty days.</td></tr>
+  <tr><td>Alerting</td><td>None. Reps check the daily digest and act on it.</td></tr>
+  <tr><td>Company timeline</td><td>Plain reverse-chronological list with a rule-based good-time / bad-time read. No charts.</td></tr>
+  <tr><td>Outreach</td><td>Prepare-only. Rep copies formatted text out and sends from their own client.</td></tr>
+  <tr><td>Contact data</td><td>No data broker. CSV import only, legally cleared. apollo.io rebuild is out.</td></tr>
   <tr><td>Salesforce</td><td>Sales Cloud, one-way push. Account ID travels in the CSV, so linking happens once at import. Missing Account → create; existing → create Task.</td></tr>
-  <tr><td>Deletion</td><td>Archive, never delete. Suppression semantics. Any user may archive. An article that produced a signal a rep acted on is never purged.</td></tr>
-  <tr><td>Sources</td><td>Curated list, verified feed URLs, company newsrooms auto-discovered. Teaser-only paywalled sources accepted. News-Websites absorbs the existing Sources tab and precision panel.</td></tr>
-  <tr><td>Languages</td><td>German and English both stay supported. Pydantic validation messages translated too, unless that proves disproportionately expensive — see <a href="#g1">G1</a>.</td></tr>
-  <tr><td>Third entity type</td><td>Ports, airports, regions, unions and similar become a first-class concept alongside companies and topics. Named and specified in §4.</td></tr>
-  <tr><td>Evidence chain</td><td>Any indirect signal must show the rep the reasoning path — this event, this named link, therefore this company — in enough detail to verify before calling.</td></tr>
+  <tr><td>Deletion</td><td>Archive, never delete. Any user may archive. An article behind a signal a rep acted on is never purged.</td></tr>
+  <tr><td>Sources</td><td>Curated, feed URLs verified empirically. Reps already use <code>logistik-heute.de</code>, <code>handelsblatt.com</code> and <code>aviationweek.com</code>; the catalogue spans generic business plus logistics, automotive and aviation trade press.</td></tr>
+  <tr><td>Languages</td><td>German and English both stay. Pydantic validation messages translated too, unless disproportionately expensive.</td></tr>
+  <tr><td>Infrastruktur</td><td>§4 approved, including the eight kinds. Seed catalogue proposed in §5.</td></tr>
+  <tr><td>Evidence chain</td><td>Every indirect signal shows the rep the reasoning path in enough detail to verify before calling.</td></tr>
 </table>
 
-<h2 id="taxonomy">3. The charter signal taxonomy <span class="tag">approve or correct</span></h2>
+<h2 id="taxonomy">3. The charter signal taxonomy <span class="tag">approved</span></h2>
 
-<p>The nine current types (<code>funding</code>, <code>leadership_change</code>, <code>expansion</code>, <code>hiring_surge</code>, <code>layoffs</code>, <code>product_launch</code>, <code>partnership</code>, <code>competitor_mention</code>, <code>other</code>, in <code>ai_client.py:15</code>) are a B2B software seller's list. None of them names a charter trigger. That is very likely a direct contributor to the 3/5–4/5 clustering: the model has no vocabulary for what makes one charter opportunity better than another, so it falls back on generic business importance.</p>
-
-<p>Below is the proposed replacement, derived from how charter demand actually arises. Each type carries a default <strong>budget direction</strong> — what the event does to spend in our category — which is what replaces sentiment.</p>
+<p>The nine current types (<code>ai_client.py:15</code>) are a B2B software seller's list and name no charter trigger — very likely a direct contributor to the 3/5–4/5 clustering, since the model has no vocabulary for what makes one charter opportunity better than another. The replacement, with each type's default <strong>budget direction</strong> — what the event does to spend in our category, which is what replaces sentiment:</p>
 
 <h3>3.1 Cargo — urgency</h3>
-<p>The core of the cargo business. Something has gone wrong and freight has to move by air.</p>
 <table>
-  <tr><th style="width:24%">Type</th><th style="width:12%">Direction</th><th>What it catches</th></tr>
+  <tr><th style="width:23%">Type</th><th style="width:11%">Direction</th><th>What it catches</th></tr>
   <tr><td><code>production_disruption</code></td><td>creates</td><td>Line-down, plant halt, output stoppage — at a manufacturer or anywhere in its inbound chain.</td></tr>
   <tr><td><code>supplier_incident</code></td><td>creates</td><td>Fire, explosion, flood, structural failure at a production or logistics site. Reported fast, often only in regional press.</td></tr>
-  <tr><td><code>industrial_action</code></td><td>creates</td><td>Announced or active strike affecting transport or production. <strong>The best-fit signal class available:</strong> Verdi and EVG announce days ahead, dated and precisely scoped, and it creates immediate, predictable air-freight demand.</td></tr>
-  <tr><td><code>transport_disruption</code></td><td>creates</td><td>Port or airport congestion, rail closure, canal blockage, border and customs backlog, airspace closure, low-water on inland waterways.</td></tr>
-  <tr><td><code>insolvency_upstream</code></td><td>creates</td><td>A supplier or logistics provider filing, forcing re-sourcing and expediting. Distinct from <code>buyer_distress</code> below, which is the opposite signal.</td></tr>
+  <tr><td><code>industrial_action</code></td><td>creates</td><td>Announced or active strike affecting transport or production. <strong>The best-fit class available:</strong> ver.di and EVG announce days ahead, dated and precisely scoped.</td></tr>
+  <tr><td><code>transport_disruption</code></td><td>creates</td><td>Port or airport congestion, rail closure, canal blockage, customs backlog, airspace closure, Rhine low water.</td></tr>
+  <tr><td><code>insolvency_upstream</code></td><td>creates</td><td>A supplier or logistics provider filing, forcing re-sourcing and expediting.</td></tr>
   <tr><td><code>product_recall</code></td><td>creates</td><td>Recall requiring urgent parts or product movement.</td></tr>
   <tr><td><code>disaster_relief</code></td><td>creates</td><td>Natural disaster or humanitarian response.</td></tr>
 </table>
 
 <h3>3.2 Cargo — projects</h3>
-<p>Planned, high-value, long lead time. The class the daily digest serves best, and the one where an untracked company most often turns into a new customer.</p>
 <table>
-  <tr><th style="width:24%">Type</th><th style="width:12%">Direction</th><th>What it catches</th></tr>
-  <tr><td><code>major_project</code></td><td>creates</td><td>Large infrastructure, energy or industrial project awarded, launched or hitting a milestone. The contractor-discovery case: a project of this size publishes a site naming its contractors, and those contractors are the prospects — see <a href="#h2">H2</a>.</td></tr>
-  <tr><td><code>plant_investment</code></td><td>creates</td><td>New factory, production line or major machinery installation — the machinery has to arrive.</td></tr>
-  <tr><td><code>capacity_ramp</code></td><td>creates</td><td>Production ramp-up, new model launch, or market entry into a distant region needing expedited logistics.</td></tr>
+  <tr><th style="width:23%">Type</th><th style="width:11%">Direction</th><th>What it catches</th></tr>
+  <tr><td><code>major_project</code></td><td>creates</td><td>Large infrastructure, energy or industrial project awarded, launched or hitting a milestone. The contractor-discovery case — see <a href="#h2">H2</a>.</td></tr>
+  <tr><td><code>plant_investment</code></td><td>creates</td><td>New factory, production line or major machinery installation. The machinery has to arrive.</td></tr>
+  <tr><td><code>capacity_ramp</code></td><td>creates</td><td>Production ramp-up, model launch, or market entry into a distant region needing expedited logistics.</td></tr>
 </table>
 
 <h3>3.3 Passenger</h3>
 <table>
-  <tr><th style="width:24%">Type</th><th style="width:12%">Direction</th><th>What it catches</th></tr>
+  <tr><th style="width:23%">Type</th><th style="width:11%">Direction</th><th>What it catches</th></tr>
   <tr><td><code>executive_travel</code></td><td>creates</td><td>M&amp;A, roadshow, IPO, board or delegation travel.</td></tr>
   <tr><td><code>vip_appearance</code></td><td>creates</td><td>Celebrity, artist or executive appearance; film and TV production.</td></tr>
-  <tr><td><code>tour_or_fixture</code></td><td>creates</td><td>Music tour, sports fixture, tournament qualification, team or squad travel.</td></tr>
+  <tr><td><code>tour_or_fixture</code></td><td>creates</td><td>Music tour, sports fixture, tournament qualification, squad travel.</td></tr>
   <tr><td><code>group_event</code></td><td>creates</td><td>Corporate event, incentive trip, conference or trade-fair delegation.</td></tr>
-  <tr><td><code>airline_disruption</code></td><td>creates</td><td>Carrier insolvency, route cancellation or airline strike leaving a group without capacity. Bad news for the airline, direct demand for a charter operator.</td></tr>
+  <tr><td><code>airline_disruption</code></td><td>creates</td><td>Carrier insolvency, route cancellation or airline strike leaving a group without capacity.</td></tr>
   <tr><td><code>evacuation</code></td><td>creates</td><td>Crisis evacuation or repatriation — where a German operator with its own AOC has a specific advantage.</td></tr>
 </table>
 
 <h3>3.4 Suppressor and fallback</h3>
 <table>
-  <tr><th style="width:24%">Type</th><th style="width:12%">Direction</th><th>What it catches</th></tr>
-  <tr><td><code>buyer_distress</code></td><td>freezes</td><td>The target's own insolvency, site closure or market exit. The one case where the original "bad news is not a sales signal" instinct holds exactly.</td></tr>
-  <tr><td><code>other</code></td><td>none</td><td>Fallback. The share of signals landing here is the health metric for this taxonomy — a high rate means classes are missing.</td></tr>
+  <tr><th style="width:23%">Type</th><th style="width:11%">Direction</th><th>What it catches</th></tr>
+  <tr><td><code>buyer_distress</code></td><td>freezes</td><td>The target's own insolvency, site closure or market exit. The one case where "bad news is not a sales signal" holds exactly.</td></tr>
+  <tr><td><code>other</code></td><td>none</td><td>Fallback. The share landing here is the health metric for this taxonomy.</td></tr>
 </table>
 
 <div class="decision">
-  <strong>Settings behaviour, as requested.</strong> All types — the seventeen above plus the nine legacy ones — live in one admin-managed list in Settings, each with an on/off toggle. The charter types ship enabled; the legacy nine ship disabled. Legacy types are <em>retained, not deleted</em>: existing signal rows reference them, and dropping enum values would orphan history. A disabled type is removed from the prompt's allowed list and filtered out of the feed and digest, so disabling is a real quality lever, not just a display setting.
+  <strong>Settings behaviour.</strong> All types — the seventeen above plus the nine legacy ones — appear in one admin-managed list with on/off toggles. Charter types ship enabled, legacy ones disabled. Legacy types are retained rather than deleted because existing signal rows reference them. A disabled type is dropped from the prompt's allowed list and filtered out of feed and digest, so disabling is a real quality lever, not a display setting.
 </div>
 
-<div class="assumption">
-  <strong>Two honest caveats.</strong> First, seventeen classes is a lot to ask a model to discriminate; classification reliability falls as a taxonomy grows, and <a href="#a4">A4</a> measures it per class so weak ones can be merged. Second, this list is derived from how charter demand generally arises, not from ProAir's own history — which is exactly what open question 1 exists to fix. Expect it to change once real bookings are reviewed.
-</div>
+<h2 id="entity">4. The Infrastruktur entity type <span class="tag">approved</span></h2>
 
-<h2 id="entity">4. The third entity type <span class="tag">approve or correct</span></h2>
+<p>Named <strong>"Infrastruktur"</strong> (EN "Infrastructure"), in the top navigation beside Unternehmen and Themen. The conceptual line: <em>a company is someone we sell to; a topic is a subject we follow; this is something we watch because its disruption moves freight or people</em> — never itself a prospect. Breadth is carried by a required <code>kind</code> field rather than a longer section name.</p>
 
-<p>Ports, airports, rail networks, canals, borders, regions, unions and airlines do not fit <code>TargetCompany</code> (we do not sell to them) or <code>ThemeWatch</code> (they are named entities, not topics). The clean conceptual line is:</p>
-
-<div class="decision">
-  <strong>A company is someone we sell to. A topic is a subject we follow. This third thing is something we watch because its disruption moves freight or people</strong> — it is never itself a prospect.
-</div>
-
-<h3>4.1 Name</h3>
-
-<p><strong>Proposed: "Infrastruktur" (EN: "Infrastructure")</strong>, sitting in the top navigation beside Unternehmen and Themen. Reasoning: it is a plain word both reps will read correctly at a glance, it needs no explanation, and it does not carry the negative framing of alternatives like "Störquellen". Breadth is carried by a required <code>kind</code> field on each entry rather than by a longer section name — so the label stays short while the content stays broad.</p>
-
-<p>The honest tension: a union is not literally infrastructure. It sits here because it is an actor that can halt infrastructure, and the typed list makes that read naturally in context. If that bothers you, the best alternative is <strong>"Netzwerk &amp; Infrastruktur"</strong> — more accurate, less crisp in a navigation bar.</p>
-
-<h3>4.2 Kinds</h3>
-<p>Every entry is typed. The kind drives the icon, the default query terms, and which template group it appears under.</p>
 <table>
-  <tr><th style="width:26%">Kind</th><th>Examples</th></tr>
-  <tr><td>Seehafen / Seaport</td><td>Hamburg, Bremerhaven, Rotterdam, Antwerp</td></tr>
-  <tr><td>Flughafen / Airport</td><td>Frankfurt, Leipzig/Halle, Liège, Luxembourg</td></tr>
-  <tr><td>Binnenhafen &amp; Wasserstraße</td><td>Duisburg, Rhine water levels, Kiel Canal, Suez, Panama</td></tr>
-  <tr><td>Bahnnetz / Rail network</td><td>DB Netz, SBB Cargo, Betuweroute</td></tr>
-  <tr><td>Grenze &amp; Zoll / Border and customs</td><td>Dover–Calais, Polish–Ukrainian crossings, post-Brexit GB customs</td></tr>
-  <tr><td>Region / Region</td><td>A production region, a shipping lane, a conflict area</td></tr>
-  <tr><td>Gewerkschaft / Union</td><td>Verdi, EVG, and the sector-specific unions abroad</td></tr>
-  <tr><td>Airline / Carrier</td><td>Carriers whose insolvency, strike or route cuts create charter demand</td></tr>
+  <tr><th style="width:30%">Kind</th><th>Scope</th></tr>
+  <tr><td>Seehafen / Seaport</td><td>Container and general-cargo sea gateways serving DACH industry</td></tr>
+  <tr><td>Flughafen / Airport</td><td>Cargo hubs and charter-capable passenger airports</td></tr>
+  <tr><td>Binnenhafen &amp; Wasserstraße</td><td>Inland ports, river corridors, canals and global chokepoints</td></tr>
+  <tr><td>Bahnnetz / Rail network</td><td>Infrastructure managers, freight operators and alpine corridors</td></tr>
+  <tr><td>Grenze &amp; Zoll / Border and customs</td><td>Crossings and customs regimes that create backlogs</td></tr>
+  <tr><td>Region / Region</td><td>Industrial clusters and shipping lanes</td></tr>
+  <tr><td>Gewerkschaft / Union</td><td>Unions whose action halts transport or production</td></tr>
+  <tr><td>Airline / Carrier</td><td>Carriers whose insolvency, strike or capacity shift creates charter demand</td></tr>
 </table>
 
-<h3>4.3 Frontend</h3>
-<ul>
-  <li><strong>List view</strong> mirroring Themen: name, kind badge, region, active toggle, last-event date, and a count of linked companies. Sortable by last event, because "what moved recently" is the scanning question.</li>
-  <li><strong>Creation from a template gallery</strong>, reusing the existing <code>TopicTemplateGallery</code> component and the <code>TopicTemplate</code> table pattern (<code>models/topic_template.py</code>) — that table exists as rows rather than a hardcoded list specifically so curation happens without a deploy, and the same reasoning applies here. Ship a seeded catalogue so the section is useful on day one instead of an empty page with an Add button.</li>
-  <li><strong>Detail view</strong> in three parts: what is watched (query terms, attached feeds, region), recent events, and — the important one — <strong>linked companies</strong>, the target companies whose exposure to this entity we have recorded.</li>
-  <li><strong>The reciprocal link on the company page:</strong> "Infrastructure this company depends on." This is where the exposure data gets maintained, and it is what <a href="#h2">H2</a> reads to turn an infrastructure event into a named prospect.</li>
-  <li><strong>Signals from an infrastructure event</strong> render with the affected company plus the evidence chain, never the bare assertion.</li>
-</ul>
+<p><strong>Frontend:</strong> list view mirroring Themen (name, kind badge, region, active toggle, last-event date, linked-company count), sortable by last event because "what moved recently" is the scanning question. Creation from a template gallery reusing the existing <code>TopicTemplateGallery</code> component and the <code>TopicTemplate</code> table pattern — that table is rows rather than a hardcoded list specifically so curation happens without a deploy, and the same reasoning applies here. Detail view in three parts: what is watched, recent events, and <strong>linked companies</strong>. The reciprocal link lives on the company page as "Infrastructure this company depends on", which is where exposure data gets maintained and what <a href="#h2">H2</a> reads.</p>
+
+<h2 id="catalogue">5. Seeded infrastructure catalogue <span class="tag">for review</span></h2>
+
+<p>Ten per kind, weighted by volume and by relevance to DACH industry. One deliberate choice worth stating up front: <strong>this is not a DACH-only list.</strong> Rotterdam and Antwerp handle more German hinterland freight than most German ports, Austria routes through Koper and Trieste, and Switzerland has no seaport at all — a strictly DACH-located list would miss the corridors that actually matter. Non-DACH entries are marked ◇.</p>
+
+<h3>5.1 Seehäfen</h3>
+<table>
+  <tr><th style="width:30%">Entry</th><th>Why it is here</th></tr>
+  <tr><td>Hamburg</td><td>Germany's largest: 8.3m TEU and 114.6m tonnes in 2025. The default watch.</td></tr>
+  <tr><td>Bremerhaven / Bremen</td><td>Germany's second container port; the vehicle-handling gateway.</td></tr>
+  <tr><td>Rotterdam ◇</td><td>Europe's largest port and a primary German hinterland gateway.</td></tr>
+  <tr><td>Antwerp-Bruges ◇</td><td>The other Westhafen; chemicals and breakbulk for the Rhine industry.</td></tr>
+  <tr><td>Wilhelmshaven (JadeWeserPort)</td><td>Germany's only deep-water container port.</td></tr>
+  <tr><td>Rostock</td><td>Baltic ferry and breakbulk gateway; project-cargo capable.</td></tr>
+  <tr><td>Lübeck</td><td>Largest German Baltic ferry port; Scandinavia traffic.</td></tr>
+  <tr><td>Brunsbüttel</td><td>Project and heavy-lift cargo; Kiel Canal entrance.</td></tr>
+  <tr><td>Emden</td><td>Vehicle handling for the automotive sector.</td></tr>
+  <tr><td>Koper / Trieste ◇</td><td>Austria's and southern Germany's Adriatic route to Asia.</td></tr>
+</table>
+
+<h3>5.2 Flughäfen</h3>
+<table>
+  <tr><th style="width:30%">Entry</th><th>Why it is here</th></tr>
+  <tr><td>Frankfurt (FRA)</td><td>Europe's largest cargo airport, ~1.99m tonnes in 2025.</td></tr>
+  <tr><td>Leipzig/Halle (LEJ)</td><td>Germany's second, ~1.4m tonnes; DHL's European hub; freighter- and charter-friendly.</td></tr>
+  <tr><td>Köln/Bonn (CGN)</td><td>UPS and FedEx hub; 24-hour operation, which matters for urgent freight.</td></tr>
+  <tr><td>Zürich (ZRH)</td><td>Switzerland's cargo gateway, ~441,000 tonnes in 2025; pharma-heavy.</td></tr>
+  <tr><td>München (MUC)</td><td>341,000 tonnes in 2025, +9.5%; Bavaria's automotive and aerospace belt.</td></tr>
+  <tr><td>Wien (VIE)</td><td>Record 313,763 tonnes in 2025; CEE gateway and pharma.</td></tr>
+  <tr><td>Liège (LGG) ◇</td><td>Charter- and e-commerce-driven, among Europe's fastest-growing cargo hubs.</td></tr>
+  <tr><td>Luxembourg (LUX) ◇</td><td>Cargolux home base; a primary European freighter node.</td></tr>
+  <tr><td>Amsterdam Schiphol (AMS) ◇</td><td>Major cargo gateway operating under slot constraints — itself a recurring disruption source.</td></tr>
+  <tr><td>Basel EuroAirport (BSL)</td><td>~105,000 tonnes; the pharma cluster's own airport.</td></tr>
+</table>
+<div class="assumption"><strong>Worth adding on your call:</strong> Frankfurt-Hahn (HHN) — low traffic, but freighter- and charter-permissive with night flights, which is exactly the profile that matters for urgent cargo.</div>
+
+<h3>5.3 Binnenhäfen &amp; Wasserstraßen</h3>
+<table>
+  <tr><th style="width:30%">Entry</th><th>Why it is here</th></tr>
+  <tr><td>Duisburg (duisport)</td><td>Europe's largest inland port, ~4.2m TEU; the Rhine–rail–China interface.</td></tr>
+  <tr><td>Rhein-Pegel Kaub</td><td>The single most actionable waterway watch: low water at Kaub repeatedly forces freight off barges and onto rail, road and air.</td></tr>
+  <tr><td>Mannheim / Ludwigshafen</td><td>BASF and the chemical cluster; heavy dependence on barge traffic.</td></tr>
+  <tr><td>Köln</td><td>Rhine node for the Ruhr and Rhineland industry.</td></tr>
+  <tr><td>Karlsruhe</td><td>Upper Rhine node; refinery and bulk traffic.</td></tr>
+  <tr><td>Basel (Schweizerische Rheinhäfen)</td><td>Switzerland's only waterborne freight access.</td></tr>
+  <tr><td>Linz (Donau)</td><td>Austria's industrial river port; voestalpine steel.</td></tr>
+  <tr><td>Wien (Donau)</td><td>Austrian Danube gateway to CEE and the Black Sea.</td></tr>
+  <tr><td>Nord-Ostsee-Kanal</td><td>World's busiest artificial waterway; lock outages reroute Baltic traffic.</td></tr>
+  <tr><td>Suez / Panama ◇</td><td>Global chokepoints. Blockage or drought here is the classic air-freight demand event.</td></tr>
+</table>
+
+<h3>5.4 Bahnnetz</h3>
+<table>
+  <tr><th style="width:30%">Entry</th><th>Why it is here</th></tr>
+  <tr><td>DB InfraGO</td><td>German network operator; construction closures and corridor works.</td></tr>
+  <tr><td>DB Cargo</td><td>Largest German rail freight operator; strikes and capacity cuts.</td></tr>
+  <tr><td>ÖBB Infrastruktur / Rail Cargo Austria</td><td>Austrian network and freight arm.</td></tr>
+  <tr><td>SBB Infrastruktur / SBB Cargo</td><td>Swiss network and freight arm.</td></tr>
+  <tr><td>Gotthard-Basistunnel</td><td>The 2023 freight derailment closed it for months — the canonical alpine disruption.</td></tr>
+  <tr><td>Brenner-Korridor</td><td>Austria–Italy; recurring capacity restrictions and works.</td></tr>
+  <tr><td>Rheintalbahn / Rastatt</td><td>The 2017 tunnel collapse is the textbook European rail-freight disruption case.</td></tr>
+  <tr><td>Betuweroute ◇</td><td>Rotterdam–Germany dedicated freight line.</td></tr>
+  <tr><td>Hafenbahnen Hamburg / Bremerhaven</td><td>Port rail links; a bottleneck independent of the port itself.</td></tr>
+  <tr><td>PL/UA Breitspur-Grenze ◇</td><td>Gauge break on the eastern corridor; a persistent chokepoint.</td></tr>
+</table>
+
+<h3>5.5 Grenzen &amp; Zoll</h3>
+<table>
+  <tr><th style="width:30%">Entry</th><th>Why it is here</th></tr>
+  <tr><td>DE–PL (Frankfurt/Oder u.a.)</td><td>Main eastern road freight corridor.</td></tr>
+  <tr><td>PL–UA Grenzübergänge ◇</td><td>Recurring blockades and long queues.</td></tr>
+  <tr><td>Dover–Calais / Eurotunnel ◇</td><td>UK land bridge; the classic backlog generator.</td></tr>
+  <tr><td>UK-Zollregime (post-Brexit) ◇</td><td>Controls and IT changes that create sudden delays.</td></tr>
+  <tr><td>Brenner (AT–IT)</td><td>Road transit restrictions and Austrian block-clearance rules.</td></tr>
+  <tr><td>CH–EU Zoll</td><td>Switzerland outside the customs union — every shipment clears.</td></tr>
+  <tr><td>TR–EU (Kapıkule) ◇</td><td>Main road corridor to Turkey; long-standing congestion.</td></tr>
+  <tr><td>EU ICS2 / CBAM</td><td>Regulatory regimes whose phase-ins reliably cause disruption.</td></tr>
+  <tr><td>Gesperrte Lufträume ◇</td><td>Russian and conflict-zone airspace closures; direct routing and cost impact.</td></tr>
+  <tr><td>Rotes Meer / Bab el-Mandeb ◇</td><td>Routing risk that shifts sea freight to air.</td></tr>
+</table>
+
+<h3>5.6 Gewerkschaften</h3>
+<table>
+  <tr><th style="width:30%">Entry</th><th>Why it is here</th></tr>
+  <tr><td>ver.di</td><td>Ports, airports, ground handling, public sector. The highest-value single union watch.</td></tr>
+  <tr><td>EVG</td><td>Rail sector; network-wide freight impact.</td></tr>
+  <tr><td>GDL</td><td>Train drivers; disproportionate impact for small membership.</td></tr>
+  <tr><td>Vereinigung Cockpit</td><td>Pilots; direct passenger-charter demand when action lands.</td></tr>
+  <tr><td>UFO</td><td>Cabin crew; same mechanism.</td></tr>
+  <tr><td>IG Metall</td><td>Manufacturing; production stoppages upstream of freight demand.</td></tr>
+  <tr><td>vida (AT)</td><td>Austrian transport union.</td></tr>
+  <tr><td>Unia (CH)</td><td>Swiss industrial and logistics union.</td></tr>
+  <tr><td>ABVV-ACV Havenarbeiders ◇</td><td>Antwerp dockers; direct Westhafen impact.</td></tr>
+  <tr><td>CGT / French port unions ◇</td><td>Recurring French port and refinery action.</td></tr>
+</table>
+
+<h3>5.7 Regionen</h3>
+<table>
+  <tr><th style="width:30%">Entry</th><th>Why it is here</th></tr>
+  <tr><td>Ruhrgebiet</td><td>Steel, chemicals, heavy industry; project cargo origin.</td></tr>
+  <tr><td>Baden-Württemberg</td><td>Automotive and machine tools; the densest supplier network.</td></tr>
+  <tr><td>Bayern (München / Ingolstadt)</td><td>Automotive and aerospace.</td></tr>
+  <tr><td>Sachsen ("Silicon Saxony")</td><td>Semiconductors; extreme time-criticality and high freight value.</td></tr>
+  <tr><td>Rhein-Neckar</td><td>Chemicals and pharma; barge-dependent.</td></tr>
+  <tr><td>Hamburg / Norddeutschland</td><td>Aviation (Airbus), wind energy — oversized components.</td></tr>
+  <tr><td>Oberösterreich</td><td>Austrian industrial core.</td></tr>
+  <tr><td>Region Basel</td><td>Pharma cluster; high-value, temperature-controlled air freight.</td></tr>
+  <tr><td>Ostsee / Nordsee Offshore-Wind</td><td>Offshore projects; heavy-lift and urgent parts.</td></tr>
+  <tr><td>China–Europa Korridore ◇</td><td>Rail and sea lanes whose disruption pushes volume to air.</td></tr>
+</table>
+
+<h3>5.8 Airlines &amp; Carrier</h3>
+<table>
+  <tr><th style="width:30%">Entry</th><th>Why it is here</th></tr>
+  <tr><td>Lufthansa Cargo</td><td>Home-market capacity; strikes and capacity decisions move the charter market.</td></tr>
+  <tr><td>Antonov Airlines ◇</td><td>The An-124 reference operator for oversized cargo. Fleet availability is a structural constraint on that whole market.</td></tr>
+  <tr><td>Volga-Dnepr ◇</td><td>The other An-124 operator; sanctioned, which is precisely why remaining capacity is tight.</td></tr>
+  <tr><td>Cargolux ◇</td><td>Major European freighter operator out of Luxembourg.</td></tr>
+  <tr><td>DHL Aviation</td><td>Leipzig-based; integrator capacity shifts.</td></tr>
+  <tr><td>UPS Airlines ◇</td><td>Cologne hub.</td></tr>
+  <tr><td>FedEx Express ◇</td><td>Cologne and Paris hubs.</td></tr>
+  <tr><td>Turkish Cargo ◇</td><td>Large freighter network bridging Europe and Asia.</td></tr>
+  <tr><td>Emirates SkyCargo / Qatar Airways Cargo ◇</td><td>Main long-haul belly and freighter capacity to Asia and Africa.</td></tr>
+  <tr><td>Eurowings / Discover / Condor</td><td>German leisure and group carriers; route cuts and insolvency create passenger-charter demand.</td></tr>
+</table>
 
 <div class="assumption">
-  <strong>Reuse note:</strong> <code>ThemeWatch</code> already carries almost the whole shape needed here — query terms, exclude terms, per-entity source allowlist with inherit semantics, per-entity Google News edition, active flag, manual run cooldown. <a href="#h3">H3</a> asks whether Infrastruktur should be a new model or a typed variant of that one. A typed variant is far cheaper; the risk is overloading a model whose prompt still tries to extract a single company name.
+  <strong>What this list is and is not.</strong> It is a defensible starting set drawn from published throughput and known corridor risk, not a claim about ProAir's own booking history. Expect to cut a third of it after a month of real signals, which is exactly what the per-entry activity data is for. <a href="#e1">E1</a> verifies every feed URL empirically before any entry ships — several of these will have no usable feed and will need a topic-query watch instead.
 </div>
 
-<h2 id="phase0">5. Phase 0 — Measurement foundation <span class="phase-badge">Blocks everything</span></h2>
+<h2 id="scale">6. The 0–10 relevance scale <span class="tag">for review</span></h2>
+
+<p>Designed to your anchors: 10 reserved and rare, 7–9 the meaningful band, 0 meaning no alignment at all. The scale folds two questions into one number — <em>how strong is the event</em> and <em>how well does it fit what ProAir sells</em> — and the required rationale text is what keeps that legible.</p>
+
+<table>
+  <tr><th style="width:8%">Score</th><th style="width:28%">Meaning</th><th>Test the model must apply</th></tr>
+  <tr><td><strong>10</strong></td><td>Reserved</td><td>A named, dated, confirmed transport need ProAir can serve directly, with an identifiable buyer. Expect a handful per year, not per month. If it is being awarded often, the anchor has drifted.</td></tr>
+  <tr><td><strong>9</strong></td><td>Call today</td><td>Clear trigger, buyer named, timing known. No research step needed before picking up the phone.</td></tr>
+  <tr><td><strong>8</strong></td><td>Clear opportunity</td><td>Clear trigger and named buyer, but scope or timing uncertain.</td></tr>
+  <tr><td><strong>7</strong></td><td>Worth pursuing</td><td>Credible trigger; buyer named or confidently inferable with evidence. One research step before calling.</td></tr>
+  <tr><td><strong>6</strong></td><td>Weak lead</td><td>Right event type, but the buyer is not named and the inference is thin.</td></tr>
+  <tr><td><strong>5</strong></td><td>Wrong scale or place</td><td>Right event type, wrong magnitude or a geography ProAir does not serve.</td></tr>
+  <tr><td><strong>4</strong></td><td>Relevant company, no angle</td><td>Real event at a tracked company with no transport implication — a leadership change at an OEM.</td></tr>
+  <tr><td><strong>3</strong></td><td>Background</td><td>Context about a relevant company. Useful on the timeline, not for outreach.</td></tr>
+  <tr><td><strong>2</strong></td><td>Industry noise</td><td>Marginally related sector news.</td></tr>
+  <tr><td><strong>1</strong></td><td>Not relevant</td><td>No connection, but nothing contradictory either.</td></tr>
+  <tr><td><strong>0</strong></td><td>No alignment</td><td>Nothing to do with the business at all.</td></tr>
+</table>
+
+<div class="decision">
+  <strong>Digest floor: 7.</strong> This restates the agreed "top 10, never below 4/5" onto the new scale. Your own band definition puts meaningful signals at 7–9, so 7 is the floor that preserves the original intent. A linear conversion of 4/5 would give 8, which would be stricter than what was agreed — flagging the difference rather than silently picking one.
+</div>
+
+<div class="assumption">
+  <strong>One refinement I would make to your definition of 0.</strong> You defined 0 as no alignment <em>and</em> negative overall sentiment. I would keep 0 for "irrelevant" only, and let <code>buyer_distress</code> carry the negative case through its type and its <em>freezes</em> budget direction instead. Reason: a target's insolvency is highly informative — it should suppress outreach and appear on the timeline — and if it scores 0 it becomes indistinguishable from an article about a football match. Same information, better preserved.
+</div>
 
 <div class="gap">
-  <strong>Confirmed gap:</strong> NewsAtlas has no data export. CSV is import-only (<code>api/target_companies.py:162</code>). The only read surface for raw pipeline data is <code>GET /articles/skipped</code>, admin-only and capped at 200 rows. Nothing data-driven is decidable today.
+  <strong>Migration.</strong> Existing signals carry 1–5 values. Do not linearly rescale them — a 3 under the old unanchored prompt does not mean 6 under the new anchored one, and rescaling would produce confident nonsense. Recommendation: keep the old value in a legacy column, exclude pre-migration signals from the new floor logic, and let history age out. <a href="#a3">A3</a>'s gold set gets labelled on the new scale from the start.
+</div>
+
+<h2 id="both-lines">7. Serving both business lines <span class="tag">challenge</span></h2>
+
+<p>You raised the idea of <em>custom search types prefilled through AI analysis of company data</em>, and asked me to challenge it. The intent is right and the mechanism is where I would push back.</p>
+
+<p><strong>The problem is real.</strong> A keyword search for "Mercedes" finds news about Mercedes, not the events that would make Mercedes need a charter. Different companies have genuinely different trigger profiles: an automotive OEM's are line-down and supplier fire; a pharma company's are cold-chain and recall; a construction firm's are project milestones and oversized equipment. And with equal effort going to both business lines, one generic query per company cannot serve both.</p>
+
+<p><strong>Three problems with "AI analysis of company data" as stated.</strong></p>
+
+<p>First, <em>what data?</em> NewsAtlas holds a name, keywords, an industry string and some allowlists. That is thin. A model asked to analyse it would really be drawing on its own prior knowledge of the company — fine for Mercedes, unreliable for the mid-size Mittelstand supplier it has never heard of. Quality would be inversely proportional to how much you need the help, which is the wrong way round.</p>
+
+<p>Second, <em>it may be the wrong layer.</em> "Cargo and passenger need different searches" is better solved by the taxonomy that already has to exist than by a new entity. Third, <em>generated terms nobody reviews become unexplainable</em> — when a company stops producing signals, you cannot tell whether nothing happened or its generated terms were quietly bad.</p>
+
+<div class="decision">
+  <strong>What I would build instead: a per-company trigger profile.</strong> Three fields on <code>TargetCompany</code> — which business lines apply (cargo, passenger, both), which §3 event types are relevant, and which Infrastruktur entries it depends on (the §4 link table, which <a href="#h2">H2</a> needs anyway). AI pre-fills the profile at company creation; the rep reviews and corrects it. This gets the tailoring you want without a parallel search mechanism, reuses three things already being built, and keeps every generated value visible and editable — the same "propose, never silently apply" discipline that <code>TopicTemplate</code> and <code>suggest_topics()</code> already follow. Cost is not an objection: this is one call per company at creation, not per article.
+</div>
+
+<div class="gap">
+  <strong>A consequence of "equal effort" that needs a decision.</strong> A single top-10 digest will be dominated by whichever business line produces more signal volume — and cargo, with its disruption classes and far larger universe of trigger events, will almost certainly produce more. If both lines matter equally, the digest probably needs to be balanced explicitly (say, top 5 per line) rather than ranked globally. <a href="#b2">B2</a> now carries this question; B1's measurement will show how lopsided it actually is.
+</div>
+
+<h2 id="phase0">8. Phase 0 — Measurement and limits <span class="phase-badge">Blocks everything</span></h2>
+
+<div class="gap">
+  <strong>Confirmed gap:</strong> NewsAtlas has no data export. CSV is import-only (<code>api/target_companies.py:162</code>). The only read surface for raw pipeline data is <code>GET /articles/skipped</code>, admin-only, capped at 200 rows.
 </div>
 
 <div class="phase">
 <h3><span class="phase-badge">R0.1</span> Analytical export <span class="tag">M</span></h3>
-<p><strong>Question:</strong> What is the smallest export that answers every measurement question here without becoming a reporting feature we then maintain?</p>
-<p><strong>Method:</strong> Enumerate the needed fields — for articles <code>fetched_at</code>, <code>published_at</code>, <code>source</code>, <code>source_name</code>, <code>skip_reason</code>, <code>triage_reason</code>, <code>content_enriched</code>; for signals <code>relevance_score</code>, <code>signal_type</code>, <code>confidence</code>, <code>status</code>, token counts, <code>emailed_at</code>. One admin export per entity with a date range. Check what <code>ai_usage_logs</code> and <code>news_source_usage_logs</code> already cover.</p>
+<p><strong>Method:</strong> One admin export per entity with a date range. Articles: <code>fetched_at</code>, <code>published_at</code>, <code>source</code>, <code>source_name</code>, <code>skip_reason</code>, <code>triage_reason</code>, <code>content_enriched</code>. Signals: <code>relevance_score</code>, <code>signal_type</code>, <code>confidence</code>, <code>status</code>, token counts, <code>emailed_at</code>. Check what <code>ai_usage_logs</code> and <code>news_source_usage_logs</code> already cover.</p>
 <p><strong>Deliverable:</strong> Export endpoint spec.</p>
 <p><strong>Unblocks:</strong> Every measurement item below.</p>
-<div class="assumption"><strong>Recommendation:</strong> build it as a permanent admin feature, not a throwaway script. We re-measure after every prompt change in Track A, and a script needing database access each time will not get run.</div>
+<div class="assumption"><strong>Recommendation:</strong> a permanent admin feature, not a throwaway script. We re-measure after every prompt change, and a script needing database access each time will not get run.</div>
 </div>
 
 <div class="phase">
 <h3><span class="phase-badge">R0.2</span> Baseline funnel and score distribution <span class="tag">M</span> <span class="tag">needs measurement</span></h3>
-<p><strong>Question:</strong> What does the pipeline actually do today?</p>
-<p><strong>Method:</strong> Run the export over full history. Produce: the <code>relevance_score</code> histogram; splits by <code>signal_type</code>, <code>confidence</code>, source and <code>is_headline_only</code>; articles fetched per company per month; drop rates at each funnel stage (URL dedupe → title collapse → cap → embedding dedupe → triage → summarize); dismissal rate per score band.</p>
+<p><strong>Method:</strong> Run the export over full history. Produce the <code>relevance_score</code> histogram; splits by <code>signal_type</code>, <code>confidence</code>, source and <code>is_headline_only</code>; articles per company per month; drop rates at each funnel stage; dismissal rate per score band; and — new this revision — the cargo/passenger split of current signal volume, which §7's digest-balance question depends on.</p>
 <p><strong>Deliverable:</strong> The baseline every Track A change is measured against.</p>
-<p><strong>Unblocks:</strong> A1, A2, A3, B1, C1.</p>
+<p><strong>Unblocks:</strong> A1, A2, A3, B1, C1, and §7's balance decision.</p>
 </div>
 
 <div class="phase">
-<h3><span class="phase-badge">R0.3</span> Cost model against the €20 ceiling <span class="tag">S</span></h3>
-<p><strong>Question:</strong> What does a run cost by stage, and what headroom does €20/month leave?</p>
-<p><strong>Method:</strong> Confirm current Mistral list prices from the vendor rather than assuming. Cross with the real per-signal token counts already stored. Model the marginal cost of this revision's additions specifically — the taxonomy expands the prompt's allowed list, score rationale adds output tokens, and evidence chains add more.</p>
-<p><strong>Deliverable:</strong> Cost per run and per month with a sensitivity table.</p>
-<p><strong>Unblocks:</strong> A2, A4, A5, H2.</p>
-<div class="gap"><strong>Budget tension worth naming now:</strong> three things this revision added — the score rationale, the larger taxonomy, and the H2 evidence chain — all increase output tokens, which is the expensive direction. They are all justified, but together they may not fit €20/month alongside current volume. R0.3 quantifies it and A5 finds the savings; if it still does not fit, open question 9 is the decision point.</div>
+<h3 id="r03"><span class="phase-badge">R0.3</span> The free tier's real limits <span class="tag">S</span> <span class="tag">blocking</span></h3>
+<p><strong>Question:</strong> What are this account's actual Mistral rate limits, and can the pipeline run inside them?</p>
+<div class="gap"><strong>This may be the most consequential unknown in the plan.</strong> Public reporting on the free "Experiment" tier describes a generous monthly token allowance alongside a <em>very</em> low request rate — a figure of roughly 2 requests per minute is widely cited. Mistral no longer publishes exact free-tier numbers publicly; the authoritative source is this account's own Admin Console → Limits page, which only you can read (their docs domain is blocked from my environment, so I could not verify it directly). If the request rate really is that low, then <strong>rate, not euros, is the binding constraint</strong>, and it reshapes the pipeline: ingestion makes up to three calls per article (embed, triage, summarize), so a hundred-article run becomes roughly three hundred calls — hours of wall-clock at 2 RPM. The A3 gold-set replay over 150 items would be a similarly long job.</div>
+<p><strong>Method:</strong> Read the Admin Console limits first — requests per second and per minute, tokens per minute, tokens per month, and whether they differ per model. Then model a realistic run against them. Evaluate the mitigations: batching multiple articles into one call, dropping the separate triage call in favour of a single combined call, running ingestion overnight with a queue and backoff, and using the €20 to lift the tier only for the stages that need it. Confirm current paid list prices from the vendor for that last option.</p>
+<p><strong>Deliverable:</strong> The real limits, a run-time model against them, and a recommended pipeline shape.</p>
+<p><strong>Unblocks:</strong> A2, A4, A5, H2 — and possibly the ingestion architecture itself.</p>
+<div class="assumption"><strong>Silver lining:</strong> if the token allowance is genuinely large while the request rate is small, that argues for <em>fewer, richer calls</em> — which is the same direction the score rationale, the larger taxonomy and the evidence chain were already pushing. The constraint and the feature set may point the same way.</div>
 </div>
 
-<h2 id="track-a">6. Track A — Scoring and taxonomy</h2>
+<h2 id="track-a">9. Track A — Scoring and taxonomy</h2>
 
 <div class="phase">
 <h3><span class="phase-badge">A1</span> How many 3s are not judgements? <span class="tag">S</span> <span class="tag">needs measurement</span></h3>
-<div class="gap"><strong>Confirmed defect:</strong> <code>SummaryResult.relevance_score: int = 3</code> (<code>ai_client.py:218</code>). If Mistral omits the key or returns something unparseable, the signal silently becomes a 3. Same for <code>confidence = "medium"</code> and <code>signal_type = "other"</code>. The <code>signal_type</code> and <code>confidence</code> validators at least log on an unrecognized value; a <em>missing</em> field logs nothing. We cannot distinguish "judged a 3" from "said nothing".</div>
-<p><strong>Method:</strong> Instrument field presence in the raw response, run one ingestion cycle, measure. Replay a sample to see how often the model returns malformed JSON.</p>
-<p><strong>Deliverable:</strong> The contamination rate, plus the fix — make the field required and treat absence as a retry or an error, never a silent middle score.</p>
-<p><strong>Unblocks:</strong> A2. If contamination is material, part of the clustering is a bug rather than a prompt problem.</p>
+<div class="gap"><strong>Confirmed defect:</strong> <code>SummaryResult.relevance_score: int = 3</code> (<code>ai_client.py:218</code>). If Mistral omits the key or returns something unparseable, the signal silently becomes a 3. Same for <code>confidence = "medium"</code> and <code>signal_type = "other"</code>. The <code>signal_type</code> and <code>confidence</code> validators log on an unrecognized value; a <em>missing</em> field logs nothing.</div>
+<p><strong>Method:</strong> Instrument field presence in the raw response, run one cycle, measure. Replay a sample for malformed JSON rate.</p>
+<p><strong>Deliverable:</strong> The contamination rate, plus the fix — required field, absence treated as retry or error, never a silent middle score. Carries over to the 0–10 scale, where a silent default would be worse.</p>
+<p><strong>Unblocks:</strong> A2.</p>
 </div>
 
 <div class="phase">
-<h3 id="a2"><span class="phase-badge">A2</span> A rubric that discriminates, and says why <span class="tag">M</span></h3>
-<div class="gap"><strong>Two design defects</strong> (<code>ai_client.py:52</code>, and the theme prompt at <code>:147</code>): only the endpoints are anchored — 5 is "a clear, immediate buying trigger… today", 1 is "tangentially related background news", and <strong>2, 3 and 4 are undefined</strong>. A model given a 1–5 scale with unanchored middle values regresses to the middle-high band. And one number carries two questions: <em>how strong is the event</em> and <em>how well does it fit our service</em>.</div>
-<p><strong>Method:</strong> Write explicit behavioural anchors for all five levels, in charter terms, using the §3 taxonomy as the vocabulary. Add a required <strong>score rationale</strong> — one or two sentences stating why this score and not one higher or lower — stored on the signal and shown to the rep. Test whether splitting event strength from service fit improves spread enough to justify the extra output tokens. Measure spread and cost delta against A3.</p>
-<p><strong>Deliverable:</strong> A recommended rubric with measured spread, plus a recommendation on 1–5 versus 1–10 (see open question 8).</p>
-<p><strong>Unblocks:</strong> B1, and the digest floor.</p>
-<div class="assumption"><strong>Related:</strong> <code>theme_match_min_relevance_score</code> defaults to <strong>3</strong>, placing the topic floor at the mode of the distribution, so it filters almost nothing. Company signals have no floor at all. Both need resetting once the rubric changes.</div>
+<h3 id="a2"><span class="phase-badge">A2</span> Implementing the 0–10 rubric <span class="tag">M</span></h3>
+<div class="gap"><strong>Two design defects in the current prompt</strong> (<code>ai_client.py:52</code>, theme variant at <code>:147</code>): only the endpoints are anchored, leaving 2–4 undefined, which is what drives regression to the middle-high band. And one number carries two questions. §6 fixes the first by anchoring all eleven levels; the rationale field addresses the second by making the reasoning inspectable.</div>
+<p><strong>Method:</strong> Write the §6 anchors into the prompt in charter terms, using §3 as the event vocabulary. Add the required rationale — one or two sentences on why this score and not one higher or lower. Measure the resulting distribution against A3, checking specifically that 10 stays rare and that the 7–9 band is populated rather than everything piling at 6. Measure output-token cost against R0.3's limits.</p>
+<p><strong>Deliverable:</strong> The rubric with measured spread, and confirmation or correction of the floor at 7.</p>
+<p><strong>Unblocks:</strong> B1 and the digest.</p>
+<div class="assumption"><strong>Related:</strong> <code>theme_match_min_relevance_score</code> defaults to 3 on the old scale, placing the topic floor at the mode of the distribution so it filters almost nothing. It needs resetting onto the new scale along with everything else.</div>
 </div>
 
 <div class="phase">
-<h3><span class="phase-badge">A3</span> A gold set, or we are guessing <span class="tag">M</span></h3>
-<p><strong>Question:</strong> What do the two reps consider a genuinely actionable charter signal?</p>
-<p><strong>Method:</strong> Export 100–150 real signals across the score range. Both reps independently label each <em>act today</em> / <em>worth knowing</em> / <em>noise</em>, with a reason and the business line it belongs to. Measure inter-rater agreement — disagreement is itself a finding. Build an offline harness that replays a prompt against the set and reports agreement, caching responses so an unchanged prompt costs nothing to re-run.</p>
-<p><strong>Deliverable:</strong> A labelled set committed to the repo plus the replay harness.</p>
-<p><strong>Unblocks:</strong> A2, A4, A5, H2, and all future prompt work. The most reusable artifact in the plan.</p>
+<h3 id="a3"><span class="phase-badge">A3</span> A gold set, or we are guessing <span class="tag">M</span></h3>
+<p><strong>Method:</strong> Export 100–150 real signals across the range. Both reps independently label each on the §6 scale, with a reason and the business line it belongs to. Measure inter-rater agreement — disagreement is itself a finding, especially across the two lines. Build an offline replay harness reporting agreement, caching responses so an unchanged prompt costs nothing to re-run — which matters doubly under R0.3's rate limits.</p>
+<p><strong>Deliverable:</strong> A labelled set in the repo plus the harness.</p>
+<p><strong>Unblocks:</strong> A2, A4, A5, H2, and all future prompt work.</p>
 </div>
 
 <div class="phase">
-<h3 id="a4"><span class="phase-badge">A4</span> Validating and tuning the taxonomy <span class="tag">M</span></h3>
-<p><strong>Question:</strong> Does §3 survive contact with reality, and can the model classify it reliably?</p>
-<p><strong>Method:</strong> Two passes. Backward: review ProAir's won bookings, ask what event caused each and whether it was in the press, and check that every one maps to a §3 type — anything that does not is a missing class. Forward: classify the A3 gold set and measure per-class reliability plus the share landing in <code>other</code>. Merge classes the model cannot separate. Then test whether budget direction is reliable enough to act on or should stay advisory.</p>
-<p><strong>Deliverable:</strong> A validated taxonomy with per-class reliability figures and the settings defaults.</p>
-<p><strong>Unblocks:</strong> The settings UI, Track C's good-time read, and Track H.</p>
+<h3 id="a4"><span class="phase-badge">A4</span> Validating the taxonomy <span class="tag">M</span></h3>
+<p><strong>Method:</strong> Backward pass: review won bookings, ask what event caused each and whether it was in the press, check that every one maps to a §3 type — anything that does not is a missing class. Forward pass: classify the A3 gold set, measure per-class reliability and the share landing in <code>other</code>, merge classes the model cannot separate. Then test whether budget direction is reliable enough to act on.</p>
+<p><strong>Deliverable:</strong> A validated taxonomy with per-class reliability and the settings defaults.</p>
+<p><strong>Unblocks:</strong> The settings UI, Track C's verdict rule, Track H, and §7's trigger profiles.</p>
+<div class="assumption">Blocked on open question 1 for its backward pass. The forward pass can run without it.</div>
 </div>
 
 <div class="phase">
 <h3><span class="phase-badge">A5</span> Cost-quality parity per stage <span class="tag">M</span></h3>
-<p><strong>Question:</strong> Where is the best trade between tokens spent and quality gained?</p>
-<p><strong>Method:</strong> Three models already run (<code>mistral_model</code>, <code>mistral_triage_model</code>, <code>mistral_embed_model</code>). Using A3, sweep each stage: does a larger triage model reduce false negatives enough to pay for itself? Does a smaller summarization model lose measurable quality? What does the <code>ai_feedback_note</code> steering (<code>services/feedback.py</code>) contribute per token? Evaluate prompt caching and shorter system prompts as pure cost wins — which matters more now that §3 and the rationale both lengthen the prompt.</p>
-<p><strong>Deliverable:</strong> Per-stage recommendation with measured quality-per-euro, and a configuration that fits €20/month.</p>
-<p><strong>Unblocks:</strong> The budget envelope for everything else.</p>
+<p><strong>Method:</strong> Three models already run (<code>mistral_model</code>, <code>mistral_triage_model</code>, <code>mistral_embed_model</code>). Using A3, sweep each stage — but under R0.3's constraint the question shifts from "cost per token" to "calls per article". Test whether triage and summarization can merge into one call, whether the embedding dedupe pass earns its request budget against the free local title-collapse already in <code>article_scoring.py</code>, and what <code>ai_feedback_note</code> contributes per token. Evaluate prompt caching and shorter system prompts, which matter more now that §3 and the rationale both lengthen the prompt.</p>
+<p><strong>Deliverable:</strong> Per-stage recommendation with measured quality per call, and a configuration that fits the free tier.</p>
+<p><strong>Unblocks:</strong> The envelope for everything else.</p>
 </div>
 
-<h2 id="track-b">7. Track B — The daily digest</h2>
-
-<p>Rule: top 10, hard floor 4/5, always send. Today's digest instead mails every un-emailed signal ordered by score, filtered per user by follows (<code>services/digest.py</code>), with no floor at all.</p>
+<h2 id="track-b">10. Track B — The daily digest</h2>
 
 <div class="phase">
 <h3 id="b1"><span class="phase-badge">B1</span> What the floor actually yields <span class="tag">S</span> <span class="tag">needs measurement</span></h3>
-<p><strong>Question:</strong> How many signals per day clear 4/5 today, and how does that change under the A2 rubric?</p>
-<p><strong>Method:</strong> Replay the rule against 90 days of history, before and after A2.</p>
-<p><strong>Deliverable:</strong> A distribution of daily digest sizes, including how many days send the empty-state line.</p>
-<p><strong>Unblocks:</strong> Confirmation that 4 is the right number, and the 1–5 versus 1–10 decision.</p>
-<div class="assumption">The floor is settled as 4/5, so this is no longer a go/no-go — it is calibration. If the answer is "three days a week are empty", that is information about the rubric and the source coverage, not a reason to lower the bar.</div>
+<p><strong>Method:</strong> Replay the rule against 90 days of history, before and after A2. Report separately for cargo and passenger, since §7's balance decision depends on it.</p>
+<p><strong>Deliverable:</strong> A distribution of daily digest sizes and their line split, including how many days send the empty-state line.</p>
+<p><strong>Unblocks:</strong> Confirmation of the floor at 7, and whether the digest needs per-line balancing.</p>
 </div>
 
 <div class="phase">
-<h3><span class="phase-badge">B2</span> Digest design <span class="tag">M</span></h3>
-<p><strong>Question:</strong> What does a rep need in the email to act without opening the app?</p>
-<p><strong>Method:</strong> Decide what each entry shows — signal type, score with its rationale, the evidence chain for indirect signals, and the copy-ready outreach text. Decide carry-over (a 5/5 nobody acted on yesterday: repeat or drop), whether this replaces the existing digest or runs beside it, and how per-user follow filtering interacts with a top-10 cap (top 10 globally, or per recipient). Write the empty-state copy in both languages.</p>
+<h3 id="b2"><span class="phase-badge">B2</span> Digest design <span class="tag">M</span></h3>
+<p><strong>Method:</strong> Decide what each entry shows — event type, score with its rationale, evidence chain for indirect signals, copy-ready outreach text. Decide carry-over (a 9 nobody acted on yesterday: repeat or drop), whether this replaces the existing digest or runs beside it, how per-user follow filtering interacts with the cap, and — new — whether the top 10 is global or balanced per business line. Write empty-state copy in both languages.</p>
 <p><strong>Deliverable:</strong> A digest spec.</p>
 <p><strong>Unblocks:</strong> Implementation.</p>
 </div>
 
 <div class="phase">
 <h3><span class="phase-badge">B3</span> Transactional email provider <span class="tag">S</span></h3>
-<div class="gap"><strong>Current state:</strong> <code>services/email_client.py</code> is a thin <code>smtplib</code> wrapper. No bounce handling, no delivery tracking, no retry, no DKIM/SPF story in the repo. A failed send raises and that recipient's digest is lost silently. Now that the digest always sends, including on empty days, its reliability matters more, not less.</div>
-<p><strong>Method:</strong> Compare Postmark, SES and Brevo at this volume (2 recipients, daily) on free-tier limits, EU data residency, bounce and delivery webhooks, and effort against the existing <code>EmailClient</code> seam, which was built so the provider is a credential swap.</p>
-<p><strong>Deliverable:</strong> A recommendation with a cost line — likely inside a free tier at two recipients.</p>
+<div class="gap"><strong>Current state:</strong> <code>services/email_client.py</code> is a thin <code>smtplib</code> wrapper. No bounce handling, no delivery tracking, no retry, no DKIM/SPF story in the repo. A failed send raises and that recipient's digest is lost silently. Now that the digest always sends, its reliability matters more.</div>
+<p><strong>Method:</strong> Compare Postmark, SES and Brevo at two recipients daily on free-tier limits, EU data residency, bounce and delivery webhooks, and effort against the existing <code>EmailClient</code> seam, which was built so the provider is a credential swap.</p>
+<p><strong>Deliverable:</strong> A recommendation with a cost line — likely inside a free tier at this volume.</p>
 <p><strong>Unblocks:</strong> Whether B2 carries a provider migration.</p>
 </div>
 
-<h2 id="track-c">8. Track C — Company timeline</h2>
-
-<p>Decided: a plain reverse-chronological list, with whatever data exists pointing to a good-time / bad-time read. No charts.</p>
+<h2 id="track-c">11. Track C — Company timeline</h2>
 
 <div class="phase">
 <h3><span class="phase-badge">C1</span> Is there enough to read? <span class="tag">S</span> <span class="tag">needs measurement</span></h3>
-<p><strong>Question:</strong> How many signals does a typical tracked company accumulate per quarter?</p>
 <p><strong>Method:</strong> From R0.2, the per-company signal count distribution. <code>max_articles_per_company_per_run</code> defaults to 10 and triage discards more, so the ceiling may be low.</p>
-<p><strong>Deliverable:</strong> The distribution, and an honest finding on what share of companies have enough events for the read to mean anything.</p>
-<p><strong>Unblocks:</strong> Whether the good-time read is shown always, or only above a minimum event count.</p>
-<div class="assumption"><strong>Recommendation:</strong> below a threshold, show the list and suppress the verdict rather than printing a confident judgement drawn from two articles. A wrong "good time to approach" is worse than no verdict.</div>
+<p><strong>Deliverable:</strong> The distribution and an honest finding on what share of companies have enough events for a verdict to mean anything.</p>
+<p><strong>Unblocks:</strong> Whether the verdict shows always or only above a minimum event count.</p>
+<div class="assumption"><strong>Recommendation:</strong> below a threshold, show the list and suppress the verdict. A wrong "good time to approach" is worse than no verdict.</div>
 </div>
 
 <div class="phase">
 <h3><span class="phase-badge">C2</span> How the verdict is derived <span class="tag">S</span></h3>
-<p><strong>Question:</strong> What rule turns a list of typed events into "good time" or "bad time"?</p>
-<p><strong>Method:</strong> Derive it from §3 budget direction rather than a new model call — recent creates versus freezes, weighted by recency and score. Keep it rule-based and explainable so the rep can see which events drove it, matching the transparency requirement on the score itself. Decide the window and whether cargo and passenger events are weighed separately.</p>
-<p><strong>Deliverable:</strong> The rule, with worked examples from real company histories.</p>
-<p><strong>Unblocks:</strong> Implementation. Costs nothing at inference time, which matters at €20/month.</p>
+<p><strong>Method:</strong> Derive it from §3 budget direction rather than a new model call — recent <em>creates</em> against <em>freezes</em>, weighted by recency and score. Rule-based and explainable, so the rep sees which events drove it, matching the transparency requirement on the score itself. Decide the window and whether cargo and passenger events weigh separately.</p>
+<p><strong>Deliverable:</strong> The rule with worked examples from real histories.</p>
+<p><strong>Unblocks:</strong> Implementation. Costs no requests at inference time, which matters under R0.3.</p>
 </div>
 
-<h2 id="track-d">9. Track D — Salesforce end-to-end</h2>
+<h2 id="track-d">12. Track D — Salesforce end-to-end</h2>
 
 <div class="phase">
 <h3><span class="phase-badge">D1</span> Auth, objects and limits <span class="tag">S</span></h3>
-<p><strong>Method:</strong> Document the working connected-app flow as the reference. Confirm Sales Cloud API limits at this volume, the API user's required object permissions, and sandbox availability. Reuse the existing encrypted-settings pattern for credentials rather than inventing one.</p>
+<p><strong>Method:</strong> Document the working connected-app flow as the reference. Confirm Sales Cloud API limits at this volume, the API user's object permissions, and sandbox availability. Reuse the existing encrypted-settings pattern for credentials.</p>
 <p><strong>Deliverable:</strong> An integration brief.</p>
 <p><strong>Unblocks:</strong> D2, D3.</p>
 </div>
 
 <div class="phase">
 <h3 id="d2"><span class="phase-badge">D2</span> Account linking <span class="tag">S</span></h3>
-<div class="ok-box"><strong>Resolved by the CSV.</strong> The export can carry the Account ID, so linking happens once at import, under human supervision, on data from Salesforce itself — never by fuzzy name at push time. That removes the failure mode that would have defined this track: a wrong match writing onto the wrong customer, or a missed match creating duplicate Accounts in the CRM of record.</div>
-<p><strong>Method:</strong> Confirm the export column and add it to the import column-mapping UI, which already guesses header names (<code>services/target_company_import.py</code>). Define behaviour for: a company added manually with no counterpart, an Account deleted or merged after import, and a re-import that changes the ID. Verify a stored ID still resolves before writing.</p>
-<p><strong>Deliverable:</strong> Import mapping spec plus unmatched/stale/merged behaviour.</p>
+<div class="ok-box"><strong>Resolved by the CSV.</strong> The export can carry the Account ID, so linking happens once at import, under human supervision, on data from Salesforce itself — never by fuzzy name at push time. That removes the failure mode that would have defined this track.</div>
+<p><strong>Method:</strong> Confirm the export column and add it to the import column-mapping UI, which already guesses header names (<code>services/target_company_import.py</code>). Define behaviour for a manually-added company with no counterpart, an Account deleted or merged after import, and a re-import that changes the ID. Verify a stored ID still resolves before writing.</p>
+<p><strong>Deliverable:</strong> Import mapping spec plus unmatched, stale and merged behaviour.</p>
 <p><strong>Unblocks:</strong> D3.</p>
-<div class="assumption"><strong>Recommendation:</strong> a company without a Salesforce ID is not pushable. An explicit "not linked — re-import to link" state beats falling back to name matching, which would quietly reintroduce every risk the ID removes.</div>
+<div class="assumption"><strong>Recommendation:</strong> a company without a Salesforce ID is not pushable. An explicit "not linked — re-import to link" state beats falling back to name matching.</div>
 </div>
 
 <div class="phase">
 <h3><span class="phase-badge">D3</span> Field mapping and idempotency <span class="tag">M</span></h3>
-<p><strong>Method:</strong> Define the mapping for both paths (create Account; create Task on an existing Account), including required Salesforce fields with no NewsAtlas equivalent. Design idempotency — an external key on the Task, or a local pushed-record log — so a double click or retry cannot create two Tasks. Define record ownership. Define the failure model: partial failures, validation-rule rejections, and how they surface. Decide what the Task body carries: the summary, the score with its rationale, and the evidence chain for indirect signals.</p>
+<p><strong>Method:</strong> Define the mapping for both paths (create Account; create Task on an existing Account), including required Salesforce fields with no NewsAtlas equivalent. Design idempotency — an external key on the Task, or a local pushed-record log — so a double click cannot create two Tasks. Define record ownership and the failure model. Decide what the Task body carries: summary, score with rationale, and the evidence chain for indirect signals.</p>
 <p><strong>Deliverable:</strong> A field mapping table and a written failure and retry model.</p>
 <p><strong>Unblocks:</strong> Implementation.</p>
 </div>
 
 <div class="phase">
 <h3><span class="phase-badge">D4</span> Copy-paste that keeps its formatting <span class="tag">S</span></h3>
-<p><strong>Method:</strong> Research the async Clipboard API writing both <code>text/html</code> and <code>text/plain</code>, and test what survives a paste into Outlook desktop, Outlook web and the Salesforce composer — these three differ and Outlook desktop is the strictest. Test in the browsers the reps use. Paragraph breaks and links are the realistic target; more will likely be stripped.</p>
+<p><strong>Method:</strong> Research the async Clipboard API writing both <code>text/html</code> and <code>text/plain</code>, and test what survives a paste into Outlook desktop, Outlook web and the Salesforce composer — these three differ and Outlook desktop is strictest. Test in the browsers the reps use. Paragraph breaks and links are the realistic target.</p>
 <p><strong>Deliverable:</strong> A compatibility finding and a recommended clipboard payload.</p>
-<p><strong>Unblocks:</strong> The outreach workflow, which is the entire value of the prepare-only decision.</p>
+<p><strong>Unblocks:</strong> The outreach workflow — the entire value of the prepare-only decision.</p>
 </div>
 
-<h2 id="track-e">10. Track E — News-Websites</h2>
+<h2 id="track-e">13. Track E — News-Websites</h2>
 
 <div class="phase">
-<h3><span class="phase-badge">E1</span> The curated source list <span class="tag">L</span></h3>
-<p><strong>Question:</strong> Which sources belong in the catalogue, and what is the verifiably correct feed URL for each?</p>
-<p><strong>Method:</strong> Build from a stated methodology, retargeted at ProAir's actual trigger classes rather than at general business news. Four groups matter: <em>logistics and aviation trade press</em> (DVZ, Verkehrsrundschau, Logistik Heute, the English-language air-cargo titles); <em>regional and local German press</em>, where a plant fire or site incident is reported first and often only; <em>union and industrial-action announcements</em> from Verdi and EVG, which may be better served by their own pages than by any news feed; and <em>infrastructure operators' own channels</em> (port authorities, DB, waterway agencies), which feed §4 directly. For each, resolve and verify the actual feed by fetching, parsing and checking it returns recent well-formed items — this is the <code>handelsblatt.de</code> versus <code>rss.handelsblatt.com</code> problem, and it is solved per source, not by guessing URL patterns. Record canonical site, verified feed URL, update frequency, teaser-only, paywalled.</p>
-<p><strong>Deliverable:</strong> A seed catalogue with every feed empirically verified, plus the written methodology so it can be extended without me.</p>
-<p><strong>Unblocks:</strong> The section's content, and §4's seeded entries.</p>
-<div class="assumption"><strong>Sizing:</strong> L because verification is per-source manual work. It is also the most cuttable item here — 25 well-verified sources beat 100 unverified ones.</div>
+<h3 id="e1"><span class="phase-badge">E1</span> The curated source list <span class="tag">L</span></h3>
+<p><strong>Method:</strong> Five groups, now anchored on what the reps already read — <code>logistik-heute.de</code>, <code>handelsblatt.com</code> and <code>aviationweek.com</code> are confirmed starting points and set the register for the rest. (1) <em>Logistics trade press:</em> Logistik Heute, DVZ, Verkehrsrundschau, and the English-language air-cargo titles. (2) <em>Aviation trade press:</em> Aviation Week and its peers, plus the charter and business-aviation titles. (3) <em>Automotive trade press</em>, since automotive is a named focus and is where line-down events originate. (4) <em>Generic business press:</em> Handelsblatt and equivalents. (5) <em>Regional and local German press</em>, where a plant fire is reported first and often only — the highest-value and most tedious group, since it is many small outlets. Plus infrastructure operators' and unions' own channels, which feed §5 directly. For each: fetch, parse, and confirm recent well-formed items before accepting the URL — this is the <code>handelsblatt.de</code> versus <code>rss.handelsblatt.com</code> problem, solved per source rather than by guessing patterns. Record canonical site, verified feed URL, update frequency, teaser-only, paywalled.</p>
+<p><strong>Deliverable:</strong> A seed catalogue with every feed empirically verified, plus the methodology so it can be extended without me.</p>
+<p><strong>Unblocks:</strong> The section's content and §5's entries.</p>
+<div class="assumption"><strong>Sizing:</strong> L because verification is per-source manual work. Also the most cuttable item here — 25 verified sources beat 100 unverified ones.</div>
 </div>
 
 <div class="phase">
 <h3><span class="phase-badge">E2</span> Feed auto-discovery, including company newsrooms <span class="tag">M</span></h3>
-<p><strong>Method:</strong> Layered, measuring each layer's hit rate: standard autodiscovery via <code>&lt;link rel="alternate"&gt;</code>; common newsroom path conventions (<code>/presse</code>, <code>/newsroom</code>, <code>/media</code>, <code>/press-releases</code>); and only then a Mistral call to propose a URL, since a model asked for URLs will confidently invent them. Every proposal is fetched and validated before being offered — the model suggests, the fetch decides.</p>
-<div class="gap"><strong>Security constraint:</strong> this makes the backend fetch third-party-chosen URLs, which is what <code>services/safe_fetch.py</code> and the default-off, admin-gated <code>google_news_resolve_urls_enabled</code> / <code>google_news_fetch_snippets_enabled</code> flags exist to contain. Discovery must go through the same SSRF guard, and the research must confirm it covers this new call path.</div>
-<p><strong>Deliverable:</strong> Hit rate per layer, a validation procedure, and the Mistral layer's cost against the €20 budget.</p>
+<p><strong>Method:</strong> Layered, measuring each layer: standard autodiscovery via <code>&lt;link rel="alternate"&gt;</code>; newsroom path conventions (<code>/presse</code>, <code>/newsroom</code>, <code>/media</code>, <code>/press-releases</code>); and only then a Mistral call to propose a URL, since a model asked for URLs will confidently invent them. Every proposal is fetched and validated before being offered — the model suggests, the fetch decides.</p>
+<div class="gap"><strong>Security constraint:</strong> this makes the backend fetch third-party-chosen URLs, which is what <code>services/safe_fetch.py</code> and the default-off, admin-gated <code>google_news_resolve_urls_enabled</code> / <code>google_news_fetch_snippets_enabled</code> flags exist to contain. Discovery must go through the same SSRF guard, and the research must confirm it covers this call path.</div>
+<p><strong>Deliverable:</strong> Hit rate per layer, a validation procedure, and the Mistral layer's request cost against R0.3.</p>
 <p><strong>Unblocks:</strong> Whether discovery runs at company creation or stays a manual button.</p>
 </div>
 
 <div class="phase">
 <h3><span class="phase-badge">E3</span> Legal — storing and showing teasers <span class="tag">S</span></h3>
 <p><strong>Method:</strong> Research the press publishers' ancillary right (§87f ff. UrhG, DSM Article 15) for storing headlines and teasers and showing them in an internal tool and an internal email. Internal use materially reduces exposure versus a public aggregator, but the digest is still a reproduction. Check the shortlisted sources' own terms.</p>
-<p><strong>Deliverable:</strong> A written position on what is safe to store, display and email, and any source to exclude on its terms.</p>
+<p><strong>Deliverable:</strong> A written position on what is safe to store, display and email, and any source to exclude.</p>
 <p><strong>Unblocks:</strong> E1's final list.</p>
 </div>
 
 <div class="phase">
 <h3><span class="phase-badge">E4</span> Absorbing three source surfaces into one <span class="tag">M</span></h3>
-<div class="gap"><strong>What has to merge:</strong> Settings → Sources (<code>SourcesTab.tsx</code>: provider toggles, rate limits, workspace allow/denylist); the per-entity allowlists on companies and topics, with their non-obvious inheritance (allowlist replaces, denylist unions); and the precision panel (<code>SourcePrecisionPanel.tsx</code> over <code>services/source_precision.py</code>, which already computes per-publisher precision and suggests denylist candidates). Three concepts, three homes, one target section — now with a fourth attach target, §4's Infrastruktur entries.</div>
-<p><strong>Method:</strong> Map every control to its new home. Design browse → preview → attach, where attach targets the workspace default, a company, a topic, or an infrastructure entry. Make the replace/union inheritance legible — it is currently a comment in the model and invisible to users. Confirm nothing admin-only becomes user-editable by accident, since the section is user-facing.</p>
-<p><strong>Deliverable:</strong> An information architecture with a control-by-control migration map.</p>
+<div class="gap"><strong>What has to merge:</strong> Settings → Sources (<code>SourcesTab.tsx</code>); the per-entity allowlists on companies and topics with their non-obvious inheritance (allowlist replaces, denylist unions); and the precision panel (<code>SourcePrecisionPanel.tsx</code> over <code>services/source_precision.py</code>). Three concepts, three homes, one target section — now with a fourth attach target, §4's Infrastruktur entries.</div>
+<p><strong>Method:</strong> Map every control to its new home. Design browse → preview → attach, where attach targets the workspace default, a company, a topic, or an infrastructure entry. Make the replace/union inheritance legible — it is currently a comment in the model and invisible to users. Confirm nothing admin-only becomes user-editable by accident.</p>
+<p><strong>Deliverable:</strong> An IA with a control-by-control migration map.</p>
 <p><strong>Unblocks:</strong> Implementation, and prevents "now there are four places to manage sources".</p>
 </div>
 
@@ -536,133 +677,123 @@
 <p><strong>Unblocks:</strong> Keeping the catalogue trustworthy after launch.</p>
 </div>
 
-<h2 id="track-f">11. Track F — Archive and retention</h2>
+<h2 id="track-f">14. Track F — Archive and retention</h2>
 
 <div class="phase">
-<h3 id="f1"><span class="phase-badge">F1</span> Suppression without paying twice <span class="tag">M</span></h3>
-<div class="gap"><strong>The trap:</strong> ingestion dedupe checks whether an <code>Article</code> row with that URL exists (<code>services/ingestion.py:520</code>). Delete a row and the next run re-fetches, re-embeds, re-triages and re-summarizes it — paying Mistral again and resurfacing old news as new. Archiving rather than deleting avoids this by construction, since the row survives to be matched. The research is making sure dedupe treats archived rows as seen.</div>
-<p><strong>Method:</strong> Trace every path that queries <code>Article</code> and classify it as "should see archived rows" (dedupe, cost accounting, precision stats) or "should not" (feed, digest, timeline). Decide whether archive is a flag on <code>Article</code>, on <code>Signal</code>, or both — <code>SignalStatus.ARCHIVED</code> already covers part of this and must not be duplicated. Define whether suppression extends to near-duplicates, since syndicated stories arrive many times.</p>
+<h3><span class="phase-badge">F1</span> Suppression without paying twice <span class="tag">M</span></h3>
+<div class="gap"><strong>The trap:</strong> ingestion dedupe checks whether an <code>Article</code> row with that URL exists (<code>services/ingestion.py:520</code>). Delete a row and the next run re-fetches, re-embeds, re-triages and re-summarizes it — spending requests we may not have under R0.3, and resurfacing old news as new. Archiving rather than deleting avoids this by construction. The research is making sure dedupe treats archived rows as seen.</div>
+<p><strong>Method:</strong> Trace every path querying <code>Article</code> and classify it as "should see archived rows" (dedupe, cost accounting, precision stats) or "should not" (feed, digest, timeline). Decide whether archive is a flag on <code>Article</code>, on <code>Signal</code>, or both — <code>SignalStatus.ARCHIVED</code> already covers part of this and must not be duplicated. Define whether suppression extends to near-duplicates.</p>
 <p><strong>Deliverable:</strong> A lifecycle state model with the query-by-query audit.</p>
-<p><strong>Unblocks:</strong> Implementation, and prevents a recurring AI bill.</p>
+<p><strong>Unblocks:</strong> Implementation.</p>
 </div>
 
 <div class="phase">
 <h3><span class="phase-badge">F2</span> Archived signals with live todos <span class="tag">S</span></h3>
-<p><strong>Method:</strong> As decided, the todo stays and gets a warning icon with an explanatory tooltip. Research the surrounding cases: what the todo list shows, whether the archived signal stays reachable from it, and whether favourites behave the same. With two users on one shared catalogue, one rep archiving the other's active work is a real scenario.</p>
+<p><strong>Method:</strong> The todo stays and gets a warning icon with an explanatory tooltip. Research the surrounding cases: what the todo list shows, whether the archived signal stays reachable, and whether favourites behave the same. With two users on one shared catalogue, one rep archiving the other's active work is a real scenario.</p>
 <p><strong>Deliverable:</strong> The interaction spec including tooltip copy in both languages.</p>
 <p><strong>Unblocks:</strong> Implementation.</p>
 </div>
 
 <div class="phase">
 <h3><span class="phase-badge">F3</span> Automatic retention <span class="tag">S</span></h3>
-<p><strong>Method:</strong> Noise-only, and — as decided — an article that produced a signal a rep acted on is never purged, because that destroys the audit trail behind a Salesforce Task. Research the exact predicate (which <code>skip_reason</code> values; what to do with dismissed signals), where the window is configured, whether it covers <code>ThemeMatch</code> too, and scheduled versus manual. Confirm against F1 that anything purged cannot be re-ingested at cost — this is the one place real deletion happens, so the tombstone question lands here.</p>
+<p><strong>Method:</strong> Noise-only, and an article behind a signal a rep acted on is never purged — that would destroy the audit trail behind a Salesforce Task. Research the exact predicate (which <code>skip_reason</code> values; what to do with dismissed signals), where the window is configured, whether it covers <code>ThemeMatch</code>, and scheduled versus manual. Confirm against F1 that anything purged cannot be re-ingested at cost.</p>
 <p><strong>Deliverable:</strong> A retention policy with the exact predicate and a cost-safety argument.</p>
 <p><strong>Unblocks:</strong> Implementation.</p>
 </div>
 
-<h2 id="track-g">12. Track G — German throughout</h2>
+<h2 id="track-g">15. Track G — German throughout</h2>
 
 <div class="phase">
 <h3 id="g1"><span class="phase-badge">G1</span> Inventory, contract, and the Pydantic question <span class="tag">M</span></h3>
 <div class="gap"><strong>Current state:</strong> the frontend is fully internationalised — eight namespaces, both locales, a switcher, per-user preference. But <code>locales/de/errors.json</code> is literally <code>{}</code>, there is no <code>error_code</code> anywhere in the backend, and all <strong>68</strong> <code>detail=</code> strings are English free text. <code>docs/german-i18n-planning.html</code> §8 designed the error-code contract for exactly this and it was never built.</div>
-<p><strong>Method:</strong> Inventory every user-visible English string: the 68 API details; FastAPI/Pydantic 422 validation bodies; the digest email template; and AI-produced text reaching the UI — noting that <code>triage_reason</code> comes from Mistral and follows the workspace output language rather than the UI locale, a distinction that needs deciding explicitly. Re-validate the §8 error-code design against the current codebase, which has grown endpoints since. Then answer the Pydantic question specifically: translating 422s means mapping validation error types to our own messages, so scope the work by counting the distinct error types actually reachable through the forms — a small number would make this cheap, a long tail would make it the expensive part.</p>
-<p><strong>Deliverable:</strong> A complete string inventory, a confirmed or revised error-code contract, and a costed yes/no on Pydantic message translation.</p>
+<p><strong>Method:</strong> Inventory every user-visible English string: the 68 API details; FastAPI/Pydantic 422 bodies; the digest template; and AI-produced text reaching the UI — noting that <code>triage_reason</code> comes from Mistral and follows the workspace output language rather than the UI locale, a distinction needing an explicit decision. Re-validate the §8 design against the current codebase, which has grown endpoints since. Then scope the Pydantic work by counting the distinct validation error types actually reachable through the forms.</p>
+<p><strong>Deliverable:</strong> A string inventory, a confirmed or revised error-code contract, and a costed yes/no on Pydantic translation.</p>
 <p><strong>Unblocks:</strong> Implementation, which is then mechanical.</p>
-<div class="assumption"><strong>Expectation:</strong> the reachable 422 types are probably few — required, type, min/max length, and a handful of custom validators — which would make translation feasible and worth doing, since these are the errors users actually hit. The decision rule you set stands: do it unless the overhead proves disproportionate, and G1's count is what proves that either way.</div>
+<div class="assumption"><strong>Expectation:</strong> the reachable 422 types are probably few — required, type, min/max length, and a handful of custom validators — which would make translation feasible and worth doing, since these are the errors users actually hit. Your rule stands: do it unless the overhead proves disproportionate, and this count is what proves it either way.</div>
 </div>
 
-<h2 id="track-h">13. Track H — Indirect signals and prospect discovery</h2>
+<h2 id="track-h">16. Track H — Indirect signals and prospect discovery</h2>
 
 <div class="gap">
-  <strong>The structural mismatch.</strong> Every retrieval and reasoning path assumes the article is <em>about</em> the company we sell to. <code>TargetCompany</code> holds keywords to search for that company by name; the summarization prompt's <code>company_mentioned</code> check exists specifically to discard articles where the target is only a coincidental match; the theme path's <code>extracted_company_name</code> pulls out the company the article is centred on. For cargo that is systematically the wrong company — a fire at a tier-one supplier is a signal about every OEM downstream, and the pipeline is built to discard exactly that article.
+  <strong>The structural mismatch.</strong> Every retrieval path assumes the article is <em>about</em> the company we sell to. <code>TargetCompany</code> holds keywords to search by name; the summarization prompt's <code>company_mentioned</code> check exists specifically to discard articles where the target is only a coincidental match; the theme path's <code>extracted_company_name</code> pulls out the company the article is centred on. For cargo that is systematically the wrong company — a fire at a tier-one supplier is a signal about every OEM downstream, and the pipeline is built to discard exactly that article.
 </div>
 
 <div class="phase">
 <h3><span class="phase-badge">H1</span> Do the triggers name the buyer? <span class="tag">M</span> <span class="tag">needs measurement</span></h3>
-<p><strong>Question:</strong> For ProAir's real trigger events, how often is the eventual buyer named in the article at all?</p>
-<p><strong>Method:</strong> Using the won-deal review from A4, find the contemporaneous coverage for each booking-causing event. Record whether the buyer was named, inferable (a named supplier or project plus a further research step), or absent. Split cargo and passenger.</p>
-<p><strong>Deliverable:</strong> A percentage split across those three categories, per business line.</p>
-<p><strong>Unblocks:</strong> How much of H2 is worth building, and in which order.</p>
+<p><strong>Method:</strong> Using A4's won-deal review, find contemporaneous coverage for each booking-causing event. Record whether the buyer was named, inferable, or absent. Split cargo and passenger, and — given the confirmed mix of shipper and forwarder buyers — record which type of buyer each was, since an article naming a shipper is a different problem from one naming a forwarder's client.</p>
+<p><strong>Deliverable:</strong> A percentage split per business line and buyer type.</p>
+<p><strong>Unblocks:</strong> How much of H2 is worth building, and in what order.</p>
+<div class="assumption">Blocked on open question 1.</div>
 </div>
 
 <div class="phase">
 <h3 id="h2"><span class="phase-badge">H2</span> From event to named prospect <span class="tag">L</span></h3>
-<p><strong>Question:</strong> Can we get from an event to a verifiable list of prospects, cheaply and reliably enough to be worth it?</p>
-<p><strong>Method:</strong> Two distinct problems, and the second is the more valuable one.</p>
-<p><em>(a) Exposure of companies we already track.</em> Compare: asking the model directly which tracked companies are exposed; a maintained relationship map (each company's known suppliers, sites, ports and lanes recorded in §4's link table, making exposure a lookup); and coarse geographic or sector proximity. Test against the H1 events where the right answer is already known, and measure hallucination rate explicitly rather than assuming it.</p>
-<p><em>(b) Discovering companies we do not track — the contractor case.</em> A billion-euro project publishes a site naming its contractors, and those contractors are prospects. Research the chain: from a <code>major_project</code> signal, locate the project's own site, extract named contractors and their roles, and present them as candidate companies with the source page as evidence. Reuse the E2 fetch-and-validate discipline and the same SSRF guard. This also covers the more general case raised in feedback — a company appearing in generic news that we simply do not know yet, and could approach about our services in general.</p>
-<p><strong>Deliverable:</strong> Measured precision and recall per approach with cost per event, and a recommendation. A hybrid is likely: cheap filtering first, model reasoning only on what survives.</p>
+<p><strong>Method:</strong> Two problems; the second is the more valuable.</p>
+<p><em>(a) Exposure of companies we already track.</em> Compare asking the model directly which tracked companies are exposed; a maintained relationship map (§7's trigger profile plus §4's link table, making exposure a lookup); and coarse geographic or sector proximity. Test against H1's events where the right answer is known, and measure hallucination rate explicitly rather than assuming it. Note the forwarder case: when the buyer is a forwarder, exposure runs through <em>their</em> clients, which the link table would have to represent as a second hop.</p>
+<p><em>(b) Discovering companies we do not track — the contractor case.</em> A billion-euro project publishes a site naming its contractors, and those contractors are prospects. Research the chain: from a <code>major_project</code> signal, locate the project's own site, extract named contractors and their roles, present them as candidates with the source page as evidence. Reuse E2's fetch-and-validate discipline and the same SSRF guard.</p>
+<p><strong>Deliverable:</strong> Measured precision and recall per approach with request cost per event, and a recommendation. A hybrid is likely: cheap filtering first, model reasoning only on what survives — which R0.3's rate limits make close to mandatory.</p>
 <p><strong>Unblocks:</strong> Whether indirect signals and prospect discovery ship, and in what form.</p>
-<div class="decision"><strong>Evidence chain is mandatory, as agreed.</strong> Every indirect signal shows the rep the path — this event, this named link or source page, therefore this company — in enough detail to verify before calling. A rep citing an exposure that does not exist costs more credibility than the signal was worth, so a wrong inference must be visibly wrong on screen, not discovered on the phone.</div>
+<div class="decision"><strong>Evidence chain is mandatory.</strong> Every indirect signal shows the rep the path — this event, this named link or source page, therefore this company — in enough detail to verify before calling. A rep citing an exposure that does not exist costs more credibility than the signal was worth, so a wrong inference must be visibly wrong on screen, not discovered on the phone.</div>
 </div>
 
 <div class="phase">
-<h3 id="h3"><span class="phase-badge">H3</span> Building Infrastruktur on what exists <span class="tag">M</span></h3>
-<p><strong>Question:</strong> Should §4's entity be a new model, or a typed variant of <code>ThemeWatch</code>?</p>
-<p><strong>Method:</strong> <code>ThemeWatch</code> already carries query terms, exclude terms, per-entity source allowlist with inherit semantics, per-entity Google News edition, active flag and manual-run cooldown — nearly the whole shape. Establish where it breaks: its prompt still tries to extract a single company, and its match floor and per-run caps are tuned for broad topics rather than for rare, high-value events. Test whether a typed variant plus a different prompt suffices, and what the migration and UI cost of each option is.</p>
-<p><strong>Deliverable:</strong> A model recommendation with the schema, plus the seeded catalogue of entries from E1.</p>
+<h3><span class="phase-badge">H3</span> Building Infrastruktur on what exists <span class="tag">M</span></h3>
+<p><strong>Method:</strong> <code>ThemeWatch</code> already carries query terms, exclude terms, per-entity source allowlist with inherit semantics, per-entity Google News edition, active flag and manual-run cooldown — nearly the whole shape §4 needs. Establish where it breaks: its prompt still tries to extract a single company, and its match floor and per-run caps are tuned for broad topics rather than rare high-value events. Test whether a typed variant plus a different prompt suffices, and cost the migration and UI work either way.</p>
+<p><strong>Deliverable:</strong> A model recommendation with the schema, plus §5's catalogue loaded as seed data.</p>
 <p><strong>Unblocks:</strong> §4's implementation and H2(a)'s link table.</p>
 </div>
 
 <div class="phase">
 <h3><span class="phase-badge">H4</span> Prospect discovery into the workflow <span class="tag">M</span></h3>
-<p><strong>Question:</strong> What happens to a company NewsAtlas discovers that nobody is tracking?</p>
-<p><strong>Method:</strong> Design the queue: discovered companies with the event and evidence that surfaced them, deduped against the existing target list and against previous rejections so the same name does not reappear weekly. Decide the actions — add to targets, dismiss permanently, or push to Salesforce as a new Account — and how a discovered company reaches the digest, given it has no <code>CompanyFollow</code> and therefore no recipient under current filtering. Check what <code>extracted_company_name</code> on the theme path already produces, since that is a working start.</p>
+<p><strong>Method:</strong> Design the queue: discovered companies with the event and evidence that surfaced them, deduped against the target list and against previous rejections so the same name does not reappear weekly. Decide the actions — add to targets, dismiss permanently, or push to Salesforce as a new Account — and how a discovered company reaches the digest, given it has no <code>CompanyFollow</code> and therefore no recipient under current filtering. Check what <code>extracted_company_name</code> already produces, since that is a working start.</p>
 <p><strong>Deliverable:</strong> The discovery queue spec and its digest treatment.</p>
-<p><strong>Unblocks:</strong> The "get to know new companies through generic news" case, which is a genuine growth path rather than a refinement of existing coverage.</p>
+<p><strong>Unblocks:</strong> The "get to know new companies through generic news" case — a growth path, not a refinement of existing coverage.</p>
 </div>
 
-<h2 id="sequencing">14. Sequencing</h2>
+<h2 id="sequencing">17. Sequencing</h2>
 
 <table>
   <tr><th style="width:20%">Order</th><th style="width:22%">Items</th><th>Why</th></tr>
-  <tr><td><strong>First, alone</strong></td><td>R0.1, R0.2, R0.3</td><td>No export means no measurement means every other decision is a guess. R0.1 is the only Phase 0 item needing code.</td></tr>
-  <tr><td><strong>In parallel, no code</strong></td><td>Won-deal review → A4 + H1</td><td>The highest information per hour in the plan. It validates §3 and decides how much of Track H exists. Can start today.</td></tr>
+  <tr><td><strong>First, before anything</strong></td><td>R0.3</td><td>Read the Admin Console limits. If the request rate is as low as reported, it changes the ingestion architecture, and everything built before knowing that is built on a guess.</td></tr>
+  <tr><td><strong>Then</strong></td><td>R0.1, R0.2</td><td>No export means no measurement. R0.1 is the only Phase 0 item needing code.</td></tr>
+  <tr><td><strong>In parallel, no code</strong></td><td>Won-deal review → A4 + H1</td><td>The highest information per hour in the plan. Blocked only on open question 1.</td></tr>
   <tr><td><strong>Second</strong></td><td>A1 → A3 → A2 → A4 → A5</td><td>Fix the silent-default bug before measuring the prompt; build the gold set before changing anything, or improvement cannot be told from regression.</td></tr>
   <tr><td><strong>Third</strong></td><td>B1 → B2</td><td>Digest calibration only means something once the rubric is settled.</td></tr>
   <tr><td><strong>After A2/A4</strong></td><td>H2 → H4</td><td>Indirect signals and discovery are worthless on top of a score that does not discriminate.</td></tr>
-  <tr><td><strong>Any time</strong></td><td>D, E, F, G, H3</td><td>Independent of the scoring work and of each other. Good candidates for shipping early while Track A measures. H3 and E1 pair naturally, since E1 produces H3's seed data.</td></tr>
-  <tr><td><strong>Conditional</strong></td><td>Track C</td><td>Gated on C1's density finding — the list ships regardless, the verdict only if the data supports it.</td></tr>
+  <tr><td><strong>Any time</strong></td><td>D, E, F, G, H3</td><td>Independent of the scoring work and of each other. Good candidates for shipping early. E1 and H3 pair naturally, since E1 produces H3's seed feeds.</td></tr>
+  <tr><td><strong>Conditional</strong></td><td>Track C</td><td>Gated on C1 — the list ships regardless, the verdict only if the data supports it.</td></tr>
 </table>
 
 <div class="decision">
-  <strong>Suggested first increment.</strong> R0.1 + R0.2 + A1, with the won-deal review running alongside. The first three are small and produce the baseline every later argument rests on; A1 may fix a visible chunk of the 3/5–4/5 problem on its own — a one-line default that turns silence into a middling score is cheap to fix and a satisfying first win. The won-deal review needs no code and is what tells us whether the platform is pointed at the right events at all.
+  <strong>Suggested first increment.</strong> R0.3 first, because it may invalidate assumptions elsewhere. Then R0.1 + R0.2 + A1, with the won-deal review running alongside once question 1 clears. A1 may fix a visible chunk of the clustering on its own — a one-line default that turns silence into a middling score is cheap to fix and a satisfying first win.
 </div>
 
-<h2 id="cuts">15. Cut from scope</h2>
+<h2 id="cuts">18. Cut from scope</h2>
 
 <table>
-  <tr><th style="width:26%">Item</th><th style="width:14%">Status</th><th>Reasoning</th></tr>
-  <tr><td>apollo.io rebuild</td><td><strong>Cut</strong></td><td>Data licensing moat, §7 UWG exposure, and it competes with the CSV workflow that is already legally cleared.</td></tr>
+  <tr><th style="width:26%">Item</th><th style="width:13%">Status</th><th>Reasoning</th></tr>
+  <tr><td>apollo.io rebuild</td><td><strong>Cut</strong></td><td>Data licensing moat, §7 UWG exposure, and it competes with the CSV workflow already legally cleared.</td></tr>
   <tr><td>Automatic mail sending</td><td><strong>Cut</strong></td><td>Prepare-and-copy delivers the value; auto-send carries the liability and the deliverability burden.</td></tr>
-  <tr><td>"Ausbau mehr in CRM-Richtung"</td><td><strong>Cut</strong></td><td>Competes with the Salesforce instance we integrate with. If a specific gap in Salesforce is driving this, name it and it becomes a Track D item.</td></tr>
-  <tr><td>Sentiment as ++/--</td><td><strong>Replaced</strong></td><td>By §3's event type plus budget direction. For charter the premise is inverted anyway: the most valuable cargo signals are negative events one step up the chain.</td></tr>
-  <tr><td>Standalone RSS firehose page</td><td><strong>Merged</strong></td><td>Into News-Websites as source discovery. An unfiltered feed inverts the product's own value.</td></tr>
-  <tr><td>Alerting for time-critical signals</td><td><strong>Cut</strong></td><td>Reps check the daily digest and act on it. Removes the whole alert-fatigue design problem, and the disruption class is still served — a strike announced days ahead reaches the next morning's digest in good time.</td></tr>
-  <tr><td>Sentiment charts on the timeline</td><td><strong>Cut</strong></td><td>Plain list only. At a handful of events per company per quarter, a chart adds ceremony without adding information.</td></tr>
+  <tr><td>"Ausbau mehr in CRM-Richtung"</td><td><strong>Cut</strong></td><td>Competes with the Salesforce instance we integrate with. If a specific gap is driving it, name it and it becomes a Track D item.</td></tr>
+  <tr><td>Sentiment as ++/--</td><td><strong>Replaced</strong></td><td>By §3's event type plus budget direction. For charter the premise is inverted anyway.</td></tr>
+  <tr><td>Standalone RSS firehose page</td><td><strong>Merged</strong></td><td>Into News-Websites as source discovery.</td></tr>
+  <tr><td>Alerting</td><td><strong>Cut</strong></td><td>Reps check the daily digest. Removes the alert-fatigue design problem; a strike announced days ahead still reaches the next morning's digest in time.</td></tr>
+  <tr><td>Sentiment charts on the timeline</td><td><strong>Cut</strong></td><td>Plain list only.</td></tr>
+  <tr><td>Custom per-company search types</td><td><strong>Redirected</strong></td><td>Per §7, into a per-company trigger profile that reuses the taxonomy and the exposure links rather than adding a parallel search mechanism.</td></tr>
 </table>
 
-<h2 id="open">16. Open questions — the only blockers left</h2>
-
-<p>Everything else in this document is decided or is research I can carry out. These nine need you.</p>
+<h2 id="open">19. Open questions</h2>
 
 <table>
-  <tr><th style="width:5%">#</th><th style="width:38%">Question</th><th>Why it blocks</th></tr>
-  <tr><td>1</td><td><strong>Can we review 12–24 months of won bookings?</strong> For each: what event caused it, and was that event in the press?</td><td>Validates §3 against reality and answers H1. Needs no code and is the highest-value input available. Without it the taxonomy stays a well-reasoned guess.</td></tr>
-  <tr><td>2</td><td><strong>Who is the cargo buyer</strong> — the shipper's own logistics department, or a freight forwarder?</td><td>If ProAir mostly sells <em>to forwarders</em>, the trigger is news about the forwarder's clients: a second degree of indirection on top of Track H, and a materially harder problem. Changes H2's design.</td></tr>
-  <tr><td>3</td><td><strong>Cargo versus passenger split</strong> in revenue and in sales effort.</td><td>Sets priority between Track H (cargo-heavy) and the rest. Also decides whether §3's two halves get equal attention.</td></tr>
-  <tr><td>4</td><td><strong>Does §3's taxonomy look right</strong> — anything missing, anything you would never act on?</td><td>It is the vocabulary for the scoring rubric, the settings UI, the timeline verdict and the digest. Correcting it now is free; later it means re-scoring history.</td></tr>
-  <tr><td>5</td><td><strong>Is "Infrastruktur" the right name</strong> for §4, and are the eight kinds the right set?</td><td>It becomes a permanent navigation item and a data model. Cheap to change now, awkward later.</td></tr>
-  <tr><td>6</td><td><strong>Which infrastructure entries should ship seeded?</strong> Your top ports, airports, corridors and unions.</td><td>Decides whether the section is useful on day one or an empty page with an Add button. I can propose a list, but yours will be better.</td></tr>
-  <tr><td>7</td><td><strong>Which trade titles do the reps already read?</strong></td><td>Two or three you trust will sharpen E1's catalogue more than any amount of desk research.</td></tr>
-  <tr><td>8</td><td><strong>Score scale: commit to 1–10 now, or start at 1–5 and switch later if needed?</strong></td><td>Switching later means migrating stored scores, re-tuning the 4/5 floor, and re-labelling the gold set. Doing it once is cheaper. My recommendation: <strong>stay 1–5</strong> — the rationale text added in A2 delivers most of the transparency you want, and anchored levels usually fix clustering better than more levels do. But if you expect to want fine-grained tuning, say so now and A2 designs for 1–10 from the start.</td></tr>
-  <tr><td>9</td><td><strong>Is the €20/month AI budget firm?</strong></td><td>The score rationale, the larger taxonomy and H2's evidence chain all add output tokens, which is the expensive direction. R0.3 will say whether they fit. If they do not, the choice is between raising the ceiling and dropping one of them — and that is yours, not mine.</td></tr>
+  <tr><th style="width:5%">#</th><th style="width:36%">Question</th><th>Why it matters</th></tr>
+  <tr><td>1</td><td><strong>The won-bookings review</strong> — 12–24 months, what event caused each, and was it in the press. Noted as coming later.</td><td>Blocks A4's backward pass and H1. Everything else can proceed without it; these two cannot start. The taxonomy in §3 stays a well-reasoned proposal until this lands.</td></tr>
+  <tr><td>2</td><td><strong>What are the actual Mistral limits on your account?</strong> Admin Console → Limits: requests per second and per minute, tokens per minute and per month.</td><td>Not a decision, a number — but only you can read it, and it may reshape the ingestion architecture. Worth five minutes before anything else starts. See <a href="#r03">R0.3</a>.</td></tr>
 </table>
 
-<p>Answer these and the next document is an implementation plan: schema changes, endpoints, prompts, UI, and a phase order.</p>
+<p>Also worth a glance, though I will proceed on my own proposals unless you say otherwise: §5's catalogue (cut what you would never act on), §6's floor at 7 and the refinement to the definition of 0, and §7's redirect of per-company search tailoring into a trigger profile.</p>
 
 <footer>
-  <p>NewsAtlas v2 research plan, revision 3 — grounded against commit <code>0374e3b</code>. No implementation has begun. Once the questions in §16 are answered, the implementation planning docs follow the pattern of the existing <code>docs/*-planning.html</code> set.</p>
+  <p>NewsAtlas v2 research plan, revision 4 — grounded against commit <code>0374e3b</code>. No implementation has begun. Throughput and tonnage figures in §5 are from published 2025 port and airport reporting; every feed URL behind those entries is still to be verified empirically in E1.</p>
 </footer>
 
 </body>
