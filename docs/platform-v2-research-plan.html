@@ -186,9 +186,10 @@
 <p class="subtitle">The taxonomy, the scoring scale, the new entity model and its seed catalogue — defined, then tested against 31 months of real win/loss data. One decision left for the Geschäftsleitung.</p>
 
 <div class="meta">
-  <div><strong>Status:</strong> Revision 5 (2026-08-28). Rewritten against two new inputs: the ProAir win/loss analysis of 1,605 Salesforce opportunities, and the account's real Mistral rate limits. Both change the plan — §2.1 records what the win/loss data settles and what it contradicts, and <a href="#r03">R0.3</a> is now resolved with a concrete pipeline recommendation.</div>
+  <div><strong>Status:</strong> Revision 6 (2026-08-28). Both remaining open questions are answered: NewsAtlas exists to <strong>acquire new customers</strong>, and the trigger review will run as a blind case-control backtest over company names and dates (§20). Nothing now blocks an implementation plan.</div>
+  <div><strong>Previously:</strong> Revision 5 (2026-08-28). Rewritten against two new inputs: the ProAir win/loss analysis of 1,605 Salesforce opportunities, and the account's real Mistral rate limits. Both change the plan — §2.1 records what the win/loss data settles and what it contradicts, and <a href="#r03">R0.3</a> is now resolved with a concrete pipeline recommendation.</div>
   <div><strong>Codebase grounded against:</strong> commit <code>0374e3b</code> on <code>main</code>. Every claim about current behaviour cites the file it came from.</div>
-  <div><strong>Read §2.1 first.</strong> The win/loss analysis raises a question this plan cannot answer on its own: whether generating more leads is the binding constraint on ProAir's revenue at all. Three features in this document point at segments the data shows ProAir systematically loses.</div>
+  <div><strong>Read §2.1 first.</strong> The win/loss analysis reshaped three features in this document, and its concentration finding — 54.8% of won volume in ten accounts — is the strategic case for the acquisition mandate now driving Track H.</div>
 </div>
 
 <nav class="toc">
@@ -228,6 +229,8 @@
 <table class="status-table">
   <tr><th style="width:24%">Area</th><th>Decision</th></tr>
   <tr><td>What ProAir sells</td><td>Air charter brokerage and operation. <strong>Cargo:</strong> oversized and urgent freight, brokered on third-party freighters. <strong>Passenger:</strong> VIP and large-group travel, part own fleet (~25 light and very light jets, own AOC), part brokered. Edge is operational excellence and global procedural knowledge, explicitly not price.</td></tr>
+  <tr><td><strong>Product purpose</strong></td><td><strong>Acquisition.</strong> NewsAtlas exists to generate more enquiries and to find new companies and customers — not to add context to enquiries already arriving. This makes <a href="#track-h">Track H</a> the centre of gravity rather than a late addition, promotes H4's discovery queue to a core feature, and changes how the digest must be ranked (see <a href="#b2">B2</a>).</td></tr>
+  <tr><td>Success measure</td><td><strong>New accounts reaching a first enquiry</strong>, not win rate. §2.1 shows first enquiries from a new account convert at 23.3% against 41.0% by the third, so a working acquisition product will <em>lower</em> the blended win rate. Measuring it by win rate would penalise it for succeeding.</td></tr>
   <tr><td>Business lines</td><td><strong>Equal effort.</strong> Every feature must work for cargo and passenger alike. See §7 for what that actually requires.</td></tr>
   <tr><td>Cargo buyer</td><td>Both the shipper's own logistics department and freight forwarders, with a tendency toward shippers. The design must serve both — see §7 and <a href="#h2">H2</a>.</td></tr>
   <tr><td>Audience</td><td>Internal tool. 2 users. Single-tenant stays.</td></tr>
@@ -257,8 +260,11 @@
   <strong>The uncomfortable finding: lead generation may not be the constraint.</strong> 1,605 opportunities over 31 months is roughly 52 enquiries a month for two reps. Of 880 losses, only <strong>26</strong> are genuine competitive defeats at a comparable offer. The rest are customer cancellations (213), no response at all (181), price (124), a different solution (113), and pure price indications (87). ProAir does not have a shortage of enquiries — it has a qualification and follow-up problem, which is exactly what the report's own four measures address. NewsAtlas produces <em>more</em> enquiries. If the reps are already at capacity, more leads may not convert into revenue.
 </div>
 
-<div class="decision">
-  <strong>What this argues for.</strong> Not abandoning the project — the report itself keeps the press analysis, narrowed to Automotive, Immobilien and Maschinenbau. But it shifts the emphasis: the highest-value use of NewsAtlas may be <strong>context and prioritisation on enquiries already arriving</strong> — an enquiry lands from a tracked account, and the rep immediately sees what is happening there — with outbound discovery aimed only at the segments that actually convert. That is a smaller, sharper product than "find every trigger everywhere", and it fits two reps at capacity far better. Worth deciding explicitly rather than by default.
+<div class="ok-box">
+  <strong>Decided: acquisition.</strong> The question above was put to the business and answered — NewsAtlas is for generating more enquiries and finding new companies, not for adding context to enquiries already arriving. The concentration finding supports it: 54.8% of won volume sitting in ten accounts is a real strategic risk, and new-customer acquisition is the only thing in this plan that addresses it. Two consequences follow, both recorded in §2: Track H becomes the centre of gravity, and success is measured in new accounts opened rather than win rate — because a working acquisition product lowers the blended win rate by adding first enquiries, which convert at 23.3% against 41.0% by the third.
+</div>
+<div class="assumption">
+  <strong>The capacity caution still stands, and should be watched rather than designed around.</strong> Two reps already handle ~52 enquiries a month and lose 181 deals to no response at all. Adding enquiries without addressing that will convert new leads into new no-responses. The four CRM measures in the win/loss report — indication and cancellation statuses, the offer-sent timestamp, mandatory passenger amounts, and follow-up automation — are outside this plan's scope but are the thing that lets acquisition actually land. Worth sequencing at least the follow-up automation alongside v2.
 </div>
 
 <h4>Three direct contradictions</h4>
@@ -633,6 +639,7 @@
 
 <div class="phase">
 <h3 id="b2"><span class="phase-badge">B2</span> Digest design <span class="tag">M</span></h3>
+<div class="gap"><strong>The acquisition mandate breaks a pure score ranking.</strong> A discovered company starts with less context than a tracked one — no trigger profile, no exposure links, often only the article that surfaced it — so it will systematically score below a well-evidenced signal about a known account. A top 10 ranked purely on score will therefore never show a new company, and Track H would be built and then never surface. The digest must <strong>reserve slots for discovered companies</strong>. Decide how many, and whether they compete on a separate floor.</div>
 <p><strong>Method:</strong> Decide what each entry shows — event type, score with its rationale, evidence chain for indirect signals, copy-ready outreach text. Decide carry-over (a 9 nobody acted on yesterday: repeat or drop), whether this replaces the existing digest or runs beside it, how per-user follow filtering interacts with the cap, and — new — whether the top 10 is global or balanced per business line. Write empty-state copy in both languages.</p>
 <p><strong>Deliverable:</strong> A digest spec.</p>
 <p><strong>Unblocks:</strong> Implementation.</p>
@@ -789,7 +796,7 @@
 <p><strong>Method:</strong> Two problems; the second is the more valuable.</p>
 <p><em>(a) Exposure of companies we already track.</em> Compare asking the model directly which tracked companies are exposed; a maintained relationship map (§7's trigger profile plus §4's link table, making exposure a lookup); and coarse geographic or sector proximity. Test against H1's events where the right answer is known, and measure hallucination rate explicitly rather than assuming it. <strong>The forwarder second hop is cut</strong> per §2.1 — forwarders convert at 15.3% and are out of the target profile, so exposure only ever has to run one hop, to a shipper we track. This was the hardest part of the track.</p>
 <p><em>(b) Discovering companies we do not track — the contractor case.</em> <span class="tag">demoted</span> A large project publishes a site naming its contractors, and those contractors are prospects. Research the chain: from a <code>major_project</code> signal, locate the project's own site, extract named contractors and their roles, present them as candidates with the source page as evidence. Reuse E2's fetch-and-validate discipline and the same SSRF guard.</p>
-<div class="gap"><strong>Why this is demoted rather than cut.</strong> §2.1 shows deals over €150k convert at 9.1% and construction at 21.2%, so the billion-euro-project framing aims squarely at ProAir's weakest business. The mechanism is still sound — it is the only route to companies nobody is tracking, and concentration risk (54.8% of volume in ten accounts) makes that route valuable. Rescope it toward <em>mid-size</em> project cargo in the €5k–30k sweet spot and toward the converting segments (automotive, Immobilien, Maschinenbau), rather than toward the largest projects findable. Build it after H2(a), not before.</div>
+<div class="decision"><strong>Rescoped in targeting, promoted in priority.</strong> Two forces pull opposite ways here. §2.1 shows deals over €150k convert at 9.1% and construction at 21.2%, so the billion-euro-project framing aims at ProAir's weakest business — that concern stands, and this stays aimed at <em>mid-size</em> project cargo in the €5k–30k band and at the converting segments (automotive, Immobilien, Maschinenbau) rather than at the largest projects findable. But under the acquisition mandate this is the primary route to companies nobody is tracking, so it is no longer a late addition. Build it directly after H2(a).</div>
 <p><strong>Deliverable:</strong> Measured precision and recall per approach with request cost per event, and a recommendation. A hybrid is likely: cheap filtering first, model reasoning only on what survives — which R0.3's rate limits make close to mandatory.</p>
 <p><strong>Unblocks:</strong> Whether indirect signals and prospect discovery ship, and in what form.</p>
 <div class="decision"><strong>Evidence chain is mandatory.</strong> Every indirect signal shows the rep the path — this event, this named link or source page, therefore this company — in enough detail to verify before calling. A rep citing an exposure that does not exist costs more credibility than the signal was worth, so a wrong inference must be visibly wrong on screen, not discovered on the phone.</div>
@@ -817,8 +824,8 @@
   <tr><td><strong>In parallel, no code</strong></td><td>Trigger review → A4 + H1</td><td>Still the highest information per hour available, but now blocked on a management decision rather than on effort — see open question 1.</td></tr>
   <tr><td><strong>Second</strong></td><td>A1 → A3 → A2 → A4 → A5</td><td>Fix the silent-default bug before measuring the prompt; build the gold set before changing anything, or improvement cannot be told from regression.</td></tr>
   <tr><td><strong>Third</strong></td><td>B1 → B2</td><td>Digest calibration only means something once the rubric is settled.</td></tr>
-  <tr><td><strong>After A2/A4</strong></td><td>H2 → H4</td><td>Indirect signals and discovery are worthless on top of a score that does not discriminate.</td></tr>
-  <tr><td><strong>Any time</strong></td><td>D, E, F, G, H3</td><td>Independent of the scoring work and of each other. Good candidates for shipping early. E1 and H3 pair naturally, since E1 produces H3's seed feeds.</td></tr>
+  <tr><td><strong>After A2/A4 — now the priority track</strong></td><td>H3 → H2 → H4</td><td>Under the acquisition mandate this is the point of v2, not an extension of it. It still cannot come first: discovery built on a score that does not discriminate produces a queue nobody trusts. H3 moves ahead of H2 because §5's catalogue is what H2(a) reads.</td></tr>
+  <tr><td><strong>Any time</strong></td><td>D, E, F, G</td><td>Independent of the scoring work and of each other. Good candidates for shipping early. E1 pairs naturally with H3, since E1 produces its seed feeds.</td></tr>
   <tr><td><strong>Conditional</strong></td><td>Track C</td><td>Gated on C1 — the list ships regardless, the verdict only if the data supports it.</td></tr>
 </table>
 
@@ -845,35 +852,51 @@
 
 <h2 id="open">19. Open questions</h2>
 
-<p>Two questions remain, and both are decisions for the business rather than work anyone can do.</p>
+<div class="ok-box"><strong>None blocking.</strong> Both remaining questions were answered: the trigger review is approved as a list of company names and dates (§20 is redesigned around that constraint), and NewsAtlas's purpose is <strong>acquisition</strong> — recorded in §2 and now driving Track H's priority. What follows is an implementation plan, not more research design.</div>
+
+<p>Three small confirmations would sharpen the work but block nothing:</p>
 
 <table>
-  <tr><th style="width:5%">#</th><th style="width:36%">Question</th><th>Why it matters</th></tr>
-  <tr><td>1</td><td><strong>Will the Geschäftsleitung release customer names for a one-off trigger analysis?</strong> The win/loss dataset is anonymised, so won deals cannot be matched to press events — the report raises this itself as a decision, proposing a single offline evaluation outside the systems whose only output is the event taxonomy, no customer data.</td><td>Blocks <a href="#a4">A4</a>'s backward pass and <a href="#track-h">H1</a>. Everything else in this plan can proceed. Until it clears, §3's taxonomy stays a reasoned proposal validated against segment performance but not against actual triggers. The method for running it once approved is in <a href="#appendix">§20</a>.</td></tr>
-  <tr><td>2</td><td><strong>Is NewsAtlas meant to generate more enquiries, or to make the existing ones convert better?</strong> §2.1 shows ~52 enquiries a month for two reps and only 26 genuine competitive losses out of 880.</td><td>This is the framing question for the whole of v2. "More leads" and "better context and prioritisation on the leads already arriving" produce different products: the first emphasises Track H discovery, the second emphasises the timeline, the trigger profiles and the digest. Both are buildable from this plan; building for the wrong one wastes the effort.</td></tr>
+  <tr><th style="width:34%">Confirmation</th><th>Why</th></tr>
+  <tr><td><strong>The date in the extract is the enquiry date</strong> (<code>CreatedDate</code>), not the flight date or <code>CloseDate</code>.</td><td>The study tests whether news predicts the moment demand appeared. Your win/loss report distinguishes these already ("Vorlauf zwischen Anfrage und Flug"), so both exist. Using a flight date would shift every window by a median of 41 days on won deals and quietly invalidate the result.</td></tr>
+  <tr><td><strong>Three extra non-identifying columns:</strong> won/lost, cargo/passenger, industry.</td><td>Turns "does news predict demand" into "which segments does news predict demand for", which is what decides where to point the taxonomy and the source catalogue. Industry already appears in the anonymised report, so it is evidently shareable. The study runs without them.</td></tr>
+  <tr><td><strong>Whether the CRM follow-up measures land alongside v2.</strong></td><td>Not this plan's scope, but 181 losses to no response means new enquiries may become new no-responses. Acquisition works better if at least the follow-up automation ships in the same period.</td></tr>
 </table>
 
-<p>Everything else is settled or is research I can carry out. I will proceed on my own proposals for §5's catalogue, §6's floor at 7, and §7's trigger profiles unless you say otherwise.</p>
+<h2 id="appendix">20. Appendix — the trigger backtest</h2>
 
-<h2 id="appendix">20. Appendix — running the trigger review</h2>
+<p>Redesigned for the approved dataset: <strong>company names and dates only</strong>, no rep annotation. That turns the review from an interview into a backtest — for each booking, search the preceding weeks and see whether a trigger event was in the news. It directly simulates the question that matters: <em>would NewsAtlas have caught this?</em></p>
 
-<p>The method, ready for when question 1 clears. Salesforce records <em>what</em> was sold, not <em>why</em>; the cause lives in the opportunity name, the description, linked activity records, and the reps' memory. So the design minimises rep time, which is the scarce resource.</p>
+<div class="gap">
+  <strong>Without a control group this study cannot fail, and is therefore worthless.</strong> Take fifty won bookings from companies the size of ProAir's automotive accounts, search the forty-five days before each, and news will turn up for nearly all of them — large German companies are in the news constantly. A 90% hit rate would look like proof and mean nothing. The measurable is not "did we find news" but the <strong>lift</strong>: does a trigger event appear meaningfully more often before an enquiry than in a matched window where no enquiry followed?
+</div>
 
-<ol>
-  <li><strong>One query, one CSV.</strong> Run a <code>describe</code> on Opportunity first and read the custom fields — a charter business almost certainly has route, aircraft-type or charter-type fields carrying more signal than anything standard. Then select the standard set (<code>Name</code>, <code>Account.Name</code>, <code>Account.Industry</code>, <code>Amount</code>, <code>CloseDate</code>, <code>CreatedDate</code>, <code>StageName</code>, <code>Type</code>, <code>LeadSource</code>, <code>Description</code>) over 24 months. Pull linked <code>Task</code> and <code>Event</code> records too — that is where "customer called, line down at Plant 2" gets written down. <code>CreatedDate</code> minus the event date is the detection window, which says how fast NewsAtlas would have had to be.</li>
-  <li><strong>Include Closed Lost.</strong> Roughly doubles the sample at no cost. A4 asks which events <em>create</em> charter demand, and a lost deal had the same triggering event. Flag the outcome in a column and use both.</li>
-  <li><strong>Sample rather than review everything.</strong> All deals above a revenue threshold, plus a random ~50 of the rest, checked for coverage across both business lines and across seasons.</li>
-  <li><strong>Pre-fill with AI, then have reps correct.</strong> Feed name, description and activity text to a model; have it propose the §3 trigger type. Turns a three-minute judgement into a thirty-second confirmation. Check first that those fields carry content — if half the opportunity names are a date and a route code, skip this step.</li>
-  <li><strong>Make the rep pass fixed-choice, never free text.</strong> Six dropdowns: trigger event (the §3 list, which doubles as taxonomy validation); was it in the press (yes / probably / no / unknown); who was named in the coverage (the buyer / a supplier or partner / a place or infrastructure / nobody); lead time from event to enquiry; buyer type; and <strong>how did we hear about it</strong> (inbound enquiry / existing relationship / we spotted it / tender).</li>
-  <li><strong>Archive pass on a subset.</strong> For 20–30 rows with a known trigger and date, search whether contemporaneous coverage existed and whether the buyer was named — that is H1's actual question, and it is desk work the reps should not spend time on.</li>
-</ol>
+<h3>20.1 Design</h3>
+<table>
+  <tr><th style="width:22%">Element</th><th>Specification</th></tr>
+  <tr><td>Cases</td><td>~150 (company, enquiry-date) pairs. Include <strong>won and lost</strong> — both are demand events, which doubles the sample at no cost. Only "what converts" needs won-specifically, and this study is about what <em>creates</em> demand.</td></tr>
+  <tr><td>Controls</td><td>~150 (company, random-date) pairs drawn from the same 588 accounts, restricted to dates with no enquiry within ±30 days. Same companies, so company size and media presence cancel out.</td></tr>
+  <tr><td>Window</td><td>45 days before the date. Justified by §2.1's cargo lead times (median 41 days on won deals); a sensitivity check at 14 and 90 days shows whether the result depends on the choice.</td></tr>
+  <tr><td>Blinding</td><td><strong>Mandatory.</strong> Shuffle the rows and strip the case/control label before anything classifies them. Cheap to arrange; without it the classifier — human or model — finds what it expects.</td></tr>
+  <tr><td>Classification</td><td>For each row: was there any news; did it match a §3 trigger type; which type; was the company the subject or a bystander. The last one is <a href="#track-h">H1</a>'s question, answered as a by-product.</td></tr>
+  <tr><td>Outputs</td><td>Lift of cases over controls, overall and per §3 type. Per-segment lift if the industry column is supplied. A null result is a real and useful outcome.</td></tr>
+</table>
+
+<h3>20.2 Limitations, stated before the result</h3>
+<div class="assumption">
+  <strong>The backtest understates a live system, and I will not use that to explain away a null.</strong> Retrospective search of 2024–26 German <em>regional</em> press is poor, and regional press is exactly where a plant fire gets reported first and often only. A backtest sees what is still indexed; live ingestion sees the feed as it publishes. So a weak result is genuinely ambiguous between "news does not predict demand" and "the archive cannot show us the news that would have". Recording this in advance so it cannot be produced afterwards as an excuse.
+</div>
+<p>Correlation is also not causation here in a specific way: an event appearing before an enquiry does not mean the customer acted on it, and ProAir's inbound-heavy profile means many enquiries would have arrived regardless. The study measures whether news <em>would have been a usable leading indicator</em>, which is the right question for a monitoring product, not whether news caused the booking.</p>
+
+<h3>20.3 The stronger version, running in parallel</h3>
+<p>Switch on ingestion for these accounts now and compare signals against enquiries arriving over the next eight to twelve weeks. Slower, but free of every archive problem above and methodologically far stronger — a live signal that precedes a real enquiry is direct evidence. It cannot gate the v2 build, but it should run alongside it, and by the time Track H ships it will have produced a real answer about whether discovery works.</p>
 
 <div class="decision">
-  <strong>The column that matters most is "how did we hear about it".</strong> §2.1 already suggests the business is heavily inbound; this column measures it precisely, and it is the evidence that settles open question 2. Roughly half a day to build the extract and the pre-filled sheet, about three hours of rep time, and a day for the archive pass.
+  <strong>Effort.</strong> No rep time at all, which suits the approved dataset. Roughly half a day to build the case and control sets and the search harness, and a day of classification and analysis. The forward study costs only the decision to start ingesting now.
 </div>
 
 <footer>
-  <p>NewsAtlas v2 research plan, revision 5 — grounded against commit <code>0374e3b</code>, the ProAir win/loss analysis of 1,605 opportunities (Jan 2024 – Aug 2026), and the account's published Mistral rate limits. No implementation has begun. Throughput and tonnage figures in §5 are from published 2025 port and airport reporting; every feed URL behind those entries is still to be verified empirically in E1.</p>
+  <p>NewsAtlas v2 research plan, revision 6 — grounded against commit <code>0374e3b</code>, the ProAir win/loss analysis of 1,605 opportunities (Jan 2024 – Aug 2026), and the account's published Mistral rate limits. No implementation has begun. Throughput and tonnage figures in §5 are from published 2025 port and airport reporting; every feed URL behind those entries is still to be verified empirically in E1.</p>
 </footer>
 
 </body>
