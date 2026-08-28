@@ -24,7 +24,12 @@ usage view in Settings, and
 [`docs/google-news-quality-planning.html`](docs/google-news-quality-planning.html)
 for a code-grounded audit of why the Google News RSS path produces noisy signals,
 with a phased plan (measurement, recency/edition, query model, candidate scoring,
-URL resolution and snippet enrichment) to fix it. For a beginner-friendly, German-language walkthrough of
+URL resolution and snippet enrichment) to fix it. For the v2 scope, see
+[`docs/platform-v2-research-plan.html`](docs/platform-v2-research-plan.html) — the
+research plan that has to be worked through before v2 implementation planning starts
+(measurement foundation, signal-score quality, top-signal digest, company event
+timeline, Salesforce push, the News-Websites source catalogue, archive/retention, and
+finishing German localization). For a beginner-friendly, German-language walkthrough of
 installing NewsAtlas locally on a Mac via Docker Compose, see
 [`docs/mac-installation-docker-compose.html`](docs/mac-installation-docker-compose.html).
 
