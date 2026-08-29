@@ -186,10 +186,11 @@
 <p class="subtitle">The taxonomy, the scoring scale, the new entity model and its seed catalogue — defined, then tested against 31 months of real win/loss data. One decision left for the Geschäftsleitung.</p>
 
 <div class="meta">
-  <div><strong>Status:</strong> Revision 6 (2026-08-28). Both remaining open questions are answered: NewsAtlas exists to <strong>acquire new customers</strong>, and the trigger review will run as a blind case-control backtest over company names and dates (§20). Nothing now blocks an implementation plan.</div>
+  <div><strong>Status:</strong> Revision 7 (2026-08-29), rebuilt against the second version of the ProAir win/loss analysis (29.08.2026). It corrects figures earlier revisions relied on, establishes that cargo and passenger are different products with different lead-time economics, and removes the empirical basis for the §3.2 project classes and the H2(b) contractor feature. See §2.1.</div>
+  <div><strong>Previously:</strong> Revision 6 (2026-08-28). Both remaining open questions are answered: NewsAtlas exists to <strong>acquire new customers</strong>, and the trigger review will run as a blind case-control backtest over company names and dates (§20). Nothing now blocks an implementation plan.</div>
   <div><strong>Previously:</strong> Revision 5 (2026-08-28). Rewritten against two new inputs: the ProAir win/loss analysis of 1,605 Salesforce opportunities, and the account's real Mistral rate limits. Both change the plan — §2.1 records what the win/loss data settles and what it contradicts, and <a href="#r03">R0.3</a> is now resolved with a concrete pipeline recommendation.</div>
   <div><strong>Codebase grounded against:</strong> commit <code>0374e3b</code> on <code>main</code>. Every claim about current behaviour cites the file it came from.</div>
-  <div><strong>Read §2.1 first.</strong> The win/loss analysis reshaped three features in this document, and its concentration finding — 54.8% of won volume in ten accounts — is the strategic case for the acquisition mandate now driving Track H.</div>
+  <div><strong>Read §2.1 first.</strong> It corrects several numbers this plan was built on — automotive is not the high-conversion anchor earlier revisions claimed — and establishes the cargo/passenger asymmetry that now shapes the taxonomy, the trigger profiles and the digest.</div>
 </div>
 
 <nav class="toc">
@@ -230,7 +231,8 @@
   <tr><th style="width:24%">Area</th><th>Decision</th></tr>
   <tr><td>What ProAir sells</td><td>Air charter brokerage and operation. <strong>Cargo:</strong> oversized and urgent freight, brokered on third-party freighters. <strong>Passenger:</strong> VIP and large-group travel, part own fleet (~25 light and very light jets, own AOC), part brokered. Edge is operational excellence and global procedural knowledge, explicitly not price.</td></tr>
   <tr><td><strong>Product purpose</strong></td><td><strong>Acquisition.</strong> NewsAtlas exists to generate more enquiries and to find new companies and customers — not to add context to enquiries already arriving. This makes <a href="#track-h">Track H</a> the centre of gravity rather than a late addition, promotes H4's discovery queue to a core feature, and changes how the digest must be ranked (see <a href="#b2">B2</a>).</td></tr>
-  <tr><td>Success measure</td><td><strong>New accounts reaching a first enquiry</strong>, not win rate. §2.1 shows first enquiries from a new account convert at 23.3% against 41.0% by the third, so a working acquisition product will <em>lower</em> the blended win rate. Measuring it by win rate would penalise it for succeeding.</td></tr>
+  <tr><td>Success measure</td><td><strong>New accounts reaching a first enquiry</strong>, not win rate. §2.1 shows new customers convert at 21.3% against 30.1% for existing ones, so a working acquisition product will <em>lower</em> the blended win rate. Measuring it by win rate would penalise it for succeeding.</td></tr>
+  <tr><td>Lead-time asymmetry</td><td><strong>Cargo is a disruption-response business; passenger is not.</strong> Cargo win rates collapse past a week of lead time (8.5% at 8–14 days, 5.3% at 15–30) while passenger stays flat at 24–44% across every lead time. Short-lead urgency classes drive cargo; planned occasions only make sense on the passenger side. Shapes §3's defaults, §7's trigger profiles and the digest.</td></tr>
   <tr><td>Business lines</td><td><strong>Equal effort.</strong> Every feature must work for cargo and passenger alike. See §7 for what that actually requires.</td></tr>
   <tr><td>Cargo buyer</td><td>Both the shipper's own logistics department and freight forwarders, with a tendency toward shippers. The design must serve both — see §7 and <a href="#h2">H2</a>.</td></tr>
   <tr><td>Audience</td><td>Internal tool. 2 users. Single-tenant stays.</td></tr>
@@ -254,44 +256,60 @@
 
 <h3 id="winloss">2.1 What the win/loss analysis changes</h3>
 
-<p>The ProAir win/loss review covers 1,605 opportunities across 588 accounts, January 2024 to August 2026. It was not built to answer this plan's questions and explicitly says so — <em>"Zu Anlässen und Presseresonanz enthält der Datensatz keinerlei Information."</em> But it settles a great deal that this plan had been guessing at, and it contradicts three things in it.</p>
+<p>Two versions of the ProAir win/loss review exist. The second (29.08.2026) extends the period back to February 2023, raises value coverage to 92% so the passenger line is finally measurable, and materially revises several figures the earlier revisions of this plan were built on. <strong>Everything below is from the second version.</strong> It was not built to answer this plan's questions and says so — the dataset contains no information on occasions or press coverage — but it settles a great deal, and it removes the basis for one feature this plan had promoted.</p>
 
 <div class="gap">
-  <strong>The uncomfortable finding: lead generation may not be the constraint.</strong> 1,605 opportunities over 31 months is roughly 52 enquiries a month for two reps. Of 880 losses, only <strong>26</strong> are genuine competitive defeats at a comparable offer. The rest are customer cancellations (213), no response at all (181), price (124), a different solution (113), and pure price indications (87). ProAir does not have a shortage of enquiries — it has a qualification and follow-up problem, which is exactly what the report's own four measures address. NewsAtlas produces <em>more</em> enquiries. If the reps are already at capacity, more leads may not convert into revenue.
+  <strong>The headline finding: the biggest loss reason is silence.</strong> Of 1,106 losses, <strong>349 (31.6%)</strong> are enquiries where the customer never responded — more than double all competitive losses combined, and only <strong>26</strong> are genuine defeats at a comparable offer. In cargo the figure is 37.4%; in automotive, the largest segment, it is <strong>53%</strong>. And these decide in hours: median 3.4 days to be booked as lost, 40% within two days, with a median lead time to the flight of <strong>one day</strong>. The report's conclusion is blunt — following up after 24 hours is already too late.
 </div>
 
-<div class="ok-box">
-  <strong>Decided: acquisition.</strong> The question above was put to the business and answered — NewsAtlas is for generating more enquiries and finding new companies, not for adding context to enquiries already arriving. The concentration finding supports it: 54.8% of won volume sitting in ten accounts is a real strategic risk, and new-customer acquisition is the only thing in this plan that addresses it. Two consequences follow, both recorded in §2: Track H becomes the centre of gravity, and success is measured in new accounts opened rather than win rate — because a working acquisition product lowers the blended win rate by adding first enquiries, which convert at 23.3% against 41.0% by the third.
-</div>
 <div class="assumption">
-  <strong>The capacity caution still stands, and should be watched rather than designed around.</strong> Two reps already handle ~52 enquiries a month and lose 181 deals to no response at all. Adding enquiries without addressing that will convert new leads into new no-responses. The four CRM measures in the win/loss report — indication and cancellation statuses, the offer-sent timestamp, mandatory passenger amounts, and follow-up automation — are outside this plan's scope but are the thing that lets acquisition actually land. Worth sequencing at least the follow-up automation alongside v2.
+  <strong>What that means for this plan.</strong> NewsAtlas produces outbound signals; it does not answer inbound enquiries faster. The largest single lever on ProAir's revenue is therefore outside this project. That does not argue against v2 — the acquisition mandate stands, and concentration risk (54.6% of won volume in ten accounts) is real — but it does mean new enquiries generated by NewsAtlas will land in a funnel that currently loses a third of its volume to non-response, worst of all in automotive, which is exactly where this plan points. Sequencing the report's response-time work alongside v2 is not a nice-to-have.
 </div>
 
-<h4>Three direct contradictions</h4>
+<h4>Corrections to earlier revisions of this plan</h4>
 <table>
-  <tr><th style="width:26%">Plan said</th><th style="width:26%">Data says</th><th>Consequence</th></tr>
-  <tr><td>Design for both shipper and forwarder buyers; H2(a) models forwarder exposure as a second hop.</td><td><strong>Logistik und Transport: 301 enquiries, 15.3% win rate</strong>, 50 of them pure price indications. The report states forwarders use ProAir as a price reference and do not belong in the target profile.</td><td><strong>Cut the forwarder second hop from <a href="#h2">H2</a>.</strong> It was the hardest part of the track and it turns out to serve the worst-converting segment.</td></tr>
-  <tr><td><code>major_project</code> and H2(b) contractor discovery on billion-euro projects is the most valuable indirect signal.</td><td><strong>Deals over €150k: 88 enquiries, 8 orders, 9.1%.</strong> Construction 21.2%. The sweet spot is €5k–30k at 59–69%.</td><td><strong>Demote H2(b).</strong> The most exciting feature in this plan points at the segment ProAir systematically loses. Either it is rescoped toward mid-size project cargo, or the business first explains why large deals would go differently.</td></tr>
-  <tr><td><code>tour_or_fixture</code> merges sports fixtures with entertainment tours.</td><td><strong>Sport: 2 orders from 25 enquiries (8.0%)</strong> — the weakest segment in the portfolio. Entertainment sits at 27.3%.</td><td><strong>Split the type.</strong> <code>tour_announcement</code> stays on by default; <code>sports_fixture</code> ships disabled.</td></tr>
+  <tr><th style="width:26%">Figure</th><th style="width:20%">Was (v1 report)</th><th style="width:20%">Now (v2 report)</th><th>Effect</th></tr>
+  <tr><td>Automotive</td><td>258 enquiries, 40.3%</td><td><strong>533 enquiries, 28.7%</strong></td><td>This plan called automotive "the only segment combining high volume with a good rate". <strong>That was wrong.</strong> At 28.7% it sits at the overall average, and the report now calls it "unser größtes Leck" — 511 of 533 are cargo, median lead time one day, 53% of losses to non-response, median volume €3,250. Still the right segment to target, for a different reason: volume and the disruption profile, not conversion.</td></tr>
+  <tr><td>Mid-size sweet spot</td><td>68.6% at €5–15k</td><td>37.6% at €5–15k</td><td>The dramatic peak flattens. Above €30k the decline still holds (21.0%, 12.6%, 8.6%), so "we lose large deals" survives; "we win two in three of mid-size" does not.</td></tr>
+  <tr><td>New vs existing</td><td>23.3% → 41.0% by 3rd</td><td>21.3% new vs 30.1% existing; 25.6% → 36.8% between 2nd and 3rd</td><td>The success-measure argument holds with revised numbers: acquisition lowers the blended win rate by construction.</td></tr>
+  <tr><td>Enquiry volume</td><td>~52 / month</td><td>~37 / month over 43 months</td><td>Capacity is less tight than assumed, which mildly strengthens the case for generating more.</td></tr>
+  <tr><td>Passenger value data</td><td>Unusable</td><td>92% coverage overall</td><td><a href="#b1">B1</a>'s cargo/passenger split can now be weighted by value, not just counted.</td></tr>
 </table>
+
+<h4>The finding that changes the plan: cargo and passenger are different products</h4>
+
+<p>The first report gave one combined lead-time table. The second splits it, and the two lines behave nothing alike.</p>
+
+<table>
+  <tr><th style="width:24%">Lead time to flight</th><th style="width:22%">Cargo win rate</th><th style="width:22%">Passenger win rate</th><th>Reading</th></tr>
+  <tr><td>Same day</td><td>33.3% (189)</td><td>44.4% (27)</td><td rowspan="3">Both lines win the urgent business.</td></tr>
+  <tr><td>1 day</td><td>32.4% (256)</td><td>42.9% (35)</td></tr>
+  <tr><td>2–3 days</td><td>19.5% (123)</td><td>36.7% (49)</td></tr>
+  <tr><td>4–7 days</td><td>27.1% (140)</td><td>25.0% (156)</td><td>Cargo holding, passenger settling.</td></tr>
+  <tr><td>8–14 days</td><td><strong>8.5%</strong> (71)</td><td>32.6% (95)</td><td rowspan="3"><strong>Cargo collapses past a week. Passenger does not move at all</strong> — it stays between 24% and 44% across every lead time.</td></tr>
+  <tr><td>15–30 days</td><td><strong>5.3%</strong> (57)</td><td>23.7% (93)</td></tr>
+  <tr><td>Over 30 days</td><td>14.3% (63)</td><td>25.8% (155)</td></tr>
+</table>
+
+<div class="decision">
+  <strong>This becomes a design principle, not a footnote.</strong> Cargo is a disruption-response business: ProAir wins what happens today or tomorrow and loses planned air freight to forwarders. Passenger is lead-time insensitive, so planned occasions are perfectly valid there. The taxonomy, the trigger profiles (§7) and the digest all have to treat the two lines differently rather than applying one rule. Concretely: <strong>§3.1 urgency classes drive cargo; §3.2 project classes only make sense for passenger, and barely</strong>.
+</div>
+
+<div class="gap">
+  <strong>And this removes the basis for §3.2 and for H2(b).</strong> The report states it directly: the press analysis should target short-term triggering events — production disruptions, recalls, supply-chain interruptions in the automotive environment — and <em>"planbare Anlässe mit langem Vorlauf passen nach dieser Auswertung nicht zu unserem Gewinnprofil."</em> Planned, long-lead occasions are precisely what <code>major_project</code>, <code>plant_investment</code> and <code>capacity_ramp</code> detect, and the contractor-discovery feature in <a href="#h2">H2(b)</a> is built on them. Revision 6 promoted H2(b) to a priority because it was the main route to untracked companies. That justification survives; the targeting does not. See the resolution in <a href="#track-h">Track H</a>.
+</div>
 
 <h4>What it confirms</h4>
 <ul>
-  <li><strong>Automotive is the anchor:</strong> 258 enquiries at 40.3% — the only segment combining high volume with a good rate. This validates the cargo urgency classes in §3 and argues for weighting automotive trade press heavily in <a href="#e1">E1</a>.</li>
-  <li><strong>Urgency wins.</strong> Same-day ad hoc 57.5%, one to three days 48.7%, falling to 19–31% beyond a week. Cargo's median lead time is 41 days on won deals against 117 on lost ones. The disruption classes in §3.1 are pointed at the right kind of demand.</li>
-  <li><strong>Concentration risk is real:</strong> 54.8% of won volume sits in ten accounts. That is the strongest argument in the report for <a href="#track-h">H4</a>'s prospect discovery — diversification, not volume.</li>
-</ul>
-
-<h4>What it adds that the plan missed</h4>
-<ul>
-  <li><strong>Immobilien wins 44.4% on 54 enquiries</strong> and appears nowhere in §3. Real-estate developer travel and site visits are not covered by <code>executive_travel</code> or <code>major_project</code>. A type is missing; <a href="#a4">A4</a> should define it.</li>
-  <li><strong>Privat und Einzelpersonen is the best-converting segment at 51.1%</strong> (137 enquiries) — and NewsAtlas structurally cannot serve it. Private individuals are not findable through company news. Worth stating plainly so nobody expects coverage there.</li>
-  <li><strong>The third-enquiry threshold:</strong> 23.3% → 29.9% → 41.0%. Existing accounts convert far better than new ones, which cuts against prospect discovery and for the context-on-existing-accounts framing above.</li>
-  <li><strong>Passenger business is value-blind.</strong> The amount field is filled on 100% of won passenger deals but only 5% of lost ones, so no value analysis of that line is possible. <a href="#b1">B1</a>'s cargo/passenger split will be distorted the same way, and "equal effort across both lines" is a strategy decision rather than a data-supported one.</li>
+  <li><strong>Forwarders stay out:</strong> Logistik und Transport unchanged at 301 enquiries and 15.3%, a fifth of them pure price indications. The forwarder second hop stays cut.</li>
+  <li><strong>Sport stays out:</strong> unchanged at 2 orders from 25 enquiries, now over three years rather than 31 months. <code>sports_fixture</code> stays disabled.</li>
+  <li><strong>Large deals stay out:</strong> 180 enquiries above €60k produced 19 orders. €9.7m won against €74.8m lost, though much of that was never winnable.</li>
+  <li><strong>Concentration risk holds</strong> at 54.6% of won volume in ten accounts — still the strategic case for acquisition.</li>
+  <li><strong>Immobilien holds</strong> at 44.4% on 54 enquiries, justifying <code>property_activity</code>. Being passenger-side, it is unaffected by the lead-time collapse.</li>
 </ul>
 
 <div class="assumption">
-  <strong>One caution on the lead-time finding.</strong> It measures enquiry-to-flight, not event-to-enquiry, and the report itself flags it as correlation — short lead times may simply come from customers who had already decided. It supports focusing on urgency classes. It is not yet evidence that a 24-hour digest is too slow, so the no-alerting decision stands.
+  <strong>Two caveats the report raises about itself.</strong> The win rate falls from 58% in Q1 2024 to about 24% recently, which it attributes to incomplete CRM capture during rollout without being able to prove it — so the first report's more flattering numbers were probably drawn from a skewed early period, and neither set should be read as a trend. And the multi-broker explanation for non-response is called plausible but unproven. Neither affects the decisions above, both are worth remembering before anyone treats a figure here as a target.
 </div>
 
 <h2 id="taxonomy">3. The charter signal taxonomy <span class="tag">approved</span></h2>
@@ -310,7 +328,8 @@
   <tr><td><code>disaster_relief</code></td><td>creates</td><td>Natural disaster or humanitarian response.</td></tr>
 </table>
 
-<h3>3.2 Cargo — projects</h3>
+<h3>3.2 Cargo — projects <span class="tag">ship disabled</span></h3>
+<div class="gap"><strong>These three ship off, on the evidence in §2.1.</strong> Cargo above eight days of lead time converts at 5–14%, and the win/loss report states outright that planned occasions with long lead times do not fit ProAir's win profile. The classes stay in the taxonomy — they are correctly specified and a passenger-side or strategy change could switch them on — but a workspace that enables them by default would spend its budget on the business ProAir loses. <code>property_activity</code> covers the planned demand that <em>does</em> convert, on the passenger side.</div>
 <table>
   <tr><th style="width:23%">Type</th><th style="width:11%">Direction</th><th>What it catches</th></tr>
   <tr><td><code>major_project</code></td><td>creates</td><td>Large infrastructure, energy or industrial project awarded, launched or hitting a milestone. The contractor-discovery case — see <a href="#h2">H2</a>.</td></tr>
@@ -533,7 +552,7 @@
 <p>Second, <em>it may be the wrong layer.</em> "Cargo and passenger need different searches" is better solved by the taxonomy that already has to exist than by a new entity. Third, <em>generated terms nobody reviews become unexplainable</em> — when a company stops producing signals, you cannot tell whether nothing happened or its generated terms were quietly bad.</p>
 
 <div class="decision">
-  <strong>What I would build instead: a per-company trigger profile.</strong> Three fields on <code>TargetCompany</code> — which business lines apply (cargo, passenger, both), which §3 event types are relevant, and which Infrastruktur entries it depends on (the §4 link table, which <a href="#h2">H2</a> needs anyway). AI pre-fills the profile at company creation; the rep reviews and corrects it. This gets the tailoring you want without a parallel search mechanism, reuses three things already being built, and keeps every generated value visible and editable — the same "propose, never silently apply" discipline that <code>TopicTemplate</code> and <code>suggest_topics()</code> already follow. Cost is not an objection: this is one call per company at creation, not per article.
+  <strong>What I would build instead: a per-company trigger profile.</strong> Three fields on <code>TargetCompany</code> — which business lines apply (cargo, passenger, both), which §3 event types are relevant, and which Infrastruktur entries it depends on (the §4 link table, which <a href="#h2">H2</a> needs anyway). The business-line field now carries real weight rather than being a label: per §2.1 a cargo company should only be matched against short-lead urgency classes, while a passenger company can use the planned ones, because their lead-time economics are opposite. AI pre-fills the profile at company creation; the rep reviews and corrects it. This gets the tailoring you want without a parallel search mechanism, reuses three things already being built, and keeps every generated value visible and editable — the same "propose, never silently apply" discipline that <code>TopicTemplate</code> and <code>suggest_topics()</code> already follow. Cost is not an objection: this is one call per company at creation, not per article.
 </div>
 
 <div class="gap">
@@ -632,7 +651,7 @@
 
 <div class="phase">
 <h3 id="b1"><span class="phase-badge">B1</span> What the floor actually yields <span class="tag">S</span> <span class="tag">needs measurement</span></h3>
-<p><strong>Method:</strong> Replay the rule against 90 days of history, before and after A2. Report separately for cargo and passenger, since §7's balance decision depends on it — noting from §2.1 that passenger value data is unusable, so the split can only be counted by signal volume, never weighted by value.</p>
+<p><strong>Method:</strong> Replay the rule against 90 days of history, before and after A2. Report separately for cargo and passenger, since §7's balance decision depends on it — and per §2.1 the second report brings value coverage to 92%, so the split can now be weighted by value rather than only counted. Report cargo signals by lead-time band too: a cargo signal implying more than a week of lead time is worth materially less than one implying same-day demand, and the digest ranking should eventually reflect that.</p>
 <p><strong>Deliverable:</strong> A distribution of daily digest sizes and their line split, including how many days send the empty-state line.</p>
 <p><strong>Unblocks:</strong> Confirmation of the floor at 7, and whether the digest needs per-line balancing.</p>
 </div>
@@ -706,7 +725,7 @@
 
 <div class="phase">
 <h3 id="e1"><span class="phase-badge">E1</span> The curated source list <span class="tag">L</span></h3>
-<p><strong>Method:</strong> Five groups, now anchored on what the reps already read — <code>logistik-heute.de</code>, <code>handelsblatt.com</code> and <code>aviationweek.com</code> are confirmed starting points and set the register for the rest. (1) <em>Logistics trade press:</em> Logistik Heute, DVZ, Verkehrsrundschau, and the English-language air-cargo titles. (2) <em>Aviation trade press:</em> Aviation Week and its peers, plus the charter and business-aviation titles. (3) <em>Automotive trade press</em> — now the highest-priority group, not merely a named focus: §2.1 shows automotive is the only segment combining high volume with a good win rate (258 enquiries, 40.3%). Add real-estate and Maschinenbau trade press alongside it, per the win/loss report's own recommendation to target Automotive, Immobilien and Maschinenbau. (4) <em>Generic business press:</em> Handelsblatt and equivalents. (5) <em>Regional and local German press</em>, where a plant fire is reported first and often only — the highest-value and most tedious group, since it is many small outlets. Plus infrastructure operators' and unions' own channels, which feed §5 directly. For each: fetch, parse, and confirm recent well-formed items before accepting the URL — this is the <code>handelsblatt.de</code> versus <code>rss.handelsblatt.com</code> problem, solved per source rather than by guessing patterns. Record canonical site, verified feed URL, update frequency, teaser-only, paywalled.</p>
+<p><strong>Method:</strong> Five groups, now anchored on what the reps already read — <code>logistik-heute.de</code>, <code>handelsblatt.com</code> and <code>aviationweek.com</code> are confirmed starting points and set the register for the rest. (1) <em>Logistics trade press:</em> Logistik Heute, DVZ, Verkehrsrundschau, and the English-language air-cargo titles. (2) <em>Aviation trade press:</em> Aviation Week and its peers, plus the charter and business-aviation titles. (3) <em>Automotive trade press</em> — the highest-priority group, though not for the reason revision 5 gave: automotive converts at 28.7%, around the overall average, but it is by far the largest segment (533 enquiries, 511 of them cargo, median lead time one day) and the win/loss report names it specifically as where to look for production disruptions, recalls and supply-chain interruptions. Volume and trigger density, not conversion. Add real-estate trade press for the passenger side, where Immobilien converts at 44.4%. (4) <em>Generic business press:</em> Handelsblatt and equivalents. (5) <em>Regional and local German press</em>, where a plant fire is reported first and often only — the highest-value and most tedious group, since it is many small outlets. Plus infrastructure operators' and unions' own channels, which feed §5 directly. For each: fetch, parse, and confirm recent well-formed items before accepting the URL — this is the <code>handelsblatt.de</code> versus <code>rss.handelsblatt.com</code> problem, solved per source rather than by guessing patterns. Record canonical site, verified feed URL, update frequency, teaser-only, paywalled.</p>
 <p><strong>Deliverable:</strong> A seed catalogue with every feed empirically verified, plus the methodology so it can be extended without me.</p>
 <p><strong>Unblocks:</strong> The section's content and §5's entries.</p>
 <div class="assumption"><strong>Sizing:</strong> L because verification is per-source manual work. Also the most cuttable item here — 25 verified sources beat 100 unverified ones.</div>
@@ -795,8 +814,9 @@
 <h3 id="h2"><span class="phase-badge">H2</span> From event to named prospect <span class="tag">L</span></h3>
 <p><strong>Method:</strong> Two problems; the second is the more valuable.</p>
 <p><em>(a) Exposure of companies we already track.</em> Compare asking the model directly which tracked companies are exposed; a maintained relationship map (§7's trigger profile plus §4's link table, making exposure a lookup); and coarse geographic or sector proximity. Test against H1's events where the right answer is known, and measure hallucination rate explicitly rather than assuming it. <strong>The forwarder second hop is cut</strong> per §2.1 — forwarders convert at 15.3% and are out of the target profile, so exposure only ever has to run one hop, to a shipper we track. This was the hardest part of the track.</p>
-<p><em>(b) Discovering companies we do not track — the contractor case.</em> <span class="tag">demoted</span> A large project publishes a site naming its contractors, and those contractors are prospects. Research the chain: from a <code>major_project</code> signal, locate the project's own site, extract named contractors and their roles, present them as candidates with the source page as evidence. Reuse E2's fetch-and-validate discipline and the same SSRF guard.</p>
-<div class="decision"><strong>Rescoped in targeting, promoted in priority.</strong> Two forces pull opposite ways here. §2.1 shows deals over €150k convert at 9.1% and construction at 21.2%, so the billion-euro-project framing aims at ProAir's weakest business — that concern stands, and this stays aimed at <em>mid-size</em> project cargo in the €5k–30k band and at the converting segments (automotive, Immobilien, Maschinenbau) rather than at the largest projects findable. But under the acquisition mandate this is the primary route to companies nobody is tracking, so it is no longer a late addition. Build it directly after H2(a).</div>
+<p><em>(b) Discovering companies we do not track.</em> <span class="tag">rebuilt</span> Under the acquisition mandate this is the point of the track. But §2.1 removed its original mechanism: contractor extraction from large projects targets planned long-lead cargo, which ProAir converts at 5–14%. <strong>The resolution is to acquire through disruption rather than through projects.</strong> A supplier fire, a strike or a port closure creates urgent demand at companies nobody is tracking — that is still acquisition, and it sits inside the win profile instead of against it. Mechanically this collapses (a) and (b) into one question: <em>who is affected by this disruption?</em> — with the answer allowed to name companies outside the target list, presented with the same evidence chain. Research the same three approaches as (a), extended to an open candidate set, and measure how much precision is lost when the answer is not constrained to known companies.</p>
+<div class="ok-box"><strong>Why this reconciles cleanly.</strong> The acquisition mandate and the win profile looked opposed: find new companies, but do not chase the planned cargo where new companies are easiest to find. Routing discovery through disruption satisfies both — automotive supply-chain events are simultaneously the highest-volume segment (533 enquiries), the shortest lead times (median one day), and the report's own recommendation for where to point the press analysis. It also simplifies the track: one mechanism instead of two, and the contractor-extraction spike with its own SSRF surface is no longer needed.</div>
+<div class="assumption"><strong>What is lost.</strong> Contractor extraction was the only route to companies with no news of their own — a supplier that never appears in the press but is named on a project site. That route closes. Accepting this because the projects it reached are the business ProAir loses; worth revisiting only if the large-deal win rate changes.</div>
 <p><strong>Deliverable:</strong> Measured precision and recall per approach with request cost per event, and a recommendation. A hybrid is likely: cheap filtering first, model reasoning only on what survives — which R0.3's rate limits make close to mandatory.</p>
 <p><strong>Unblocks:</strong> Whether indirect signals and prospect discovery ship, and in what form.</p>
 <div class="decision"><strong>Evidence chain is mandatory.</strong> Every indirect signal shows the rep the path — this event, this named link or source page, therefore this company — in enough detail to verify before calling. A rep citing an exposure that does not exist costs more credibility than the signal was worth, so a wrong inference must be visibly wrong on screen, not discovered on the phone.</div>
@@ -824,7 +844,7 @@
   <tr><td><strong>In parallel, no code</strong></td><td>Trigger review → A4 + H1</td><td>Still the highest information per hour available, but now blocked on a management decision rather than on effort — see open question 1.</td></tr>
   <tr><td><strong>Second</strong></td><td>A1 → A3 → A2 → A4 → A5</td><td>Fix the silent-default bug before measuring the prompt; build the gold set before changing anything, or improvement cannot be told from regression.</td></tr>
   <tr><td><strong>Third</strong></td><td>B1 → B2</td><td>Digest calibration only means something once the rubric is settled.</td></tr>
-  <tr><td><strong>After A2/A4 — now the priority track</strong></td><td>H3 → H2 → H4</td><td>Under the acquisition mandate this is the point of v2, not an extension of it. It still cannot come first: discovery built on a score that does not discriminate produces a queue nobody trusts. H3 moves ahead of H2 because §5's catalogue is what H2(a) reads.</td></tr>
+  <tr><td><strong>After A2/A4 — the priority track</strong></td><td>H3 → H2 → H4</td><td>Under the acquisition mandate this is the point of v2. It still cannot come first: discovery built on a score that does not discriminate produces a queue nobody trusts. H3 moves ahead of H2 because §5's catalogue is what disruption-based discovery reads — and after §2.1 that catalogue matters more, since disruption is now the <em>only</em> discovery route.</td></tr>
   <tr><td><strong>Any time</strong></td><td>D, E, F, G</td><td>Independent of the scoring work and of each other. Good candidates for shipping early. E1 pairs naturally with H3, since E1 produces its seed feeds.</td></tr>
   <tr><td><strong>Conditional</strong></td><td>Track C</td><td>Gated on C1 — the list ships regardless, the verdict only if the data supports it.</td></tr>
 </table>
@@ -847,7 +867,8 @@
   <tr><td>Custom per-company search types</td><td><strong>Redirected</strong></td><td>Per §7, into a per-company trigger profile that reuses the taxonomy and the exposure links rather than adding a parallel search mechanism.</td></tr>
   <tr><td>Forwarder exposure second hop</td><td><strong>Cut</strong></td><td>Per §2.1 — forwarders convert at 15.3% and are outside the target profile. Removes the hardest part of Track H.</td></tr>
   <tr><td>Sports fixtures as a default signal</td><td><strong>Disabled</strong></td><td>2 orders from 25 enquiries in 31 months. The type exists but ships off.</td></tr>
-  <tr><td>Billion-euro project framing for H2(b)</td><td><strong>Rescoped</strong></td><td>Deals over €150k convert at 9.1%. Aim contractor discovery at mid-size project cargo in the €5k–30k band instead.</td></tr>
+  <tr><td>Contractor extraction from projects</td><td><strong>Cut</strong></td><td>Per §2.1 — it targets planned long-lead cargo, which converts at 5–14%, and the win/loss report states such occasions do not fit the win profile. Discovery is rerouted through disruption instead, which serves the same acquisition goal inside the winning profile.</td></tr>
+  <tr><td>§3.2 cargo project classes</td><td><strong>Disabled</strong></td><td><code>major_project</code>, <code>plant_investment</code>, <code>capacity_ramp</code> stay in the taxonomy but ship off. Correctly specified, wrong business.</td></tr>
 </table>
 
 <h2 id="open">19. Open questions</h2>
@@ -858,7 +879,7 @@
 
 <table>
   <tr><th style="width:34%">Confirmation</th><th>Why</th></tr>
-  <tr><td><strong>The date in the extract is the enquiry date</strong> (<code>CreatedDate</code>), not the flight date or <code>CloseDate</code>.</td><td>The study tests whether news predicts the moment demand appeared. Your win/loss report distinguishes these already ("Vorlauf zwischen Anfrage und Flug"), so both exist. Using a flight date would shift every window by a median of 41 days on won deals and quietly invalidate the result.</td></tr>
+  <tr><td><strong>The date in the extract is the enquiry date</strong> (<code>CreatedDate</code>), not the flight date or <code>CloseDate</code>.</td><td>Now evidenced rather than merely preferred: the second win/loss report finds that <strong>80% of won opportunities have their status set after the flight date, on average five days later</strong>. <code>CloseDate</code> on a won deal is therefore a bookkeeping timestamp, not a decision point, and a window anchored on it would sit entirely after the event it is meant to detect. The enquiry date is the only usable anchor.</td></tr>
   <tr><td><strong>Three extra non-identifying columns:</strong> won/lost, cargo/passenger, industry.</td><td>Turns "does news predict demand" into "which segments does news predict demand for", which is what decides where to point the taxonomy and the source catalogue. Industry already appears in the anonymised report, so it is evidently shareable. The study runs without them.</td></tr>
   <tr><td><strong>Whether the CRM follow-up measures land alongside v2.</strong></td><td>Not this plan's scope, but 181 losses to no response means new enquiries may become new no-responses. Acquisition works better if at least the follow-up automation ships in the same period.</td></tr>
 </table>
@@ -876,10 +897,10 @@
   <tr><th style="width:22%">Element</th><th>Specification</th></tr>
   <tr><td>Cases</td><td>~150 (company, enquiry-date) pairs. Include <strong>won and lost</strong> — both are demand events, which doubles the sample at no cost. Only "what converts" needs won-specifically, and this study is about what <em>creates</em> demand.</td></tr>
   <tr><td>Controls</td><td>~150 (company, random-date) pairs drawn from the same 588 accounts, restricted to dates with no enquiry within ±30 days. Same companies, so company size and media presence cancel out.</td></tr>
-  <tr><td>Window</td><td>45 days before the date. Justified by §2.1's cargo lead times (median 41 days on won deals); a sensitivity check at 14 and 90 days shows whether the result depends on the choice.</td></tr>
+  <tr><td>Window</td><td>45 days before the enquiry date, with sensitivity checks at 14 and 90 days. Note that §2.1's revised data makes the <em>short</em> end the interesting one for cargo: most won cargo enquiries have a lead time of a day or less, so if news predicts them at all it should show up close in. A cargo signal only detectable 45 days out describes business ProAir loses anyway.</td></tr>
   <tr><td>Blinding</td><td><strong>Mandatory.</strong> Shuffle the rows and strip the case/control label before anything classifies them. Cheap to arrange; without it the classifier — human or model — finds what it expects.</td></tr>
   <tr><td>Classification</td><td>For each row: was there any news; did it match a §3 trigger type; which type; was the company the subject or a bystander. The last one is <a href="#track-h">H1</a>'s question, answered as a by-product.</td></tr>
-  <tr><td>Outputs</td><td>Lift of cases over controls, overall and per §3 type. Per-segment lift if the industry column is supplied. A null result is a real and useful outcome.</td></tr>
+  <tr><td>Outputs</td><td>Lift of cases over controls, overall and per §3 type. <strong>Stratified by business line</strong> — §2.1 shows cargo and passenger behave nothing alike, so a pooled number would average two different phenomena into one meaningless figure. Per-segment lift if the industry column is supplied. A null result is a real and useful outcome.</td></tr>
 </table>
 
 <h3>20.2 Limitations, stated before the result</h3>
